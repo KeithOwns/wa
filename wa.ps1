@@ -942,6 +942,38 @@ function Invoke-WA_SetWindowsUpdateConfig {
         }
         else {
             Set-RegistryDword -Path $WU_UX -Name "IsExpedited" -Value $TargetVal
+            
+            # Physical UIA Toggle (Same method as Kernel-Mode)
+            if ($EnhancedSecurity) {
+                Write-LeftAligned "Automating 'Get the latest updates' (UI)..."
+                Start-Process "ms-settings:windowsupdate"
+                Start-Sleep -Seconds 3
+                $Desktop = [System.Windows.Automation.AutomationElement]::RootElement
+                $SWindow = $null
+                foreach ($title in @("Settings", "Paramètres", "Einstellungen")) {
+                    $SWindow = $Desktop.FindFirst([System.Windows.Automation.TreeScope]::Children, (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, $title)))
+                    if ($SWindow) { break }
+                }
+                if ($SWindow) {
+                    try { $SWindow.SetFocus() } catch {}
+                    $TName = "Get the latest updates as soon as they're available"
+                    $TElement = $SWindow.FindFirst([System.Windows.Automation.TreeScope]::Descendants, (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, $TName)))
+                    if ($TElement) {
+                        $Parent = [System.Windows.Automation.TreeWalker]::ControlViewWalker.GetParent($TElement)
+                        $ActToggle = if ($Parent) { $Parent.FindFirst([System.Windows.Automation.TreeScope]::Descendants, (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button))) }
+                        if ($ActToggle) {
+                            try {
+                                $TPattern = $ActToggle.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+                                if ($TPattern.Current.ToggleState -eq 0) { $TPattern.Toggle(); Write-LeftAligned "$FGGreen$Char_HeavyCheck 'Get latest' enabled.$Reset" }
+                            }
+                            catch {
+                                try { ($ActToggle.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)).Invoke(); Write-LeftAligned "$FGGreen$Char_HeavyCheck 'Get latest' clicked.$Reset" } catch {}
+                            }
+                        }
+                    }
+                    Stop-Process -Name "SystemSettings" -Force -ErrorAction SilentlyContinue
+                }
+            }
         }
 
         if ($ScriptMetered) {
@@ -1413,7 +1445,7 @@ while ($true) {
     if ($Global:ShowDetails) { 
         Write-BodyTitle "ACTION MAPPING & IMPLEMENTATION"
         Write-LeftAligned "${FGWhite}Config [C]  : ${FGGray}RT/PUA (WMI), Mem/LSA/Phish (Reg), Search (Reg 3)${Reset}"
-        Write-LeftAligned "${FGWhite}Security [E]: ${FGGray}Expedited/Metered Updates (Registry)${Reset}"
+        Write-LeftAligned "${FGWhite}Security [E]: ${FGGray}Expedited (UIA/Reg), Metered (Reg)${Reset}"
         Write-LeftAligned "${FGWhite}Maint [M]   : ${FGGray}SFC/DISM (CLI), C++ (Web), Updates (COM/UIA/CLI)${Reset}"
         Write-LeftAligned "${FGWhite}Apps [I]    : ${FGGray}Winget Installation & Monitoring${Reset}"
         Write-LeftAligned "${FGWhite}Disk        : ${FGGray}TRIM (PS), Temp Cleanup (File System Removal)${Reset}"
