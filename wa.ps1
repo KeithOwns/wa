@@ -1,4 +1,4 @@
-﻿#Requires -RunAsAdministrator
+#Requires -RunAsAdministrator
 <#
 .SYNOPSIS
     WinAuto Standalone Edition
@@ -8,6 +8,20 @@
     
     Usage: Copy and paste this entire script into an Administrator PowerShell window, or run the file.
 #>
+
+# --- EXECUTION POLICY CONFIGURATION ---
+# Ensures local scripts can run by setting policy to 'RemoteSigned'
+try {
+    $currentPolicy = Get-ExecutionPolicy -Scope LocalMachine
+    if ($currentPolicy -ne "RemoteSigned") {
+        Set-ExecutionPolicy -ExecutionPolicy "RemoteSigned" -Scope "LocalMachine" -Force -ErrorAction Stop
+        Write-Host "Execution Policy set to 'RemoteSigned' for LocalMachine."
+    }
+}
+catch {
+    Write-Warning "Failed to set Execution Policy: $_"
+}
+
 
 # --- INITIAL SETUP ---
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -114,16 +128,17 @@ $BGDarkGray = "$Esc[100m"
 $BGYellow = "$Esc[103m"
 
 # --- Unicode Icons & Characters ---
-$Char_HeavyCheck = "[v]" 
-$Char_Warn = [char]0x26A0 
-$Char_BallotCheck = "[v]" 
-$Char_Keyboard = "[:::]" 
-$Char_Copyright = "(c)" 
-$Char_Finger = "->" 
-$Char_CheckMark = "v" 
-$Char_FailureX = "x" 
-$Char_RedCross = "x"
-$Char_HeavyMinus = "-" 
+$Global:Char_HeavyCheck = "[v]" 
+$Global:Char_Warn = [char]0x26A0 
+$Global:Char_BallotCheck = "[v]" 
+$Global:Char_Keyboard = "[:::]" 
+$Global:Char_Copyright = "(c)" 
+$Global:Char_Finger = "->" 
+$Global:Char_CheckMark = "v" 
+$Global:Char_FailureX = "x" 
+$Global:Char_RedCross = "x"
+$Global:Char_HeavyMinus = "-" 
+$Global:Char_EnDash = [char]0x2013
 
 # --- SYSTEM PATHS ---
 if ($null -eq (Get-Variable -Name 'WinAutoLogDir' -Scope Global -ErrorAction SilentlyContinue)) {
@@ -1001,7 +1016,9 @@ function Invoke-WA_InstallRequiredApps {
     $AppsToInstall = @()
     foreach ($app in $Apps) {
         # Simple check for installed app
-        $installed = Get-ItemProperty HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*, HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*, HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -like $app.MatchName }
+        $installed = Get-ItemProperty HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*, HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*, HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* -ErrorAction SilentlyContinue | Where-Object { 
+            try { $null -ne $_.DisplayName -and $_.DisplayName -like $app.MatchName } catch { $false }
+        }
         if ($installed) {
             Write-LeftAligned "$FGDarkGreen$Char_BallotCheck Found: $($app.AppName)$Reset"
         }
@@ -1141,14 +1158,14 @@ function Invoke-WA_WindowsUpdate {
 
     # Automation
     Write-Host ""
-    Write-Centered "$Char_EnDash WINGET UPDATE $Char_EnDash" -Color "$Bold$FGCyan"
+    Write-Centered "$Global:Char_EnDash WINGET UPDATE $Global:Char_EnDash" -Color "$Bold$FGCyan"
     if (Get-Command winget.exe -ErrorAction SilentlyContinue) {
         Write-LeftAligned "Running winget upgrade..."
         Start-Process "winget.exe" -ArgumentList "upgrade --all --include-unknown --accept-package-agreements --silent" -Wait -NoNewWindow
     }
 
     Write-Host ""
-    Write-Centered "$Char_EnDash STORE & SETTINGS $Char_EnDash" -Color "$Bold$FGCyan"
+    Write-Centered "$Global:Char_EnDash STORE & SETTINGS $Global:Char_EnDash" -Color "$Bold$FGCyan"
 
     # UI Automation Setup
     try {
