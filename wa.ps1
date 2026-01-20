@@ -508,7 +508,7 @@ function Invoke-WA_SetRealTimeProtection {
     if (-not $Undo) {
         $thirdParty = Get-ThirdPartyAV
         if ($thirdParty) {
-            Write-LeftAligned "$FGDarkYellow$Char_Warn 3rd Party AV detected ($($thirdParty.displayName)). Skipping Defender config.$Reset"
+            Write-LeftAligned "$FGDarkYellow$Global:Char_Warn 3rd Party AV detected ($($thirdParty.displayName)). Skipping Defender config.$Reset"
             return
         }
     }
@@ -519,7 +519,7 @@ function Invoke-WA_SetRealTimeProtection {
         $tp = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows Defender\Features" -Name "TamperProtection" -ErrorAction SilentlyContinue).TamperProtection
         if ($tp -eq 5) { Write-LeftAligned "$FGDarkYellow$Char_Warn Tamper Protection is ENABLED and blocking changes.$Reset"; return }
         Set-MpPreference -DisableRealtimeMonitoring $target -ErrorAction Stop
-        Write-LeftAligned "$FGGreen$Char_HeavyCheck  Real-time Protection is $status.$Reset"
+        Write-LeftAligned "$FGGreen$Global:Char_HeavyCheck  Real-time Protection is $status.$Reset"
     }
     catch { Write-LeftAligned "$FGRed$Char_RedCross  Failed: $($_.Exception.Message)$Reset" }
 }
@@ -537,12 +537,12 @@ function Invoke-WA_SetPUA {
         }
         else {
             Set-MpPreference -PUAProtection $target -ErrorAction Stop
-            Write-LeftAligned "$FGGreen$Char_HeavyCheck  Defender PUA Blocking is $statusText.$Reset"
+            Write-LeftAligned "$FGGreen$Global:Char_HeavyCheck  Defender PUA Blocking is $statusText.$Reset"
         }
 
         # 2. Edge PUA
         Set-RegistryDword -Path "HKCU:\Software\Microsoft\Edge\SmartScreenPuaEnabled" -Name "(default)" -Value $target
-        Write-LeftAligned "$FGGreen$Char_HeavyCheck  Edge 'Block downloads' is $statusText.$Reset"
+        Write-LeftAligned "$FGGreen$Global:Char_HeavyCheck  Edge 'Block downloads' is $statusText.$Reset"
     }
     catch { Write-LeftAligned "$FGRed$Char_RedCross  Failed: $($_.Exception.Message)$Reset" }
 }
@@ -555,7 +555,7 @@ function Invoke-WA_SetMemoryIntegrity {
     try {
         Set-RegistryDword -Path $path -Name "Enabled" -Value $target
         if ($target -eq 1) { Set-RegistryDword -Path $path -Name "WasEnabledBy" -Value 2 }
-        Write-LeftAligned "$FGGreen$Char_BallotCheck Memory Integrity configured.$Reset"
+        Write-LeftAligned "$FGGreen$Global:Char_BallotCheck Memory Integrity configured.$Reset"
     }
     catch { Write-LeftAligned "$FGRed$Char_RedCross Failed: $($_.Exception.Message)$Reset" }
 }
@@ -566,7 +566,7 @@ function Invoke-WA_SetLSA {
     $target = & { if ($Undo) { 0 } else { 1 } }
     try {
         Set-RegistryDword -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -Name "RunAsPPL" -Value $target
-        Write-LeftAligned "$FGGreen$Char_HeavyCheck LSA Protection configured.$Reset"
+        Write-LeftAligned "$FGGreen$Global:Char_HeavyCheck LSA Protection configured.$Reset"
     }
     catch { Write-LeftAligned "$FGRed$Char_RedCross Failed: $($_.Exception.Message)$Reset" }
 }
@@ -579,7 +579,7 @@ function Invoke-WA_SetKernelStack {
     # 1. Registry Baseline
     try {
         Set-RegistryDword -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Kernel" -Name "KernelSEHOPEnabled" -Value $target
-        Write-LeftAligned "$FGGreen$Char_BallotCheck Registry baseline set.$Reset"
+        Write-LeftAligned "$FGGreen$Global:Char_BallotCheck Registry baseline set.$Reset"
     }
     catch {
         Write-LeftAligned "$FGRed$Char_Warn Registry baseline failed.$Reset"
@@ -595,7 +595,7 @@ function Invoke-WA_SetKernelStack {
             if ($Undo) { $ProcArgs += "-Undo" } else { $ProcArgs += "-Force" }
             $p = Start-Process -FilePath "powershell.exe" -ArgumentList $ProcArgs -Wait -PassThru -NoNewWindow
             if ($p.ExitCode -eq 0) {
-                Write-LeftAligned "$FGGreen$Char_CheckMark Kernel Stack Protection automation finished.$Reset"
+                Write-LeftAligned "$FGGreen$Global:Char_CheckMark Kernel Stack Protection automation finished.$Reset"
                 Start-Sleep -Seconds 2
                 return
             }
@@ -685,7 +685,7 @@ function Invoke-WA_SetPhishingMalicious {
     try {
         $target = & { if ($Undo) { 0 } else { 1 } }
         Set-RegistryDword -Path "HKCU:\Software\Microsoft\Windows Security Health\PhishingProtection" -Name "WarnMaliciousAppsAndSites" -Value $target
-        Write-LeftAligned "$FGGreen$Char_HeavyCheck Malicious App Warning configured.$Reset"
+        Write-LeftAligned "$FGGreen$Global:Char_HeavyCheck Malicious App Warning configured.$Reset"
     }
     catch { Write-LeftAligned "$FGRed$Char_RedCross Failed: $($_.Exception.Message)$Reset" }
 }
@@ -798,7 +798,7 @@ function Invoke-WA_SetTaskbarDefaults {
 
 
 
-        Set-KeySafe $search "SearchboxTaskbarMode" 1
+        Set-KeySafe $search "SearchboxTaskbarMode" 2
 
 
 
@@ -851,11 +851,8 @@ function Invoke-WA_SetTaskbarDefaults {
 
 
 
-        # Search: Search icon and label (Value 2)
-
-
-
-        Set-KeySafe $search "SearchboxTaskbarMode" 2
+        # Search: Search box (Value 3)
+        Set-KeySafe $search "SearchboxTaskbarMode" 3
 
 
 
@@ -933,17 +930,25 @@ function Invoke-WA_SetWindowsUpdateConfig {
         $WinlogonPath = "HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
         Set-ItemProperty -Path $WinlogonPath -Name "RestartApps" -Value 1 -Type DWord -Force
         
-        # External Scripts for Update Settings (Integrated)
+        # External Scripts for Update Settings (Integrated with Standalone fallback)
         $ScriptExpedited = Get-WA_LibraryScript "SET_Enable-Getmeuptodate.ps1"
         $ScriptMetered = Get-WA_LibraryScript "SET_Enable-Downloadupdatesovermeteredconnections.ps1"
 
+        $TargetVal = & { if ($EnhancedSecurity) { 1 } else { 0 } }
         $TargetState = & { if ($EnhancedSecurity) { "On" } else { "Off" } }
         
         if ($ScriptExpedited) {
             Start-Process "powershell" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$ScriptExpedited`" -State $TargetState -NoWait" -Wait -NoNewWindow
         }
+        else {
+            Set-RegistryDword -Path $WU_UX -Name "IsExpedited" -Value $TargetVal
+        }
+
         if ($ScriptMetered) {
             Start-Process "powershell" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$ScriptMetered`" -State $TargetState -NoWait" -Wait -NoNewWindow
+        }
+        else {
+            Set-RegistryDword -Path $WU_UX -Name "AllowAutoWindowsUpdateDownloadOverMeteredNetwork" -Value $TargetVal
         }
         Write-LeftAligned "$FGGreen$Char_HeavyCheck Windows Update settings applied.$Reset"
         Write-Log -Message "Applied Windows Update settings (Config Phase)." -Level INFO
@@ -1267,13 +1272,13 @@ function Invoke-WA_SFCRepair {
     $raw = & sfc /scannow 2>&1
     $out = ($raw -join " ")
     if ($out -match "did not find any integrity violations") {
-        Write-LeftAligned "$FGGreen$Char_CheckMark System Healthy.$Reset"
+        Write-LeftAligned "$FGGreen$Global:Char_CheckMark System Healthy.$Reset"
     }
     elseif ($out -match "successfully repaired") {
-        Write-LeftAligned "$FGGreen$Char_CheckMark corruption repaired.$Reset"
+        Write-LeftAligned "$FGGreen$Global:Char_CheckMark corruption repaired.$Reset"
     }
     else {
-        Write-LeftAligned "$FGRed$Char_Warn Corruption found. Running DISM...$Reset"
+        Write-LeftAligned "$FGRed$Global:Char_Warn Corruption found. Running DISM...$Reset"
         & DISM /Online /Cleanup-Image /RestoreHealth | Out-Null
     }
 }
@@ -1285,7 +1290,7 @@ function Invoke-WA_OptimizeDisks {
         Write-LeftAligned "Optimizing Drive $($v.DriveLetter)..."
         Optimize-Volume -DriveLetter $v.DriveLetter -NormalPriority -ErrorAction SilentlyContinue
     }
-    Write-LeftAligned "$FGGreen$Char_CheckMark Complete.$Reset"
+    Write-LeftAligned "$FGGreen$Global:Char_CheckMark Complete.$Reset"
 }
 
 function Invoke-WA_SystemCleanup {
@@ -1295,7 +1300,7 @@ function Invoke-WA_SystemCleanup {
         Write-LeftAligned "Cleaning $p..."
         Get-ChildItem -Path $p -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
     }
-    Write-LeftAligned "$FGGreen$Char_CheckMark Cleanup Complete.$Reset"
+    Write-LeftAligned "$FGGreen$Global:Char_CheckMark Cleanup Complete.$Reset"
 }
 
 # --- MODULE HANDLERS ---
@@ -1309,7 +1314,7 @@ function Invoke-WinAutoConfiguration {
     if ($SmartRun -and $lastRun -ne "Never") {
         $lastDate = Get-Date $lastRun
         if ((Get-Date) -lt $lastDate.AddDays(30)) {
-            Write-LeftAligned "$FGGreen$Char_CheckMark Configuration is up to date. Skipping...$Reset"
+            Write-LeftAligned "$FGGreen$Global:Char_CheckMark Configuration is up to date. Skipping...$Reset"
             return
         }
     }
@@ -1352,7 +1357,7 @@ function Invoke-WinAutoMaintenance {
         if ($last -eq "Never") { return $true }
         $date = Get-Date $last
         if ((Get-Date) -gt $date.AddDays($Days)) { return $true }
-        Write-LeftAligned "$FGGreen$Char_CheckMark Skipping $Key (Run < $Days days ago).$Reset"
+        Write-LeftAligned "$FGGreen$Global:Char_CheckMark Skipping $Key (Run < $Days days ago).$Reset"
         return $false
     }
 
@@ -1406,17 +1411,19 @@ while ($true) {
     Write-LeftAligned "  ${FGYellow}[C]${Reset}${FGGray}onfiguration ${FGDarkGray}(Last: $lastConfig)${Reset}"
     Write-LeftAligned "      ${FGYellow}[E]${Reset}${FGGray}nhanced Security (Toggle: $enStatus${FGGray})${Reset}"
     if ($Global:ShowDetails) { 
-        Write-LeftAligned "      ${FGDarkGray}Sec: RT, PUA, Memory, LSA, Stack, Phishing${Reset}"
-        Write-LeftAligned "      ${FGDarkGray}Net: Windows Firewall (All Profiles)${Reset}"
-        Write-LeftAligned "      ${FGDarkGray}UI : Taskbar Defaults & Windows Update${Reset}"
+        Write-BodyTitle "ACTION MAPPING & IMPLEMENTATION"
+        Write-LeftAligned "${FGWhite}Config [C]  : ${FGGray}RT/PUA (WMI), Mem/LSA/Phish (Reg), Search (Reg 3)${Reset}"
+        Write-LeftAligned "${FGWhite}Security [E]: ${FGGray}Expedited/Metered Updates (Registry)${Reset}"
+        Write-LeftAligned "${FGWhite}Maint [M]   : ${FGGray}SFC/DISM (CLI), C++ (Web), Updates (COM/UIA/CLI)${Reset}"
+        Write-LeftAligned "${FGWhite}Apps [I]    : ${FGGray}Winget Installation & Monitoring${Reset}"
+        Write-LeftAligned "${FGWhite}Disk        : ${FGGray}TRIM (PS), Temp Cleanup (File System Removal)${Reset}"
     }
     Write-Host ""
     Write-LeftAligned "  ${FGYellow}[M]${Reset}${FGGray}aintenance   ${FGDarkGray}(Last: $lastMaint)${Reset}"
     Write-LeftAligned "      ${FGYellow}[I]${Reset}${FGGray}nstall Applications${FGGray} (Toggle: $iStatus${FGGray})${Reset}"
+    # Summary lines removed in favor of integrated Action Mapping above
     if ($Global:ShowDetails) { 
-        Write-LeftAligned "      ${FGDarkGray}Apps: WinGet, Store, C++ Redistributables${Reset}"
-        Write-LeftAligned "      ${FGDarkGray}OS  : Windows Update & SFC System Repair${Reset}"
-        Write-LeftAligned "      ${FGDarkGray}Disk: Cleanup (Temp) & Drive Optimization${Reset}"
+        Write-Host ""
     }
     Write-Host ""
     $DetailText = & { if ($Global:ShowDetails) { "Details (Collapse)" } else { "Details (Expand)" } }
