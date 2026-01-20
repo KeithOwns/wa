@@ -1,0 +1,26 @@
+# Script to Enable Execution of PowerShell Scripts
+# Sets Policy to 'RemoteSigned' allowing local scripts to run.
+# Must be run as Administrator.
+
+$policy = "RemoteSigned"
+$scope = "LocalMachine"
+
+try {
+    # Check if running as Administrator (Required for LocalMachine scope)
+    $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    
+    if (-not $isAdmin) {
+        Write-Warning "This script requires Administrator privileges to change system-wide settings."
+        Write-Warning "Please right-click and select 'Run as Administrator'."
+        return
+    }
+
+    # Set the Execution Policy
+    Set-ExecutionPolicy -ExecutionPolicy $policy -Scope $scope -Force -ErrorAction Stop
+
+    Write-Host "Execution Policy set to '$policy' for scope '$scope'."
+    Write-Host "You can now run local PowerShell scripts."
+}
+catch {
+    Write-Error "An error occurred: $_"
+}
