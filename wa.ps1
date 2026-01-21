@@ -1,12 +1,12 @@
 #Requires -RunAsAdministrator
 <#
 .SYNOPSIS
-    WinAuto Standalone Edition
+    WinAuto (Core Edition)
 .DESCRIPTION
-    A self-contained, single-file version of the WinAuto suite for Windows 11.
-    Includes Configuration (Security/UI) and Maintenance (Updates/Repair) modules.
+    A lightweight, single-file version of the WinAuto suite for Windows 11.
+    Focuses purely on Configuration (Security/UI) and Maintenance (Updates/Repair).
     
-    Usage: Copy and paste this entire script into an Administrator PowerShell window, or run the file.
+    Usage: Copy and paste this script into an Administrator PowerShell window.
 #>
 
 # --- EXECUTION POLICY CONFIGURATION ---
@@ -22,6 +22,15 @@ catch {
     Write-Warning "Failed to set Execution Policy: $_"
 }
 
+# --- AUTO-UNBLOCK ROUTINE ---
+# Removes 'Mark of the Web' from the script and its components to prevent "not digitally signed" errors.
+try {
+    if ($PSCommandPath) { Unblock-File -Path $PSCommandPath -ErrorAction SilentlyContinue }
+    if ($PSScriptRoot) {
+        Get-ChildItem -Path $PSScriptRoot -Filter "*.ps*" -Recurse -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue
+    }
+}
+catch {}
 
 # --- INITIAL SETUP ---
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -29,7 +38,6 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $Global:ShowDetails = $false
 $Global:WinAutoFirstLoad = $true
-$Global:InstallApps = $false
 $Global:EnhancedSecurity = $false
 $Global:RegPath_WU_UX = "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings"
 $Global:RegPath_WU_POL = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
@@ -37,66 +45,54 @@ $Global:RegPath_Winlogon_User = "HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVers
 $Global:RegPath_Winlogon_Machine = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
 
 # --- MANIFEST CONTENT ---
+
 $Global:WinAutoManifestContent = @'
-# WinAuto System Impact Manifest
-
-This document details the specific technical changes that the **WinAuto** suite makes to your Windows 11 system.
-
-## 1. Security Configuration
-
-**Goal:** Harden system security according to Microsoft recommended baselines.
-
-| Feature | Change | Technical Action |
-| :--- | :--- | :--- |
-| **Real-Time Protection** | **Enabled** | `Set-MpPreference -DisableRealtimeMonitoring $false` |
-| **PUA Protection** | **Enabled** | `Set-MpPreference -PUAProtection Enabled` & Edge 'Block downloads' |
-| **Memory Integrity** | **Enabled** | Registry: `HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity` -> `Enabled = 1` |
-| **LSA Protection** | **Enabled** | Registry: `HKLM\SYSTEM\CurrentControlSet\Control\Lsa` -> `RunAsPPL = 1` |
-| **Stack Protection** | **Enabled** | Registry: `HKLM\...\Session Manager\Kernel` -> `KernelSEHOPEnabled = 1` |
-| **Phishing Protection** | **Enabled** | Registry: `HKCU\...\PhishingProtection` -> `WarnMaliciousAppsAndSites = 1` |
-| **Firewall** | **Enabled** | `Set-NetFirewallProfile -Enabled True` (Domain, Private, Public) |
-
----
-
-## 2. Windows Update
-
-**Goal:** Ensure updates are delivered reliably and automatically.
-
-| Feature | Change | Technical Action |
-| :--- | :--- | :--- |
-| **Microsoft Updates** | **Enabled** | Registry: `HKLM\...\WindowsUpdate\UX\Settings` -> `AllowMUUpdateService = 1` |
-| **Metered Connections** | **Allowed** | Registry: `HKLM\...\WindowsUpdate\UX\Settings` -> `AllowAutoWindowsUpdateDownloadOverMeteredNetwork = 1` |
-| **Restart Notifications**| **Enabled** | Registry: `HKLM\...\WindowsUpdate\UX\Settings` -> `RestartNotificationsAllowed2 = 1` |
-| **App Restart** | **Enabled** | Registry: `HKCU\...\Winlogon` -> `RestartApps = 1` |
-
----
-
-## 3. System Maintenance
-
-**Goal:** Repair system files and optimize performance.
-
-| Action | Description | Technical Command |
-| :--- | :--- | :--- |
-| **System Repair** | Scan & Repair OS | `sfc /scannow` (and `DISM /RestoreHealth` if needed) |
-| **Disk Optimization** | TRIM/Defrag | `Optimize-Volume -DriveLetter C -NormalPriority` |
-| **Cleanup** | Clear Temp Files | Delete files in `%TEMP%` and `%WINDIR%\Temp` |
-| **Updates** | App Updates | `winget upgrade --all` |
-| **Updates** | Store Updates | Automates Microsoft Store UI to click "Get updates" |
-| **Updates** | OS Updates | Automates Settings UI to click "Check for updates" |
-
----
-
-## 4. UI Optimization
-
-**Goal:** Improve responsiveness by setting standard defaults.
-
-| Feature | Change | Technical Action |
-| :--- | :--- | :--- |
-| **Taskbar Search** | **Icon+Label**| Registry: `HKCU\...\Search` -> `SearchboxTaskbarMode = 2` |
-| **Taskbar Items** | **Clean** | Taskview & Widgets set to **OFF** |
-
----
-(c) 2026 www.AIIT.support
+- wa.ps1: Functional Outline -
+________________________________________________________
+Pre-Run Setup		    | METHOD
+- Execution Policy          | PS (RemoteSigned)
+- Auto-Unblock              | PS (Unblock-File)
+________________________________________________________
+[S]mart Run
+Method: Orchestration Loop
+Actions:
+- System Hardening Check (Registry & Logic)
+- Maintenance Cycle (Component Check/Days)
+- Auto-Cleanup (File System)
+________________________________________________________
+[C]onfiguration		    | METHOD
+Security Actions:
+- Real-Time Protection      | PS WMI (MpPreference)
+- PUA Protection (Defender) | PS WMI (MpPreference)
+- PUA Protection (Edge)     | RegEdit (HKCU)
+- Memory Integrity          | RegEdit (HKLM)
+- LSA Protection            | RegEdit (HKLM)
+- Kernel Stack Protection   | UI Automation
+- Phishing Protection       | RegEdit (HKCU)
+- Windows Firewall          | Set-NetFirewallProfile
+UI & User Experience Actions:
+- Taskbar Search Box        | RegEdit (HKCU)
+- Task View Toggle          | RegEdit (HKCU)
+- Widgets Toggle            | UI Automation (Settings)
+- Microsoft Update Service  | RegEdit (HKLM)
+- Restart Notifications     | RegEdit (HKLM)
+- App Restart Persistence   | RegEdit (HKCU)
+________________________________________________________
+[E]nhanced Security (Toggle)| METHOD
+- Expedited Updates         | UI Automation (PhysSwitch)
+- Metered Connection	    | RegEdit (HKLM)
+________________________________________________________
+[M]aintenance		    | METHOD
+OS Repair & Updates:
+- Windows Update Check      | COM Object & UI Automation
+- SFC System Scan           | Command Line (sfc.exe)
+- DISM Repair               | Command Line (dism.exe)
+Application Maintenance:
+- WinGet App Updates        | Command Line (winget.exe)
+- MS Store App Updates      | UI Automation (Store UI)
+Disk Maintenance:
+- Drive Optimization (TRIM) | PS (Optimize-Volume)
+- Temp File Cleanup         | FSR (Recursive)
 '@
 
 # --- GLOBAL RESOURCES ---
@@ -113,12 +109,13 @@ $FGDarkBlue = "$Esc[34m"
 $FGGreen = "$Esc[92m"
 $FGRed = "$Esc[91m"
 $FGYellow = "$Esc[93m"
-$FGDarkCyan = "$Esc[36m"
-$FGWhite = "$Esc[97m"
-$FGGray = "$Esc[37m"
 $FGDarkGray = "$Esc[90m"
 $FGDarkGreen = "$Esc[32m"
 $FGDarkRed = "$Esc[31m"
+$FGDarkCyan = "$Esc[36m"
+
+$FGWhite = "$Esc[97m"
+$FGGray = "$Esc[37m"
 $FGDarkYellow = "$Esc[33m"
 $FGBlack = "$Esc[30m"
 
@@ -131,7 +128,7 @@ $BGYellow = "$Esc[103m"
 $Global:Char_HeavyCheck = "[v]" 
 $Global:Char_Warn = [char]0x26A0 
 $Global:Char_BallotCheck = "[v]" 
-$Global:Char_Keyboard = "[:::]" 
+
 $Global:Char_Copyright = "(c)" 
 $Global:Char_Finger = "->" 
 $Global:Char_CheckMark = "v" 
@@ -447,7 +444,11 @@ $Global:TickAction = {
         if ($i -lt $FilledCount) { $DynamicPart += "${BGYellow}${FGBlack}$Char${Reset}" } 
         else { if ($Char -eq " ") { $DynamicPart += " " } else { $DynamicPart += "${FGYellow}$Char${Reset}" } }
     }
-    $PromptStr = "${FGWhite}$Char_Keyboard Press ${FGDarkGray}$DynamicPart${FGDarkGray}${FGWhite}to${FGDarkGray} ${FGYellow}$ActionText${FGDarkGray} ${FGWhite}or${FGDarkGray} ${FGRed}[Esc]${FGWhite} to ${FGRed}EXIT${Reset}"
+    $PromptStr = "Press ${FGDarkGray}$DynamicPart${FGDarkGray}${FGWhite}to${FGDarkGray} ${FGYellow}$ActionText${FGDarkGray}"
+    
+    if ($ActionText -eq "EXIT") {
+        $PromptStr = "Press ${FGDarkGray}$DynamicPart${FGDarkGray}${FGWhite}to${FGDarkGray} ${FGRed}$ActionText${Reset}"
+    }
     try { [Console]::SetCursorPosition(0, $PromptCursorTop); Write-Centered $PromptStr -Width 56 } catch {}
 }
 
@@ -479,7 +480,7 @@ function Invoke-AnimatedPause {
     param([string]$ActionText = "CONTINUE", [int]$Timeout = 10)
     Write-Host ""; $PromptCursorTop = [Console]::CursorTop
     if ($Timeout -le 0) {
-        $PromptStr = "$FGWhite$Char_Keyboard Press ${FGBlack}${BGYellow}[S]${Reset}$FGWhite to $FGYellow$ActionText$FGWhite or ${FGRed}[Esc]${Reset}$FGWhite to ${FGRed}EXIT$Reset"
+        $PromptStr = "Press ${FGBlack}${BGYellow}[S]${Reset}$FGWhite to $FGYellow$ActionText$Reset"
         Write-Centered $PromptStr
         return $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     }
@@ -789,11 +790,6 @@ function Invoke-WA_SetTaskbarDefaults {
     }
 
 
-
-
-
-
-
     if ($Undo) {
 
 
@@ -950,38 +946,86 @@ function Invoke-WA_SetWindowsUpdateConfig {
                 Start-Sleep -Seconds 3
                 $Desktop = [System.Windows.Automation.AutomationElement]::RootElement
                 $SWindow = $null
-                foreach ($title in @("Settings", "Paramètres", "Einstellungen")) {
-                    $SWindow = $Desktop.FindFirst([System.Windows.Automation.TreeScope]::Children, (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, $title)))
-                    if ($SWindow) { break }
+                $Timeout = 10
+                $Stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+
+                while ($null -eq $SWindow -and $Stopwatch.Elapsed.TotalSeconds -lt $Timeout) {
+                    foreach ($title in @("Settings", "Paramètres", "Einstellungen")) {
+                        $SWindow = $Desktop.FindFirst([System.Windows.Automation.TreeScope]::Children, 
+                            (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, $title)))
+                        if ($SWindow) { break }
+                    }
+                    Start-Sleep -Milliseconds 500
                 }
+
                 if ($SWindow) {
                     try { $SWindow.SetFocus() } catch {}
                     $TName = "Get the latest updates as soon as they're available"
-                    $TElement = $SWindow.FindFirst([System.Windows.Automation.TreeScope]::Descendants, (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, $TName)))
+                    $TElement = $SWindow.FindFirst([System.Windows.Automation.TreeScope]::Descendants, 
+                        (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, $TName)))
+                    
                     if ($TElement) {
+                        # Try finding the toggle in the same container (Parent)
                         $Parent = [System.Windows.Automation.TreeWalker]::ControlViewWalker.GetParent($TElement)
-                        $ActToggle = if ($Parent) { $Parent.FindFirst([System.Windows.Automation.TreeScope]::Descendants, (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button))) }
+                        $ActToggle = $null
+
+                        if ($Parent) {
+                            $ActToggle = $Parent.FindFirst([System.Windows.Automation.TreeScope]::Descendants, 
+                                (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button)))
+                            
+                            if (-not $ActToggle) {
+                                $ActToggle = $Parent.FindFirst([System.Windows.Automation.TreeScope]::Descendants, 
+                                    (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::CheckBox)))
+                            }
+                        }
+
+                        # If still not found, check the element itself
+                        if (-not $ActToggle) {
+                            if ($TElement.Current.ControlType -eq [System.Windows.Automation.ControlType]::Button -or $TElement.Current.ControlType -eq [System.Windows.Automation.ControlType]::CheckBox -or $TElement.Current.ControlType -eq [System.Windows.Automation.ControlType]::ListItem) {
+                                $ActToggle = $TElement
+                            }
+                        }
+
                         if ($ActToggle) {
                             try {
-                                $TPattern = $ActToggle.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
-                                if ($TPattern.Current.ToggleState -eq 0) { $TPattern.Toggle(); Write-LeftAligned "$FGGreen$Char_HeavyCheck 'Get latest' enabled.$Reset" }
+                                if ($ActToggle.GetSupportedPatterns() -contains [System.Windows.Automation.TogglePattern]::Pattern) {
+                                    $TPattern = $ActToggle.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+                                    if ($TPattern.Current.ToggleState -eq 0) {
+                                        $TPattern.Toggle()
+                                        Write-LeftAligned "$FGGreen$Char_HeavyCheck 'Get latest' toggled ON.$Reset"
+                                    }
+                                    else {
+                                        Write-LeftAligned "  'Get latest' already ON."
+                                    }
+                                }
+                                else {
+                                    ($ActToggle.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)).Invoke()
+                                    Write-LeftAligned "$FGGreen$Char_HeavyCheck 'Get latest' clicked.$Reset"
+                                }
                             }
                             catch {
-                                try { ($ActToggle.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)).Invoke(); Write-LeftAligned "$FGGreen$Char_HeavyCheck 'Get latest' clicked.$Reset" } catch {}
+                                Write-LeftAligned "$FGRed$Char_Warn Failed to toggle 'Get latest': $_$Reset"
                             }
                         }
                     }
+                    else {
+                        Write-LeftAligned "$FGRed$Char_Warn Could not find 'Get latest' label.$Reset"
+                    }
                     Stop-Process -Name "SystemSettings" -Force -ErrorAction SilentlyContinue
+                }
+                else {
+                    Write-LeftAligned "$FGRed$Char_Warn Settings window not found for UIA.$Reset"
                 }
             }
         }
-
+        
         if ($ScriptMetered) {
             Start-Process "powershell" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$ScriptMetered`" -State $TargetState -NoWait" -Wait -NoNewWindow
         }
         else {
             Set-RegistryDword -Path $WU_UX -Name "AllowAutoWindowsUpdateDownloadOverMeteredNetwork" -Value $TargetVal
         }
+
         Write-LeftAligned "$FGGreen$Char_HeavyCheck Windows Update settings applied.$Reset"
         Write-Log -Message "Applied Windows Update settings (Config Phase)." -Level INFO
     }
@@ -1009,170 +1053,6 @@ function Invoke-WA_SystemPreCheck {
     else { Write-LeftAligned "$FGGreen$Char_BallotCheck System Ready$Reset" }
     
     Invoke-AnimatedPause -Timeout 5
-}
-
-function Invoke-WA_InstallRequiredApps {
-    Write-Header "REQUIRED APPLICATIONS"
-    
-    # Check for Winget
-    $winget = Get-Command winget.exe -ErrorAction SilentlyContinue
-    if (-not $winget) {
-        Write-LeftAligned "$FGRed$Char_FailureX Winget is not installed.$Reset"
-        return
-    }
-
-    # Temporary Disable Controlled Folder Access for installation
-    $cfaChanged = $false
-    try {
-        $cfa = (Get-MpPreference).EnableControlledFolderAccess
-        if ($cfa -eq 1) {
-            Write-LeftAligned "$FGDarkYellow$Char_Warn Temporarily disabling Controlled Folder Access...$Reset"
-            Set-MpPreference -EnableControlledFolderAccess Disabled -ErrorAction SilentlyContinue
-            $cfaChanged = $true
-        }
-    }
-    catch {}
-
-    # Hardcoded App List (Standalone Requirement)
-    $Apps = @(
-        @{ AppName = "Adobe Creative Cloud"; Type = "WINGET"; WingetId = "Adobe.CreativeCloud"; MatchName = "*Adobe Creative Cloud*" },
-        @{ AppName = "Box"; Type = "MSI"; Url = "https://e3.boxcdn.net/box-installers/desktop/releases/win/Box-x64.msi"; MatchName = "Box" },
-        @{ AppName = "Box for Office"; Type = "EXE"; Url = "https://e3.boxcdn.net/box-installers/boxforoffice/currentrelease/BoxForOffice.exe"; MatchName = "*Box for Office*"; SilentArgs = "/quiet /norestart"; PreDelay = 10 },
-        @{ AppName = "Box Tools"; Type = "EXE"; Url = "https://e3.boxcdn.net/box-installers/boxedit/win/currentrelease/BoxToolsInstaller.exe"; MatchName = "*Box Tools*"; SilentArgs = "/quiet /norestart ALLUSERS=1" }
-    )
-
-    # Add Laptop specific apps if applicable
-    $chassis = (Get-CimInstance -ClassName Win32_SystemEnclosure -ErrorAction SilentlyContinue).ChassisTypes
-    $IsLaptop = ($chassis -and ($chassis -contains 8 -or $chassis -contains 9 -or $chassis -contains 10 -or $chassis -contains 11 -or $chassis -contains 12 -or $chassis -contains 14 -or $chassis -contains 18 -or $chassis -contains 21 -or $chassis -contains 30 -or $chassis -contains 32))
-    
-    if ($IsLaptop) {
-        $Apps += @{ AppName = "Crestron AirMedia"; Type = "WINGET"; WingetId = "Crestron.AirMedia"; MatchName = "*AirMedia*" }
-    }
-
-    Write-LeftAligned "Checking application status..."
-    $AppsToInstall = @()
-    foreach ($app in $Apps) {
-        # Simple check for installed app
-        $installed = Get-ItemProperty HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*, HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*, HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* -ErrorAction SilentlyContinue | Where-Object { 
-            try { $null -ne $_.DisplayName -and $_.DisplayName -like $app.MatchName } catch { $false }
-        }
-        if ($installed) {
-            Write-LeftAligned "$FGDarkGreen$Char_BallotCheck Found: $($app.AppName)$Reset"
-        }
-        else {
-            Write-LeftAligned "$FGDarkRed$Char_FailureX Missing: $($app.AppName)$Reset"
-            $AppsToInstall += $app
-        }
-    }
-
-    if ($AppsToInstall.Count -gt 0) {
-        Write-Host ""
-        Write-BodyTitle "INSTALLATION QUEUE"
-        foreach ($app in $AppsToInstall) {
-            Write-LeftAligned "$FGWhite $Char_Finger $($app.AppName)$Reset"
-        }
-
-        $res = Invoke-AnimatedPause "INSTALL"
-        if ($res.VirtualKeyCode -eq 13) {
-            foreach ($app in $AppsToInstall) {
-                Write-LeftAligned "$FGDarkCyan Installing $($app.AppName)...$Reset"
-                if ($app.PreDelay) { Start-Sleep -Seconds $app.PreDelay }
-
-                try {
-                    if ($app.Type -eq "WINGET") {
-                        Start-Process "winget.exe" -ArgumentList "install --id $($app.WingetId) -e --silent --accept-package-agreements --accept-source-agreements" -Wait -NoNewWindow
-                    }
-                    elseif ($app.Type -eq "MSI") {
-                        $tmp = Join-Path $env:TEMP "wa_installer.msi"
-                        Invoke-WebRequest -Uri $app.Url -OutFile $tmp -UseBasicParsing
-                        Start-Process "msiexec.exe" -ArgumentList "/i `"$tmp`" /qn /norestart" -Wait -NoNewWindow
-                        Remove-Item $tmp -Force
-                    }
-                    elseif ($app.Type -eq "EXE") {
-                        $tmp = Join-Path $env:TEMP "wa_installer.exe"
-                        Invoke-WebRequest -Uri $app.Url -OutFile $tmp -UseBasicParsing
-                        Start-Process $tmp -ArgumentList $app.SilentArgs -Wait -NoNewWindow
-                        Remove-Item $tmp -Force
-                    }
-                    Write-LeftAligned "$FGGreen$Char_HeavyCheck Completed $($app.AppName).$Reset"
-                }
-                catch {
-                    Write-LeftAligned "$FGRed$Char_FailureX Failed: $($_.Exception.Message)$Reset"
-                }
-            }
-        }
-    }
-    else {
-        Write-LeftAligned "$FGGreen$Char_HeavyCheck All applications are present.$Reset"
-    }
-
-    # Re-enable Controlled Folder Access if changed
-    if ($cfaChanged) {
-        try {
-            Write-LeftAligned "$FGDarkYellow$Char_Warn Re-enabling Controlled Folder Access...$Reset"
-            Set-MpPreference -EnableControlledFolderAccess Enabled -ErrorAction SilentlyContinue
-        }
-        catch {}
-    }
-}
-
-function Invoke-WA_InstallCppRedist {
-    Write-Header "INSTALL C++ REDIST"
-
-    # Temporary Disable Controlled Folder Access
-    $cfaChanged = $false
-    try {
-        $cfa = (Get-MpPreference).EnableControlledFolderAccess
-        if ($cfa -eq 1) {
-            Write-LeftAligned "$FGDarkYellow$Char_Warn Temporarily disabling Controlled Folder Access...$Reset"
-            Set-MpPreference -EnableControlledFolderAccess Disabled -ErrorAction SilentlyContinue
-            $cfaChanged = $true
-        }
-    }
-    catch {}
-
-    $TempDir = "$env:TEMP\WinAuto_CppRedist"
-    if (-not (Test-Path $TempDir)) { New-Item -Path $TempDir -ItemType Directory -Force | Out-Null }
-
-    $Installers = @(
-        @{ Name = "Visual C++ 2015-2022 (x64)"; Url = "https://aka.ms/vs/17/release/vc_redist.x64.exe"; File = "$TempDir\vc_redist.x64.exe"; Args = "/install /quiet /norestart" },
-        @{ Name = "Visual C++ 2015-2022 (x86)"; Url = "https://aka.ms/vs/17/release/vc_redist.x86.exe"; File = "$TempDir\vc_redist.x86.exe"; Args = "/install /quiet /norestart" }
-    )
-
-    foreach ($app in $Installers) {
-        Write-LeftAligned "$FGGray Downloading $($app.Name)...$Reset"
-        try {
-            Invoke-WebRequest -Uri $app.Url -OutFile $app.File -ErrorAction Stop
-            Write-LeftAligned "$FGGray Installing $($app.Name)...$Reset"
-            $proc = Start-Process -FilePath $app.File -ArgumentList $app.Args -Wait -PassThru -NoNewWindow
-            
-            if ($proc.ExitCode -eq 0 -or $proc.ExitCode -eq 3010) {
-                Write-LeftAligned "$FGGreen$Char_HeavyCheck Installed $($app.Name).$Reset"
-            }
-            elseif ($proc.ExitCode -eq 1638) {
-                Write-LeftAligned "$FGGreen$Char_CheckMark Newer version already installed.$Reset"
-            }
-            else {
-                Write-LeftAligned "$FGRed$Char_RedCross Failed (Exit: $($proc.ExitCode)).$Reset"
-            }
-        }
-        catch {
-            Write-LeftAligned "$FGRed$Char_RedCross Error: $($_.Exception.Message)$Reset"
-        }
-    }
-    try { Remove-Item -Path $TempDir -Recurse -Force -ErrorAction SilentlyContinue } catch {}
-
-    # Re-enable Controlled Folder Access if changed
-    if ($cfaChanged) {
-        try {
-            Write-LeftAligned "$FGDarkYellow$Char_Warn Re-enabling Controlled Folder Access...$Reset"
-            Set-MpPreference -EnableControlledFolderAccess Enabled -ErrorAction SilentlyContinue
-        }
-        catch {}
-    }
-
-    Write-Host ""
-    Write-LeftAligned "$FGCyan Done.$Reset"
 }
 
 function Invoke-WA_WindowsUpdate {
@@ -1397,10 +1277,7 @@ function Invoke-WinAutoMaintenance {
     Invoke-WA_SystemPreCheck
     Invoke-WA_WindowsUpdate
 
-    if (Test-RunNeeded -Key "Maintenance_Cpp" -Days 90) {
-        Invoke-WA_InstallCppRedist
-        Set-WinAutoLastRun -Module "Maintenance_Cpp"
-    }
+    # C++ Redist Removal for wa.ps1 (Requested)
 
     if (Test-RunNeeded -Key "Maintenance_SFC" -Days 30) {
         Invoke-WA_SFCRepair
@@ -1430,39 +1307,43 @@ Write-Log "WinAuto Standalone Session Started" -Level INFO
 Set-ConsoleSnapRight -Columns 56
 Disable-QuickEdit
 
+$MenuSelection = 0
+
 while ($true) {
     Write-Header "WINAUTO: MASTER CONTROL"
     $lastConfig = Get-WinAutoLastRun -Module "Configuration"
     $lastMaint = Get-WinAutoLastRun -Module "Maintenance"
     $enStatus = & { if ($Global:EnhancedSecurity) { "${FGGreen}ON" } else { "${FGDarkGray}OFF" } }
-    $iStatus = & { if ($Global:InstallApps) { "${FGGreen}ON" } else { "${FGDarkGray}OFF" } }
+
+    # Menu State
+    if ($null -eq $MenuSelection) { $MenuSelection = 0 } # 0=Smart, 1=Config, 2=Maintenance
+
+    # Cursors
+    $SelS = if ($MenuSelection -eq 0) { "${FGYellow}-> ${Reset}" } else { "   " }
+    $SelC = if ($MenuSelection -eq 1) { "${FGYellow}-> ${Reset}" } else { "   " }
+    $SelM = if ($MenuSelection -eq 2) { "${FGYellow}-> ${Reset}" } else { "   " }
 
     Write-Host ""
-    Write-LeftAligned "=>${FGBlack}${BGYellow}[S]${Reset}${FGYellow}mart Run${Reset}"
+    Write-LeftAligned "${SelS}${FGBlack}${BGYellow}[S]${Reset}${FGYellow}mart Run${Reset}"
     Write-Host ""
-    Write-LeftAligned "  ${FGYellow}[C]${Reset}${FGGray}onfiguration ${FGDarkGray}(Last: $lastConfig)${Reset}"
+    Write-LeftAligned "${SelC}${FGYellow}[C]${Reset}${FGGray}onfiguration ${FGDarkGray}(Last: $lastConfig)${Reset}"
     Write-LeftAligned "      ${FGYellow}[E]${Reset}${FGGray}nhanced Security (Toggle: $enStatus${FGGray})${Reset}"
     if ($Global:ShowDetails) { 
         Write-BodyTitle "ACTION MAPPING & IMPLEMENTATION"
-        Write-LeftAligned "${FGWhite}Config [C]  : ${FGGray}RT/PUA (WMI), Mem/LSA/Phish (Reg), Search (Reg 3)${Reset}"
-        Write-LeftAligned "${FGWhite}Security [E]: ${FGGray}Expedited (UIA/Reg), Metered (Reg)${Reset}"
-        Write-LeftAligned "${FGWhite}Maint [M]   : ${FGGray}SFC/DISM (CLI), C++ (Web), Updates (COM/UIA/CLI)${Reset}"
-        Write-LeftAligned "${FGWhite}Apps [I]    : ${FGGray}Winget Installation & Monitoring${Reset}"
-        Write-LeftAligned "${FGWhite}Disk        : ${FGGray}TRIM (PS), Temp Cleanup (File System Removal)${Reset}"
+        $Global:WinAutoManifestContent | Out-Host
     }
     Write-Host ""
-    Write-LeftAligned "  ${FGYellow}[M]${Reset}${FGGray}aintenance   ${FGDarkGray}(Last: $lastMaint)${Reset}"
-    Write-LeftAligned "      ${FGYellow}[I]${Reset}${FGGray}nstall Applications${FGGray} (Toggle: $iStatus${FGGray})${Reset}"
-    # Summary lines removed in favor of integrated Action Mapping above
+    Write-LeftAligned "${SelM}${FGYellow}[M]${Reset}${FGGray}aintenance   ${FGDarkGray}(Last: $lastMaint)${Reset}"
+    # Install Apps toggle removed
+    
     if ($Global:ShowDetails) { 
         Write-Host ""
     }
     Write-Host ""
     $DetailText = & { if ($Global:ShowDetails) { "Details (Collapse)" } else { "Details (Expand)" } }
-    Write-LeftAligned "  ${FGYellow}Space${Reset} ${FGGray}$DetailText${Reset}"
+    Write-LeftAligned "   ${FGYellow}Space${Reset} ${FGGray}$DetailText${Reset}"
     Write-Host ""
-    Write-LeftAligned "  ${FGYellow}[H]${Reset}${FGCyan}elp / System Impact${Reset}"
-    Write-LeftAligned "  ${FGRed}[Esc] Exit Script${Reset}"
+
     Write-Boundary
 
     # Timeout logic: Only on first load (when no action has been taken yet)
@@ -1477,17 +1358,43 @@ while ($true) {
         Start-Sleep -Seconds 1
         break
     }
-    elseif ($res.VirtualKeyCode -eq 13 -or $res.Character -eq 'S' -or $res.Character -eq 's') {
+    elseif ($res.VirtualKeyCode -eq 38) {
+        # Up Arrow
+        $MenuSelection--
+        if ($MenuSelection -lt 0) { $MenuSelection = 2 }
+        continue
+    }
+    elseif ($res.VirtualKeyCode -eq 40) {
+        # Down Arrow
+        $MenuSelection++
+        if ($MenuSelection -gt 2) { $MenuSelection = 0 }
+        continue
+    }
+    elseif ($res.VirtualKeyCode -eq 13) {
+        # Enter
+        if ($MenuSelection -eq 0) {
+            Invoke-WinAutoConfiguration -SmartRun -EnhancedSecurity:$Global:EnhancedSecurity
+            Invoke-WinAutoMaintenance -SmartRun
+        }
+        elseif ($MenuSelection -eq 1) {
+            Invoke-WinAutoConfiguration -EnhancedSecurity:$Global:EnhancedSecurity
+        }
+        elseif ($MenuSelection -eq 2) {
+            Invoke-WinAutoMaintenance
+        }
+    }
+    elseif ($res.Character -eq 'S' -or $res.Character -eq 's') {
+        $MenuSelection = 0
         Invoke-WinAutoConfiguration -SmartRun -EnhancedSecurity:$Global:EnhancedSecurity
         Invoke-WinAutoMaintenance -SmartRun
-        if ($Global:InstallApps) { Invoke-WA_InstallRequiredApps }
     }
     elseif ($res.Character -eq 'C' -or $res.Character -eq 'c') {
+        $MenuSelection = 1
         Invoke-WinAutoConfiguration -EnhancedSecurity:$Global:EnhancedSecurity
     }
     elseif ($res.Character -eq 'M' -or $res.Character -eq 'm') {
+        $MenuSelection = 2
         Invoke-WinAutoMaintenance
-        if ($Global:InstallApps) { Invoke-WA_InstallRequiredApps }
     }
     elseif ($res.Character -eq 'E' -or $res.Character -eq 'e') {
         $Global:EnhancedSecurity = -not $Global:EnhancedSecurity
@@ -1497,22 +1404,8 @@ while ($true) {
         $Global:ShowDetails = -not $Global:ShowDetails
         continue
     }
-    elseif ($res.Character -eq 'I' -or $res.Character -eq 'i') {
-        $Global:InstallApps = -not $Global:InstallApps
-        continue
-    }
-    elseif ($res.Character -eq 'H' -or $res.Character -eq 'h') {
-        Clear-Host
-        Write-Header "SYSTEM IMPACT MANIFEST"
-        $Global:WinAutoManifestContent | Out-Host
-        Write-Boundary
-        Write-Centered "Press any key to return..."
-        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-    }
     else {
-        Write-LeftAligned "$FGGray Exiting WinAuto...$Reset"
         Start-Sleep -Seconds 1
-        break
     }
 }
 
@@ -1522,7 +1415,7 @@ Write-Boundary
 Write-Centered "$FGGreen ALL REQUESTED TASKS COMPLETE $Reset"
 Write-Footer
 Write-Host ""
-Invoke-AnimatedPause -ActionText "EXIT" -Timeout 0
+Invoke-AnimatedPause -ActionText "EXIT" -Timeout 10
 Write-Host ""
 Write-Host ""
 Write-Host ""
