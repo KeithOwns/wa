@@ -79,8 +79,9 @@ UI & User Experience Actions:
 - App Restart Persistence   | RegEdit (HKCU)
 ________________________________________________________
 [E]nhanced Security (Toggle)| METHOD
-- Expedited Updates         | UI Automation (PhysSwitch)
-- Metered Connection	    | RegEdit (HKLM)
+- Expedited Updates         | UI Automation
+- Restart ASAP              | UI Automation
+- Metered Connection        | RegEdit (HKLM)
 ________________________________________________________
 [M]aintenance		    | METHOD
 OS Repair & Updates:
@@ -267,6 +268,31 @@ function Set-ConsoleSnapRight {
     catch {}
 }
 
+function Set-ConsoleSnapLeft {
+    param([int]$Columns = 56)
+    try {
+        if (-not ([System.Management.Automation.PSTypeName]"WinAutoNative.ConsoleUtils").Type) {
+            # Reuse existing type, it should be loaded by SnapRight
+            return
+        }
+        $buffer = $Host.UI.RawUI.BufferSize
+        $window = $Host.UI.RawUI.WindowSize
+        
+        # 2. Position Adjustment
+        $hWnd = [WinAutoNative.ConsoleUtils]::GetConsoleWindow()
+        # Get actual pixel width 
+        $rect = New-Object WinAutoNative.RECT
+        if ([WinAutoNative.ConsoleUtils]::GetWindowRect($hWnd, [ref]$rect)) {
+            $pixelW = $rect.Right - $rect.Left
+            $screenH = [WinAutoNative.ConsoleUtils]::GetSystemMetrics(1) # SM_CYSCREEN
+            
+            # Snap to Left
+            [WinAutoNative.ConsoleUtils]::MoveWindow($hWnd, 0, 0, $pixelW, $screenH, $true) | Out-Null
+        }
+    }
+    catch {}
+}
+
 function Disable-QuickEdit {
     try {
         $def = '[DllImport("kernel32.dll")] public static extern IntPtr GetStdHandle(int nStdHandle); [DllImport("kernel32.dll")] public static extern bool GetConsoleMode(IntPtr hConsoleHandle, out uint lpMode); [DllImport("kernel32.dll")] public static extern bool SetConsoleMode(IntPtr hConsoleHandle, uint dwMode);'
@@ -444,10 +470,10 @@ $Global:TickAction = {
         if ($i -lt $FilledCount) { $DynamicPart += "${BGYellow}${FGBlack}$Char${Reset}" } 
         else { if ($Char -eq " ") { $DynamicPart += " " } else { $DynamicPart += "${FGYellow}$Char${Reset}" } }
     }
-    $PromptStr = "Press ${FGDarkGray}$DynamicPart${FGDarkGray}${FGWhite}to${FGDarkGray} ${FGYellow}$ActionText${FGDarkGray}"
+    $PromptStr = "Press ${FGDarkGray}$DynamicPart${FGDarkGray}${FGWhite}to${FGDarkGray} ${FGYellow}$ActionText${Reset} ${FGWhite}| Press [Esc] to EXIT${Reset}"
     
     if ($ActionText -eq "EXIT") {
-        $PromptStr = "Press ${FGDarkGray}$DynamicPart${FGDarkGray}${FGWhite}to${FGDarkGray} ${FGRed}$ActionText${Reset}"
+        $PromptStr = "Press ${FGDarkGray}$DynamicPart${FGDarkGray}${FGWhite} to ${FGRed}$ActionText${Reset}"
     }
     try { [Console]::SetCursorPosition(0, $PromptCursorTop); Write-Centered $PromptStr -Width 56 } catch {}
 }
@@ -480,7 +506,7 @@ function Invoke-AnimatedPause {
     param([string]$ActionText = "CONTINUE", [int]$Timeout = 10)
     Write-Host ""; $PromptCursorTop = [Console]::CursorTop
     if ($Timeout -le 0) {
-        $PromptStr = "Press ${FGBlack}${BGYellow}[S]${Reset}$FGWhite to $FGYellow$ActionText$Reset"
+        $PromptStr = "Press ${FGBlack}${BGYellow}[S]${Reset}$FGWhite to $FGYellow$ActionText${Reset} ${FGWhite}| Press [Esc] to EXIT${Reset}"
         Write-Centered $PromptStr
         return $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     }
@@ -587,7 +613,7 @@ function Invoke-WA_SetKernelStack {
     }
 
     # 2. Try External Script (Repository Mode)
-    $ExternalScriptPath = Get-WA_LibraryScript "SET_Enable-KernelModeHardwareStackProtection.ps1"
+    $ExternalScriptPath = Get-WA_LibraryScript "SET_EnableKernelModeHardwareStackProtection-wa.ps1"
     
     if ($ExternalScriptPath) {
         Write-LeftAligned "$FGGray Launching security module in isolated process...$Reset"
@@ -618,6 +644,7 @@ function Invoke-WA_SetKernelStack {
     Start-Sleep -Seconds 1
     Start-Process "windowsdefender:"
     Start-Sleep -Seconds 3
+    Set-ConsoleSnapLeft
 
     $Desktop = [System.Windows.Automation.AutomationElement]::RootElement
     $Window = $Desktop.FindFirst([System.Windows.Automation.TreeScope]::Children, (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, "Windows Security")))
@@ -916,120 +943,173 @@ function Invoke-WA_SetTaskbarDefaults {
 function Invoke-WA_SetWindowsUpdateConfig {
     param([switch]$EnhancedSecurity)
     Write-Header "WINDOWS UPDATE CONFIGURATION"
-    
+
+    if (-not $EnhancedSecurity) {
+        Write-LeftAligned "$FGGray Enhanced Security is OFF. Skipping strict enforcement.$Reset"
+        return
+    }
+
     $WU_UX = "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings"
-    try {
-        Set-RegistryDword -Path $WU_UX -Name "AllowMUUpdateService" -Value 1
-        Set-RegistryDword -Path $WU_UX -Name "RestartNotificationsAllowed2" -Value 1
 
-        # Enable Restartable Apps
-        $WinlogonPath = "HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
-        Set-ItemProperty -Path $WinlogonPath -Name "RestartApps" -Value 1 -Type DWord -Force
-        
-        # External Scripts for Update Settings (Integrated with Standalone fallback)
-        $ScriptExpedited = Get-WA_LibraryScript "SET_Enable-Getmeuptodate.ps1"
-        $ScriptMetered = Get-WA_LibraryScript "SET_Enable-Downloadupdatesovermeteredconnections.ps1"
+    # -----------------------------------------------------------------------------------------
+    # 1. EXPEDITED UPDATES (UI AUTOMATION)
+    # -----------------------------------------------------------------------------------------
+    Write-LeftAligned "Step 1/3: Expedited Updates (UI Automation)..."
 
-        $TargetVal = & { if ($EnhancedSecurity) { 1 } else { 0 } }
-        $TargetState = & { if ($EnhancedSecurity) { "On" } else { "Off" } }
-        
-        if ($ScriptExpedited) {
-            Start-Process "powershell" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$ScriptExpedited`" -State $TargetState -NoWait" -Wait -NoNewWindow
+    # Load Assemblies
+    if (-not ([System.Management.Automation.PSTypeName]"System.Windows.Automation.AutomationElement").Type) {
+        Add-Type -AssemblyName UIAutomationClient
+        Add-Type -AssemblyName UIAutomationTypes
+    }
+
+    # Launch Settings
+    Start-Process "ms-settings:windowsupdate"
+    Start-Sleep -Seconds 3
+
+    $Desktop = [System.Windows.Automation.AutomationElement]::RootElement
+    $Window = $null
+    $Timeout = 10
+    $Stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+
+    while ($null -eq $Window -and $Stopwatch.Elapsed.TotalSeconds -lt $Timeout) {
+        foreach ($title in @("Settings", "Paramètres", "Einstellungen")) {
+            $Window = $Desktop.FindFirst([System.Windows.Automation.TreeScope]::Children, 
+                (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, $title)))
+            if ($Window) { break }
         }
-        else {
-            Set-RegistryDword -Path $WU_UX -Name "IsExpedited" -Value $TargetVal
-            
-            # Physical UIA Toggle (Same method as Kernel-Mode)
-            if ($EnhancedSecurity) {
-                Write-LeftAligned "Automating 'Get the latest updates' (UI)..."
-                Start-Process "ms-settings:windowsupdate"
-                Start-Sleep -Seconds 3
-                $Desktop = [System.Windows.Automation.AutomationElement]::RootElement
-                $SWindow = $null
-                $Timeout = 10
-                $Stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+        Start-Sleep -Milliseconds 500
+    }
 
-                while ($null -eq $SWindow -and $Stopwatch.Elapsed.TotalSeconds -lt $Timeout) {
-                    foreach ($title in @("Settings", "Paramètres", "Einstellungen")) {
-                        $SWindow = $Desktop.FindFirst([System.Windows.Automation.TreeScope]::Children, 
-                            (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, $title)))
-                        if ($SWindow) { break }
-                    }
-                    Start-Sleep -Milliseconds 500
+    if ($Window) {
+        try { $Window.SetFocus() } catch {}
+        $TargetName = "Get the latest updates as soon as they're available"
+        $ToggleElement = $Window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, 
+            (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, $TargetName)))
+        
+        if ($ToggleElement) {
+            # Try finding the toggle in the same container (Parent)
+            $Parent = [System.Windows.Automation.TreeWalker]::ControlViewWalker.GetParent($ToggleElement)
+            $ActualToggle = $null
+
+            if ($Parent) {
+                $ActualToggle = $Parent.FindFirst([System.Windows.Automation.TreeScope]::Descendants, 
+                    (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button)))
+                
+                if (-not $ActualToggle) {
+                    $ActualToggle = $Parent.FindFirst([System.Windows.Automation.TreeScope]::Descendants, 
+                        (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::CheckBox)))
                 }
+            }
 
-                if ($SWindow) {
-                    try { $SWindow.SetFocus() } catch {}
-                    $TName = "Get the latest updates as soon as they're available"
-                    $TElement = $SWindow.FindFirst([System.Windows.Automation.TreeScope]::Descendants, 
-                        (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, $TName)))
-                    
-                    if ($TElement) {
-                        # Try finding the toggle in the same container (Parent)
-                        $Parent = [System.Windows.Automation.TreeWalker]::ControlViewWalker.GetParent($TElement)
-                        $ActToggle = $null
+            if (-not $ActualToggle) {
+                if ($ToggleElement.Current.ControlType -eq [System.Windows.Automation.ControlType]::Button -or $ToggleElement.Current.ControlType -eq [System.Windows.Automation.ControlType]::CheckBox -or $ToggleElement.Current.ControlType -eq [System.Windows.Automation.ControlType]::ListItem) {
+                    $ActualToggle = $ToggleElement
+                }
+            }
 
-                        if ($Parent) {
-                            $ActToggle = $Parent.FindFirst([System.Windows.Automation.TreeScope]::Descendants, 
-                                (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button)))
-                            
-                            if (-not $ActToggle) {
-                                $ActToggle = $Parent.FindFirst([System.Windows.Automation.TreeScope]::Descendants, 
-                                    (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::CheckBox)))
-                            }
+            if ($ActualToggle) {
+                try {
+                    if ($ActualToggle.GetSupportedPatterns() -contains [System.Windows.Automation.TogglePattern]::Pattern) {
+                        $Pattern = $ActualToggle.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+                        if ($Pattern.Current.ToggleState -eq 0) {
+                            $Pattern.Toggle()
+                            Write-LeftAligned "$FGGreen$Char_HeavyCheck 'Get latest updates' toggled ON.$Reset"
                         }
-
-                        # If still not found, check the element itself
-                        if (-not $ActToggle) {
-                            if ($TElement.Current.ControlType -eq [System.Windows.Automation.ControlType]::Button -or $TElement.Current.ControlType -eq [System.Windows.Automation.ControlType]::CheckBox -or $TElement.Current.ControlType -eq [System.Windows.Automation.ControlType]::ListItem) {
-                                $ActToggle = $TElement
-                            }
-                        }
-
-                        if ($ActToggle) {
-                            try {
-                                if ($ActToggle.GetSupportedPatterns() -contains [System.Windows.Automation.TogglePattern]::Pattern) {
-                                    $TPattern = $ActToggle.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
-                                    if ($TPattern.Current.ToggleState -eq 0) {
-                                        $TPattern.Toggle()
-                                        Write-LeftAligned "$FGGreen$Char_HeavyCheck 'Get latest' toggled ON.$Reset"
-                                    }
-                                    else {
-                                        Write-LeftAligned "  'Get latest' already ON."
-                                    }
-                                }
-                                else {
-                                    ($ActToggle.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)).Invoke()
-                                    Write-LeftAligned "$FGGreen$Char_HeavyCheck 'Get latest' clicked.$Reset"
-                                }
-                            }
-                            catch {
-                                Write-LeftAligned "$FGRed$Char_Warn Failed to toggle 'Get latest': $_$Reset"
-                            }
+                        else {
+                            Write-LeftAligned "$FGGreen$Char_CheckMark 'Get latest updates' already ON.$Reset"
                         }
                     }
                     else {
-                        Write-LeftAligned "$FGRed$Char_Warn Could not find 'Get latest' label.$Reset"
+                        ($ActualToggle.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)).Invoke()
+                        Write-LeftAligned "$FGGreen$Char_HeavyCheck 'Get latest updates' clicked.$Reset"
                     }
-                    Stop-Process -Name "SystemSettings" -Force -ErrorAction SilentlyContinue
                 }
-                else {
-                    Write-LeftAligned "$FGRed$Char_Warn Settings window not found for UIA.$Reset"
+                catch { Write-LeftAligned "$FGRed$Char_Warn Failed to toggle 'Get latest updates'.$Reset" }
+            }
+            else { Write-LeftAligned "$FGRed$Char_Warn Could not identify toggle for 'Get latest updates'.$Reset" }
+        }
+        else { Write-LeftAligned "$FGRed$Char_Warn 'Get latest updates' label not found.$Reset" }
+    }
+    else { Write-LeftAligned "$FGRed$Char_Warn Settings window not found (Step 1).$Reset" }
+
+    # -----------------------------------------------------------------------------------------
+    # 2. RESTART ASAP (UI AUTOMATION)
+    # -----------------------------------------------------------------------------------------
+    Write-LeftAligned "Step 2/3: Restart ASAP (Adv. Options)..."
+    Start-Process "ms-settings:windowsupdate-options"
+    Start-Sleep -Seconds 3
+    
+    # Re-find Window for robustness
+    $Window = $null
+    $Stopwatch.Restart()
+    while ($null -eq $Window -and $Stopwatch.Elapsed.TotalSeconds -lt $Timeout) {
+        foreach ($title in @("Settings", "Paramètres", "Einstellungen")) {
+            $Window = $Desktop.FindFirst([System.Windows.Automation.TreeScope]::Children, 
+                (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, $title)))
+            if ($Window) { break }
+        }
+        Start-Sleep -Milliseconds 500
+    }
+
+    if ($Window) {
+        try { $Window.SetFocus() } catch {}
+        $Toggles = $Window.FindAll([System.Windows.Automation.TreeScope]::Descendants, 
+            (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button)))
+
+        if (-not $Toggles) {
+            $Toggles = $Window.FindAll([System.Windows.Automation.TreeScope]::Descendants, 
+                (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::CheckBox)))
+        }
+
+        $ActualToggle = $null
+        if ($Toggles) {
+            foreach ($t in $Toggles) {
+                $n = $t.Current.Name
+                if ($null -ne $n -and ($n -match "Get me up to date" -or $n -match "Restart as soon as possible")) {
+                    $ActualToggle = $t; break
                 }
             }
         }
-        
-        if ($ScriptMetered) {
-            Start-Process "powershell" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$ScriptMetered`" -State $TargetState -NoWait" -Wait -NoNewWindow
-        }
-        else {
-            Set-RegistryDword -Path $WU_UX -Name "AllowAutoWindowsUpdateDownloadOverMeteredNetwork" -Value $TargetVal
-        }
 
-        Write-LeftAligned "$FGGreen$Char_HeavyCheck Windows Update settings applied.$Reset"
-        Write-Log -Message "Applied Windows Update settings (Config Phase)." -Level INFO
+        if ($ActualToggle) {
+            try {
+                if ($ActualToggle.GetSupportedPatterns() -contains [System.Windows.Automation.TogglePattern]::Pattern) {
+                    $Pattern = $ActualToggle.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+                    if ($Pattern.Current.ToggleState -eq 0) {
+                        $Pattern.Toggle()
+                        Write-LeftAligned "$FGGreen$Char_HeavyCheck 'Get me up to date' toggled ON.$Reset"
+                    }
+                    else {
+                        Write-LeftAligned "$FGGreen$Char_CheckMark 'Get me up to date' already ON.$Reset"
+                    }
+                }
+                else {
+                    ($ActualToggle.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)).Invoke()
+                    Write-LeftAligned "$FGGreen$Char_HeavyCheck 'Get me up to date' clicked.$Reset"
+                }
+            }
+            catch { Write-LeftAligned "$FGRed$Char_Warn Failed to toggle 'Get me up to date'.$Reset" }
+        }
+        else { Write-LeftAligned "$FGRed$Char_Warn Toggle 'Get me up to date' not found.$Reset" }
+        
+        # Cleanup Settings Window
+        Stop-Process -Name "SystemSettings" -Force -ErrorAction SilentlyContinue
+
     }
-    catch { Write-LeftAligned "$FGRed$Char_RedCross Error applying update settings: $($_.Exception.Message)$Reset" }
+    else { Write-LeftAligned "$FGRed$Char_Warn Settings window not found (Step 2).$Reset" }
+
+
+    # -----------------------------------------------------------------------------------------
+    # 3. METERED CONNECTIONS (REGISTRY)
+    # -----------------------------------------------------------------------------------------
+    Write-LeftAligned "Step 3/3: Download over Metered Connections..."
+    try {
+        Set-RegistryDword -Path $WU_UX -Name "AllowAutoWindowsUpdateDownloadOverMeteredNetwork" -Value 1
+        Write-LeftAligned "$FGGreen$Char_HeavyCheck Metered downloads enabled (Registry).$Reset"
+    }
+    catch {
+        Write-LeftAligned "$FGRed$Char_Warn Failed to set Metered Connections registry key.$Reset"
+    }
 }
 
 # --- MAINTENANCE FUNCTIONS ---
@@ -1244,7 +1324,7 @@ function Invoke-WinAutoConfiguration {
     Invoke-WA_SetTaskbarDefaults
     Invoke-WA_SetWindowsUpdateConfig -EnhancedSecurity:$EnhancedSecurity
     
-    # Restart Explorer to apply Standard UI changes
+    # Restart Explorer to force refresh of Taskbar/Start Menu registry settings (Standard UI changes)
     Write-LeftAligned "Restarting Explorer to apply UI settings..."
     Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
     Start-Sleep -Seconds 1
