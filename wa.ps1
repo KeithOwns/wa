@@ -499,7 +499,7 @@ function Wait-KeyPressWithTimeout {
         }
         Start-Sleep -Milliseconds 100
     }
-    $StopWatch.Stop(); return [PSCustomObject]@{ VirtualKeyCode = 13 }
+    $StopWatch.Stop(); return [PSCustomObject]@{ VirtualKeyCode = 13; Character = [char]13 }
 }
 
 function Invoke-AnimatedPause {
@@ -1551,7 +1551,7 @@ while ($true) {
         if ($Global:EnhancedSecurity) {
             Write-LeftAligned "   - Expedited Updates         | UI Automation" -Indent 1
             Write-LeftAligned "   - Restart ASAP              | UI Automation" -Indent 1
-            Write-LeftAligned "   - Metered Connection        | UI Automation" -Indent 1
+            Write-LeftAligned "   - Metered Connection        | RegEdit (HKLM)" -Indent 1
         }
 
         Write-Boundary # Separator
