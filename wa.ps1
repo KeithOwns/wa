@@ -68,7 +68,6 @@ Security Actions:
 - Memory Integrity          | RegEdit (HKLM)
 - Kernel Stack Protection   | UI Automation
 - LSA Protection            | RegEdit (HKLM)
-- Phishing Protection       | RegEdit (HKCU)
 - Windows Firewall          | Set-NetFirewallProfile
 UI & User Experience Actions:
 - Taskbar Search Box        | RegEdit (HKCU)
@@ -794,53 +793,37 @@ function Invoke-WA_SetKernelStack {
 }
 
 
-function Invoke-WA_SetPhishingMalicious {
-    param([switch]$Undo)
-    Write-Header "MALICIOUS APP WARNING"
-    
-    if (-not $Undo) {
-        $thirdParty = Get-ThirdPartyAV
-        if ($thirdParty) {
-            Write-LeftAligned "$FGDarkYellow$Char_Warn 3rd Party AV detected ($($thirdParty.displayName)). Skipping Phishing config.$Reset"
-            return
-        }
-    }
 
-    try {
-        $target = & { if ($Undo) { 0 } else { 1 } }
-        Set-RegistryDword -Path "HKCU:\Software\Microsoft\Windows Security Health\PhishingProtection" -Name "WarnMaliciousAppsAndSites" -Value $target
-        Write-LeftAligned "$FGGreen$Global:Char_HeavyCheck Malicious App Warning configured.$Reset"
-    }
-    catch { Write-LeftAligned "$FGRed$Char_RedCross Failed: $($_.Exception.Message)$Reset" }
-}
 
 function Invoke-WA_SetFirewall {
-
     param([switch]$Undo)
-
     Write-Header "WINDOWS FIREWALL"
-    
-    if (-not $Undo) {
-        $thirdParty = Get-ThirdPartyAV
-        if ($thirdParty) {
-            Write-LeftAligned "$FGDarkYellow$Char_Warn 3rd Party AV detected ($($thirdParty.displayName)). Skipping Firewall config.$Reset"
-            return
-        }
-    }
 
     try {
+        $target = if ($Undo) { 'False' } else { 'True' }
+        $status = if ($Undo) { "DISABLED" } else { "ENABLED" }
 
-        $target = & { if ($Undo) { $false } else { $true } }
-        Get-NetFirewallProfile | ForEach-Object {
-            Set-NetFirewallProfile -Name $_.Name -Enabled $target -ErrorAction Stop
+        $profiles = Get-NetFirewallProfile
 
-            Write-LeftAligned "$FGGreen$Char_HeavyCheck $($_.Name) Firewall configured.$Reset"
-
+        foreach ($profile in $profiles) {
+            if ($profile.Enabled -eq $target) {
+                Write-LeftAligned "$FGGreen$Char_BallotCheck  $($profile.Name) Firewall is $status.$Reset"
+            }
+            else {
+                try {
+                    Set-NetFirewallProfile -Name $profile.Name -Enabled $target -ErrorAction Stop
+                    Write-LeftAligned "$FGGreen$Char_HeavyCheck  $($profile.Name) Firewall is $status.$Reset"
+                }
+                catch {
+                    Write-LeftAligned "$FGRed$Char_RedCross  Failed to modify $($profile.Name) firewall: $($_.Exception.Message)$Reset"
+                }
+            }
         }
 
     }
-    catch { Write-LeftAligned "$FGRed$Char_RedCross Error: $($_.Exception.Message)$Reset" }
-
+    catch {
+        Write-LeftAligned "$FGRed$Char_RedCross  Critical Error: $($_.Exception.Message)$Reset"
+    }
 }
 
 
@@ -1356,7 +1339,6 @@ function Invoke-WinAutoConfiguration {
     Invoke-WA_SetMemoryIntegrity
     Invoke-WA_SetKernelStack
     Invoke-WA_SetLSA
-    Invoke-WA_SetPhishingMalicious
     Invoke-WA_SetFirewall
     
     # UI & Performance
