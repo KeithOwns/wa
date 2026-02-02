@@ -59,6 +59,9 @@ Actions:
 - System Hardening Check    | CHECK_SystemHardening
 - Maintenance Cycle         | SET_ScheduleMaintenance
 ________________________________________________________
+Install                 | SOURCE SCRIPT
+- Install Applications        | wa.ps1 (Internal)
+________________________________________________________
 Configuration		    | SOURCE SCRIPT
 Security Actions:
 - Real-Time Protection      | SET_RealTimeProtection
@@ -1135,10 +1138,10 @@ function Invoke-WA_InstallApps {
         Write-LeftAligned " - Downloads\Install_RequiredApps-Config.json"
         
         Write-Host ""
-        Write-LeftAligned "Would you like to download the default config from GitHub? [Y/N]"
-        $key = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        Write-LeftAligned "Would you like to download the default config from GitHub? [Y/N] (Defaults to Yes in 10s)"
+        $key = Wait-KeyPressWithTimeout -Seconds 10
         
-        if ($key.Character -eq 'y' -or $key.Character -eq 'Y') {
+        if ($key.Character -eq 'y' -or $key.Character -eq 'Y' -or $key.VirtualKeyCode -eq 13) {
             Write-Host ""
             Write-LeftAligned "Downloading..."
             try {
@@ -1302,7 +1305,6 @@ function Invoke-WinAutoMaintenance {
     try {
         Write-Boundary
         Invoke-WA_SystemPreCheck
-        Invoke-WA_WindowsUpdate
         # Invoke-WA_WindowsUpdate (Moved to End)
     
         # C++ Redist Removal for wa.ps1 (Requested)
@@ -1654,11 +1656,4 @@ Get-LogReport
 Write-Host ""
 Write-Boundary
 Write-Centered "$FGGreen ALL REQUESTED TASKS COMPLETE $Reset"
-Write-Footer
-Write-Host ""
-Invoke-AnimatedPause -ActionText "EXIT" -Timeout 0 | Out-Null
-Write-Host ""
-Write-Host ""
-Write-Host ""
-Write-Host ""
-Write-Host ""
+Write
