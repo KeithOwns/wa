@@ -58,7 +58,6 @@ Method: Orchestration Loop
 Actions:
 - System Hardening Check    | CHECK_SystemHardening
 - Maintenance Cycle         | SET_ScheduleMaintenance
-- Auto-Cleanup              | RUN_SystemCleanup
 ________________________________________________________
 Configuration		    | SOURCE SCRIPT
 Security Actions:
@@ -94,7 +93,7 @@ Pre-Run Setup,Execution Policy / Admin Check,Inline,Set-ExecutionPolicy RemoteSi
 Pre-Run Setup,Auto-Unblock,Inline,Unblock-File (Self),wa.ps1,(Script Header)
 Smart Run,System Hardening Check,Mixed,Check various Registry/Security Settings,CHECK_SystemHardening.ps1,Invoke-WinAutoConfiguration -SmartRun
 Smart Run,Maintenance Cycle,Mixed,Check LastRun Timestamps,SET_ScheduleMaintenance.ps1,Invoke-WinAutoMaintenance -SmartRun
-Smart Run,Auto-Cleanup,File System,Clean $env:TEMP + $env:WINDIR\Temp,RUN_SystemCleanup.ps1,Invoke-WA_SystemCleanup
+Install,Install Applications,Mixed,JSON Download + Winget/MSI,wa.ps1,Invoke-WA_InstallApps
 Configuration,Real-Time Protection,PS WMI,Set-MpPreference -DisableRealtimeMonitoring 0,SET_RealTimeProtection.ps1,Invoke-WA_SetRealTimeProtection
 Configuration,PUA Protection,PS WMI,Set-MpPreference -PUAProtection 1,SET_DefenderPUA.ps1,Invoke-WA_SetPUA
 Configuration,PUA Protection (Edge),Registry (HKCU),HKCU:\Software\Microsoft\Edge\SmartScreenPuaEnabled,SET_EdgePUA.ps1,Invoke-WA_SetPUA
