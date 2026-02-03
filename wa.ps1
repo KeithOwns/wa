@@ -49,44 +49,50 @@ $Global:RegPath_Winlogon_Machine = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentV
 $Global:WinAutoManifestContent = @'
 - wa.ps1: Functional Outline -
 ________________________________________________________
-Pre-Run Setup		    | SOURCE SCRIPT
-- Execution Policy          | (Inline Logic)
-- Auto-Unblock              | (Inline Logic)
+Pre-Run Setup                 | SOURCE SCRIPT
+- Execution Policy            | (Inline Logic)
+- Auto-Unblock                | (Inline Logic)
 ________________________________________________________
-Smart Run		    | SOURCE SCRIPT
+Smart Run                     | SOURCE SCRIPT
 Method: Orchestration Loop
 Actions:
-- System Hardening Check    | CHECK_SystemHardening
-- Maintenance Cycle         | SET_ScheduleMaintenance
+- System Hardening Check      | CHECK_SystemHardening
+  - Runs checks for Secure Boot, TPM, BitLocker
+- Maintenance Cycle           | SET_ScheduleMaintenance
+  - Schedules maintenance task in Task Scheduler
 ________________________________________________________
-Install                 | SOURCE SCRIPT
-- Install Applications        | wa.ps1 (Internal)
+Install                       | SOURCE SCRIPT
+- Install Applications        | Install_Apps-wa.json
+  - Iterates through apps list in JSON config
 ________________________________________________________
-Configuration		    | SOURCE SCRIPT
+Configuration                 | SOURCE SCRIPT
 Security Actions:
-- Real-Time Protection      | SET_RealTimeProtection
-- PUA Protection            | SET_DefenderPUA
-- PUA Protection (Edge)     | SET_EdgePUA
-- Memory Integrity          | SET_MemoryIntegrity_Reg
-- Kernel Stack Protection   | SET_KernelMode_Reg
-- LSA Protection            | SET_LocalSecurityAuthority
-- Windows Firewall          | SET_FirewallON
+- Real-Time Protection        | SET_RealTimeProtection
+- PUA Protection              | SET_DefenderPUA
+- PUA Protection (Edge)       | SET_EdgePUA
+- Memory Integrity            | SET_MemoryIntegrity_Reg
+- Kernel Stack Protection     | SET_KernelMode_Reg
+- LSA Protection              | SET_LocalSecurityAuth
+- Windows Firewall            | SET_FirewallON
 UI & User Experience Actions:
-- Taskbar Search Box        | SET_TaskbarSearchIcon
-- Task View Toggle          | SET_DisableTaskView
-- Widgets Toggle            | SET_WidgetsUIA
-- Microsoft Update Service  | SET_MicrosoftUpdate
-- Restart Notifications     | SET_RestartIsRequired
-- App Restart Persistence   | SET_ToggleRestartApps
+- Taskbar Search Box          | SET_TaskbarSearchIcon
+- Task View Toggle            | SET_DisableTaskView
+- Widgets Toggle              | SET_WidgetsUIA
+- Microsoft Update Service    | SET_MicrosoftUpdate
+- Restart Notifications       | SET_RestartIsRequired
+- App Restart Persistence     | SET_ToggleRestartApps
 ________________________________________________________
-Maintenance		    | SOURCE SCRIPT
+Maintenance                   | SOURCE SCRIPT
 Application Maintenance:
-- WinGet App Updates        | RUN_WingetUpgrade
+- WinGet App Updates          | RUN_WingetUpgrade
+  - Checks for and updates all apps via WinGet
 Disk Maintenance:
-- Drive Optimization (TRIM) | RUN_OptimizeDisks
-- Temp File Cleanup         | RUN_SystemCleanup
+- Drive Optimization (TRIM)   | RUN_OptimizeDisks
+- Temp File Cleanup           | RUN_SystemCleanup
+  - Clears Windows Temp, User Temp, Prefetch
 OS Repair & Updates:
-- SFC / DISM Repair         | RUN_WindowsSFCRepair
+- SFC / DISM Repair           | RUN_WindowsSFCRepair
+  - Runs DISM scan/repair first, then SFC scan
 ________________________________________________________
 '@
 
@@ -94,15 +100,15 @@ $Global:WinAutoCSVContent = @'
 Stage,Step,Method,Technical Details,SOURCE SCRIPT,Function
 Pre-Run Setup,Execution Policy / Admin Check,Inline,Set-ExecutionPolicy RemoteSigned -Scope Process,wa.ps1,(Script Header)
 Pre-Run Setup,Auto-Unblock,Inline,Unblock-File (Self),wa.ps1,(Script Header)
-Smart Run,System Hardening Check,Mixed,Check various Registry/Security Settings,CHECK_SystemHardening.ps1,Invoke-WinAutoConfiguration -SmartRun
-Smart Run,Maintenance Cycle,Mixed,Check LastRun Timestamps,SET_ScheduleMaintenance.ps1,Invoke-WinAutoMaintenance -SmartRun
-Install,Install Applications,Mixed,JSON Download + Winget/MSI,wa.ps1,Invoke-WA_InstallApps
+Smart Run,System Hardening Check,Mixed,Runs checks for Secure Boot; TPM; BitLocker,CHECK_SystemHardening.ps1,Invoke-WinAutoConfiguration -SmartRun
+Smart Run,Maintenance Cycle,Mixed,Schedules maintenance task in Task Scheduler,SET_ScheduleMaintenance.ps1,Invoke-WinAutoMaintenance -SmartRun
+Install,Install Applications,Mixed,Iterates through apps list in JSON config,Install_Apps-wa.json,Invoke-WA_InstallApps
 Configuration,Real-Time Protection,PS WMI,Set-MpPreference -DisableRealtimeMonitoring 0,SET_RealTimeProtection.ps1,Invoke-WA_SetRealTimeProtection
 Configuration,PUA Protection,PS WMI,Set-MpPreference -PUAProtection 1,SET_DefenderPUA.ps1,Invoke-WA_SetPUA
 Configuration,PUA Protection (Edge),Registry (HKCU),HKCU:\Software\Microsoft\Edge\SmartScreenPuaEnabled,SET_EdgePUA.ps1,Invoke-WA_SetPUA
 Configuration,Memory Integrity,Registry (HKLM),HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity (Enabled=1),SET_MemoryIntegrity_Reg.ps1,Invoke-WA_SetMemoryIntegrity
 Configuration,Kernel Stack Protection,Registry (HKLM),HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\KernelShadowStacks (Enabled=1),SET_KernelMode_Reg.ps1,Invoke-WA_SetKernelStack
-Configuration,LSA Protection,Registry (HKLM),HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\RunAsPPL,SET_LocalSecurityAuthority.ps1,Invoke-WA_SetLSA
+Configuration,LSA Protection,Registry (HKLM),HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\RunAsPPL,SET_LocalSecurityAuth.ps1,Invoke-WA_SetLSA
 Configuration,Windows Firewall,PS Cmdlet,Set-NetFirewallProfile -Enabled True,SET_FirewallON.ps1,Invoke-WA_SetFirewall
 Configuration,Taskbar Search Box,Registry (HKCU),HKCU:\Software\Microsoft\Windows\CurrentVersion\Search\SearchboxTaskbarMode (3),SET_TaskbarSearchIcon.ps1,Invoke-WA_SetTaskbarDefaults
 Configuration,Task View Toggle,Registry (HKCU),HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced\ShowTaskViewButton (0),SET_DisableTaskView.ps1,Invoke-WA_SetTaskbarDefaults
@@ -110,10 +116,10 @@ Configuration,Widgets Toggle,UI Automation,Settings -> Taskbar -> Widgets Toggle
 Configuration,Microsoft Update Service,Registry (HKLM),HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings\AllowMUUpdateService,SET_MicrosoftUpdate.ps1,Invoke-WA_SetWindowsUpdateConfig
 Configuration,Restart Notifications,Registry (HKLM),HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings\RestartNotificationsAllowed2,SET_RestartIsRequired.ps1,Invoke-WA_SetWindowsUpdateConfig
 Configuration,App Restart Persistence,Registry (HKCU),HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\RestartApps,SET_ToggleRestartApps.ps1,Invoke-WA_SetWindowsUpdateConfig
-Maintenance,WinGet App Updates,CMD Line,winget upgrade --all --silent,RUN_WingetUpgrade.ps1,Invoke-WA_WindowsUpdate
+Maintenance,WinGet App Updates,CMD Line,Checks for and updates all apps via WinGet,RUN_WingetUpgrade.ps1,Invoke-WA_WindowsUpdate
 Maintenance,Drive Optimization (TRIM),PS Cmdlet,Optimize-Volume -DriveLetter C -NormalPriority,RUN_OptimizeDisks.ps1,Invoke-WA_OptimizeDisks
-Maintenance,Temp File Cleanup,File System,Remove-Item -Recurse -Force $env:TEMP,RUN_SystemCleanup.ps1,Invoke-WA_SystemCleanup
-Maintenance,SFC / DISM Repair,CMD Line,sfc /scannow; DISM /RestoreHealth,RUN_WindowsSFCRepair.ps1,Invoke-WA_SFCRepair
+Maintenance,Temp File Cleanup,File System,Clears Windows Temp; User Temp; Prefetch,RUN_SystemCleanup.ps1,Invoke-WA_SystemCleanup
+Maintenance,SFC / DISM Repair,CMD Line,Runs DISM scan/repair first; then SFC scan,RUN_WindowsSFCRepair.ps1,Invoke-WA_SFCRepair
 '@
 
 # --- GLOBAL RESOURCES ---
@@ -132,6 +138,7 @@ $Global:FGRed = "$Esc[91m"
 $Global:FGYellow = "$Esc[93m"
 $Global:FGDarkGray = "$Esc[90m"
 $Global:FGDarkRed = "$Esc[31m"
+$Global:FGDarkGreen = "$Esc[32m"
 
 
 $Global:FGWhite = "$Esc[97m"
@@ -144,6 +151,7 @@ $Global:BGDarkGreen = "$Esc[42m"
 $Global:BGDarkGray = "$Esc[100m"
 $Global:BGYellow = "$Esc[103m"
 $Global:BGRed = "$Esc[41m"
+$Global:BGWhite = "$Esc[107m"
 
 # --- Unicode Icons & Characters ---
 $Global:Char_HeavyCheck = "[v]" 
@@ -405,11 +413,11 @@ function Write-Boundary {
 }
 
 function Export-WinAutoCSV {
-    $path = "$env:USERPROFILE\Documents\wa"
-    if (-not (Test-Path $path)) { New-Item -ItemType Directory -Path $path -Force | Out-Null }
+    $path = $PSScriptRoot
+    if (-not $path) { $path = $PWD.Path }
     $file = Join-Path $path "scriptOUTLINE-wa.csv"
     $Global:WinAutoCSVContent | Set-Content -Path $file -Encoding UTF8 -Force
-    Invoke-Item $path
+    # Invoke-Item $path # Optional: Open folder
 }
 
 # --- REGISTRY HELPERS ---
@@ -559,12 +567,8 @@ $Global:TickAction = {
         $GapBg = if ($IsYellow) { $Global:BGYellow } else { $Global:Reset }
         
         # User defined footer with colors
-        #  ^ Arrows v  move -> |  Space or Hotkey RUN |  Esc  EXIT
-        $Sep = if ($Global:AnySkipped) { " |" } else { "" }
-        $Part1 = " ${Global:FGBlack}${Global:BGYellow}^${Global:Reset} Arrows ${Global:FGBlack}${Global:BGYellow}v${Global:Reset} move ${Global:FGBlack}${Global:BGYellow}->${Global:Reset}$Sep"
-        $Part2 = " ${Global:FGBlack}${Global:BGYellow}Space${Global:Reset} or ${Global:FGYellow}H${Global:Reset}otkey ${Global:FGYellow}RUN${Global:Reset} |  ${Global:FGYellow}Esc${Global:Reset} ${Global:FGDarkRed}Exits${Global:Reset}"
-        
-        $Line = "$Part1${Global:Reset}$Part2"
+        # Use ^ v keys then press Space to RUN | Esc to EXIT
+        $Line = "  Press  ${Global:FGBlack}${Global:BGYellow} ^ ${Global:Reset}  &  ${Global:FGBlack}${Global:BGYellow} v ${Global:Reset}  keys to move the ${Global:FGYellow}->${Global:Reset}${Global:FGWhite}|${Global:Reset}${Global:FGBlack}${Global:BGYellow}Space${Global:Reset} to ${Global:FGYellow}RUN${Global:Reset}   "
     }
 
     try { [Console]::SetCursorPosition(0, $PromptCursorTop); Write-Host $Line } catch {}
@@ -1125,6 +1129,35 @@ function Test-WA_AppInstalled {
     return $false
 }
 
+function Test-WA_AllAppsInstalled {
+    $AppList = Get-WA_InstallAppList
+    if (-not $AppList -or $AppList.Count -eq 0) { return $true }  # No apps to install = all done
+    foreach ($app in $AppList) {
+        if (-not (Test-WA_AppInstalled -App $app)) { return $false }
+    }
+    return $true
+}
+
+function Test-WA_MaintenanceRecentlyComplete {
+    # Check if all maintenance tasks were run within their thresholds
+    $tasks = @(
+        @{ Key = "Maintenance_SFC"; Days = 30 },
+        @{ Key = "Maintenance_Disk"; Days = 7 },
+        @{ Key = "Maintenance_Cleanup"; Days = 7 },
+        @{ Key = "Maintenance_WinUpdate"; Days = 1 }
+    )
+    foreach ($task in $tasks) {
+        $last = Get-WinAutoLastRun -Module $task.Key
+        if ($last -eq "Never") { return $false }
+        try {
+            $date = Get-Date $last
+            if ((Get-Date) -gt $date.AddDays($task.Days)) { return $false }
+        }
+        catch { return $false }
+    }
+    return $true
+}
+
 function Invoke-WA_InstallApps {
     Write-Header "APPLICATION INSTALLER"
     
@@ -1324,8 +1357,11 @@ function Invoke-WinAutoMaintenance {
             Set-WinAutoLastRun -Module "Maintenance_Cleanup"
         }
     
-        # Run Windows Update Action (Moved to End)
-        Invoke-WA_WindowsUpdate
+        # Run Windows Update Action (Skip if run in last 24 hours)
+        if (Test-RunNeeded -Key "Maintenance_WinUpdate" -Days 1) {
+            Invoke-WA_WindowsUpdate
+            Set-WinAutoLastRun -Module "Maintenance_WinUpdate"
+        }
 
         Write-Host ""
         Write-Centered "$FGGreen MAINTENANCE COMPLETE $Reset"
@@ -1367,17 +1403,18 @@ while ($true) {
     # 2 = Config
     # 3 = Maintenance
     
-    $ArrS = if ($MenuSelection -eq 0) { "${FGBlack}${BGYellow}->${Reset}" } else { "  " }
-    $ArrI = if ($MenuSelection -eq 1) { "${FGBlack}${BGYellow}->${Reset}" } else { "  " }
-    $ArrC = if ($MenuSelection -eq 2) { "${FGBlack}${BGYellow}->${Reset}" } else { "  " }
-    $ArrM = if ($MenuSelection -eq 3) { "${FGBlack}${BGYellow}->${Reset}" } else { "  " }
+    $ArrS = if ($MenuSelection -eq 0) { "${FGYellow}->${Reset}${FGWhite}|${Reset}" } else { "   " }
+    $ArrI = if ($MenuSelection -eq 1) { "${FGYellow}->${Reset}${FGWhite}|${Reset}" } else { "   " }
+    $ArrC = if ($MenuSelection -eq 2) { "${FGYellow}->${Reset}${FGWhite}|${Reset}" } else { "   " }
+    $ArrM = if ($MenuSelection -eq 3) { "${FGYellow}->${Reset}${FGWhite}|${Reset}" } else { "   " }
     
     # --- ALWAYS EXPANDED DASHBOARD ---
     Write-Host ""
+    Write-Host "$FGDarkBlue$([string]'_' * 56)$Reset"
     
     # [S]mart Run (Top)
     $srLabel = if ($MenuSelection -eq 0) {
-        "${FGBlack}${BGYellow}SmartRUN${Reset}"
+        "${FGBlack}${BGYellow}Smart${Reset}${FGGray}RUN${Reset}"
     }
     else {
         "${FGYellow}S${FGGray}martRUN${Reset}"
@@ -1387,7 +1424,7 @@ while ($true) {
     $sDetailColor = if ($MenuSelection -eq 0) { $FGGray } else { $FGDarkGray }
     
     # Header Line
-    Write-LeftAligned "$ArrS $srLabel                    $FGDarkBlue|| ${FGGray}Hotkeys:${Reset}" -Indent 0
+    Write-LeftAligned "$ArrS$srLabel                    $FGDarkBlue| ${FGYellow}Hotkeys:${Reset}" -Indent 0
 
     # Logic to Determine Skip State for Config
     $ConfigNumColor = $FGYellow
@@ -1410,22 +1447,40 @@ while ($true) {
 
     # ... (Render Lines 1526-1688 omitted for brevity, logic flows to footer) ...
 
+    # Logic to Determine Skip State for Install (all apps already installed)
+    $InstallNumColor = $FGYellow
+    $InstallTextColor = $sDetailColor
+    $Global:AllAppsInstalled = Test-WA_AllAppsInstalled
+    if ($Global:AllAppsInstalled) {
+        $InstallNumColor = $FGDarkGray
+        $InstallTextColor = $FGDarkGray
+        $Global:AnySkipped = $true
+    }
 
-
-    # Row 1
-    Write-LeftAligned "${FGYellow}1.${sDetailColor} Install Applications${Reset}       $FGDarkBlue|| ${FGYellow}I${FGGray}nstall    ${FGYellow}S${FGGray}martRUN${Reset}" -Indent 1
+    # Row 1 (Grayed out if all apps installed)
+    Write-LeftAligned "${InstallNumColor}1.${InstallTextColor} Install Applications${Reset}       $FGDarkBlue| ${FGYellow}I${FGGray}nstall    ${FGYellow}S${FGGray}martRUN${Reset}" -Indent 1
     
     # Row 2 (Entire Line Grayed out if skipped)
-    Write-LeftAligned "${ConfigNumColor}2.${ConfigTextColor} Configure Operating System${Reset} $FGDarkBlue|| ${FGYellow}C${FGGray}onfig     ${FGYellow}H${FGGray}elp${Reset}" -Indent 1
+    Write-LeftAligned "${ConfigNumColor}2.${ConfigTextColor} Configure Operating System${Reset} $FGDarkBlue| ${FGYellow}C${FGGray}onfigure  ${FGYellow}H${FGGray}elp / Info${Reset}" -Indent 1
     
-    # Row 3
-    Write-LeftAligned "${FGYellow}3.${sDetailColor} Maintain Operating System${Reset}  $FGDarkBlue|| ${FGYellow}M${FGGray}aintain   ${FGYellow}Esc${FGGray} Exits${Reset}" -Indent 1
+    # Logic to Determine Skip State for Maintenance (all tasks recently complete)
+    $MaintNumColor = $FGYellow
+    $MaintTextColor = $sDetailColor
+    $Global:MaintenanceComplete = Test-WA_MaintenanceRecentlyComplete
+    if ($Global:MaintenanceComplete) {
+        $MaintNumColor = $FGDarkGray
+        $MaintTextColor = $FGDarkGray
+        $Global:AnySkipped = $true
+    }
+
+    # Row 3 (Grayed out if all maintenance recently complete)
+    Write-LeftAligned "${MaintNumColor}3.${MaintTextColor} Maintain Operating System${Reset}  $FGDarkBlue| ${FGYellow}M${FGGray}aintain   ${FGDarkRed}Esc${Reset} to ${FGDarkRed}${BGWhite}EXIT${Reset}" -Indent 1
     
     Write-Boundary # Separator
 
     # [I]nstall Applications (Pos 1)
     $iHeadLeft = "Install Applications:"
-    $iHeadRight = "Method:"
+    $iHeadRight = "Install Source:"
     # Target Col 33.
     $padCount = 28 - $iHeadLeft.Length
     if ($padCount -lt 1) { $padCount = 1 }
@@ -1434,10 +1489,10 @@ while ($true) {
     $iUnselColor = if ($MenuSelection -eq 1) { $FGGray } else { $FGDarkGray }
     
     if ($MenuSelection -eq 1) {
-        Write-LeftAligned "$ArrI ${FGBlack}${BGYellow}$iHeadLeft${Reset}$iPad${FGDarkBlue}| ${iUnselColor}$iHeadRight${Reset}" -Indent 0
+        Write-LeftAligned "$ArrI${FGBlack}${BGYellow}Install${Reset}${FGGray} Applications:${Reset}$iPad${FGDarkBlue}| ${iUnselColor}$iHeadRight${Reset}" -Indent 0
     }
     else {
-        Write-LeftAligned "$ArrI ${FGYellow}I${FGDarkGray}nstall Applications:${Reset}$iPad${FGDarkBlue}| ${FGDarkGray}$iHeadRight${Reset}" -Indent 0
+        Write-LeftAligned "$ArrI${FGYellow}I${FGDarkGray}nstall Applications:${Reset}$iPad${FGDarkBlue}| ${FGDarkGray}$iHeadRight${Reset}" -Indent 0
     }
 
     $iDetailColor = if ($MenuSelection -eq 1) { $FGGray } else { $FGDarkGray }
@@ -1446,19 +1501,35 @@ while ($true) {
     if ($appListDisplay) {
         foreach ($app in $appListDisplay) {
             $isInst = Test-WA_AppInstalled -App $app
-            $icon = if ($isInst) { "${FGGreen}[v]${Reset}" } else { "${FGRed}[ ]${Reset}" }
-            
-            $dName = "$icon ${iDetailColor}$($app.AppName)${Reset}"
+            $icon = if ($isInst) { "${FGDarkGreen}[v]${Reset}" } else { "${FGRed}[ ]${Reset}" }
+            $appColor = if ($isInst) { $FGDarkGray } else { $iDetailColor }
+            $dName = "$icon ${appColor}$($app.AppName)${Reset}"
             $cleanName = "[v] $($app.AppName)"
             
             $dPadCount = 28 - $cleanName.Length
             if ($dPadCount -lt 1) { $dPadCount = 1 }
             $dPad = " " * $dPadCount
             
-            # Right Column: Method (Type)
-            $method = if ($app.Type) { $app.Type } else { "Unknown" }
+            # Right Column: Install Source (Filename, WinGet ID, or Type)
+            $source = "Unknown"
+            if ($app.PSObject.Properties['InstallerPath'] -and $app.InstallerPath) { 
+                $source = Split-Path $app.InstallerPath -Leaf 
+            }
+            elseif ($app.PSObject.Properties['WinGetId'] -and $app.WinGetId) { 
+                $source = $app.WinGetId 
+            }
+            elseif ($app.PSObject.Properties['Url'] -and $app.Url) { 
+                # Extract filename from URL
+                $source = Split-Path $app.Url -Leaf 
+            }
+            elseif ($app.PSObject.Properties['Source'] -and $app.Source) { 
+                $source = $app.Source 
+            }
+            elseif ($app.PSObject.Properties['Type'] -and $app.Type) { 
+                $source = $app.Type 
+            }
             
-            Write-LeftAligned "${dName}${Reset}$dPad${FGDarkBlue}| ${iDetailColor}$method${Reset}" -Indent 3
+            Write-LeftAligned "${dName}${Reset}$dPad${FGDarkBlue}| ${iDetailColor}$source${Reset}" -Indent 3
         }
     }
     else {
@@ -1466,6 +1537,7 @@ while ($true) {
     }
     
     Write-Boundary # Separator
+    Write-Host ""
 
     # [C]onfigure Operating System (Pos 2)
     $cHeadLeft = "Configure Operating System:"
@@ -1476,10 +1548,10 @@ while ($true) {
     $chPad = " " * $chPadCount
 
     if ($MenuSelection -eq 2) {
-        Write-LeftAligned "$ArrC ${FGBlack}${BGYellow}$cHeadLeft${Reset}$chPad${FGDarkBlue}| ${FGGray}$cHeadRight${Reset}" -Indent 0
+        Write-LeftAligned "$ArrC${FGBlack}${BGYellow}Configure${Reset}${FGGray} Operating System:${Reset}$chPad${FGDarkBlue}| ${FGGray}$cHeadRight${Reset}" -Indent 0
     }
     else {
-        Write-LeftAligned "$ArrC ${FGYellow}C${FGDarkGray}onfigure Operating System:${Reset}$chPad${FGDarkBlue}| ${FGDarkGray}$cHeadRight${Reset}" -Indent 0
+        Write-LeftAligned "$ArrC${FGYellow}C${FGDarkGray}onfigure Operating System:${Reset}$chPad${FGDarkBlue}| ${FGDarkGray}$cHeadRight${Reset}" -Indent 0
     }
     
     # Config Details
@@ -1492,16 +1564,24 @@ while ($true) {
         Write-LeftAligned "${cDetailColor}- $Txt${Reset}$pad${FGDarkBlue}| ${cDetailColor}$Met${Reset}" -Indent 3 
     }
     
-    Write-ColItem "Real-Time Protection" "PS WMI (MpPrefer)"
-    Write-ColItem "PUA Protection" "PS WMI (MpPrefer)"
-    Write-ColItem "Memory Integrity" "RegEdit (HKLM)"
-    Write-ColItem "Kernel Stack Protection" "UI Automation"
+    Write-ColItem "Real-Time Protection" "PowerShell WMI"
+    Write-ColItem "PUA Protection" "PowerShell WMI"
+    Write-ColItem "PUA Protection (Edge)" "Registry (HKCU)"
+    Write-ColItem "Memory Integrity" "Registry (HKLM)"
+    Write-ColItem "Kernel Stack Protection" "Registry (HKLM)"
+    Write-ColItem "LSA Protection" "Registry (HKLM)"
     Write-ColItem "Windows Firewall" "PowerShell Cmdlet"
-    Write-ColItem "Taskbar/Widgets/Search" "RegEdit (HKCU)"
+    Write-ColItem "Taskbar Search Box" "Registry (HKCU)"
+    Write-ColItem "Task View Toggle" "Registry (HKCU)"
+    Write-ColItem "Widgets Toggle" "UI Automation"
+    Write-ColItem "Microsoft Update Service" "Registry (HKLM)"
+    Write-ColItem "Restart Notifications" "Registry (HKLM)"
+    Write-ColItem "App Restart Persistence" "Registry (HKCU)"
     
 
     
     Write-Boundary # Separator
+    Write-Host ""
 
     # [M]aintain Operating System (Pos 4)
     $mHeadLeft = "Maintain Operating System"
@@ -1511,10 +1591,10 @@ while ($true) {
     $mhPad = " " * $mhPadCount
 
     if ($MenuSelection -eq 3) {
-        Write-LeftAligned "$ArrM ${FGBlack}${BGYellow}$mHeadLeft${Reset}$mhPad${FGDarkBlue}| ${FGGray}$mHeadRight${Reset}" -Indent 0
+        Write-LeftAligned "$ArrM${FGBlack}${BGYellow}Maintain${Reset}${FGGray} Operating System${Reset}$mhPad${FGDarkBlue}| ${FGGray}$mHeadRight${Reset}" -Indent 0
     }
     else {
-        Write-LeftAligned "$ArrM ${FGYellow}M${FGDarkGray}aintain Operating System${Reset}$mhPad${FGDarkBlue}| ${FGDarkGray}$mHeadRight${Reset}" -Indent 0
+        Write-LeftAligned "$ArrM${FGYellow}M${FGDarkGray}aintain Operating System${Reset}$mhPad${FGDarkBlue}| ${FGDarkGray}$mHeadRight${Reset}" -Indent 0
     }
     
     # Maintenance Details
@@ -1526,13 +1606,13 @@ while ($true) {
         Write-LeftAligned "${mDetailColor}- $Txt${Reset}$pad${FGDarkBlue}| ${mDetailColor}$Met${Reset}" -Indent 3 
     }
     
-    Write-MaintItem "Windows Update Check" "COM Obj & UI Auto"
-    Write-MaintItem "SFC System Scan" "CMD Line (sfc.exe)"
-    Write-MaintItem "DISM Repair" "CMD Line (dism.exe)"
-    Write-MaintItem "WinGet/Store Updates" "CMD Line / UI Auto"
-    Write-MaintItem "Drive Opt & Cleanup" "PowerShell / FSR"
+    Write-MaintItem "WinGet App Updates" "CMD Line"
+    Write-MaintItem "Drive Optimization (TRIM)" "PowerShell Cmdlet"
+    Write-MaintItem "Temp File Cleanup" "File System"
+    Write-MaintItem "SFC / DISM Repair" "CMD Line"
 
     Write-Boundary # Separator
+    Write-Host ""
     
     Write-Boundary # Separator
     
@@ -1605,14 +1685,14 @@ while ($true) {
         
         if ($Target -eq 0) {
             # [S]mart Run -> EXECUTE
-            Invoke-WA_InstallApps
+            if (-not $Global:AllAppsInstalled) { Invoke-WA_InstallApps }
             Invoke-WinAutoConfiguration -SmartRun
             Set-WinAutoLastRun -Module "Configuration"
-            Invoke-WinAutoMaintenance -SmartRun
+            if (-not $Global:MaintenanceComplete) { Invoke-WinAutoMaintenance -SmartRun }
         }
         elseif ($Target -eq 1) {
-            # [I]nstall -> EXECUTE
-            Invoke-WA_InstallApps
+            # [I]nstall -> EXECUTE (only if apps need installing)
+            if (-not $Global:AllAppsInstalled) { Invoke-WA_InstallApps }
         }
         elseif ($Target -eq 2) {
             # [C]onfig -> EXECUTE
@@ -1620,8 +1700,8 @@ while ($true) {
             Set-WinAutoLastRun -Module "Configuration"
         }
         elseif ($Target -eq 3) {
-            # [M]aintenance -> EXECUTE
-            Invoke-WinAutoMaintenance
+            # [M]aintenance -> EXECUTE (only if tasks need running)
+            if (-not $Global:MaintenanceComplete) { Invoke-WinAutoMaintenance }
         }
         
         # Pause slightly if we toggled, or if we ran (though ran usually has its own pauses)
@@ -1632,15 +1712,33 @@ while ($true) {
         Clear-Host
         Write-Header "SYSTEM IMPACT MANIFEST"
         Write-Host ""
-        $Global:WinAutoManifestContent | Out-Host
+        # Display manifest with body lines in DarkGray
+        $Global:WinAutoManifestContent -split "`n" | ForEach-Object {
+            $line = $_.TrimEnd()
+            if ($line -match "wa\.ps1: Functional Outline") {
+                Write-Centered $line
+            }
+            elseif ($line.Trim() -match "^-") {
+                Write-Host "${FGDarkGray}$line${Reset}"
+            }
+            else {
+                Write-Host $line
+            }
+        }
         Write-Host ""
-        Write-Centered "Press ${FGYellow}[E]${Reset}xport CSV, or ${FGYellow}[H]${Reset}/${FGYellow}Space${Reset} to return..."
+        Write-Host "   ${FGBlack}${BGYellow}Enter${Reset} to export CSV   ${FGBlack}${BGYellow}Space${Reset} to return   ${FGDarkRed}Esc${Reset} to ${FGDarkRed}${BGWhite}EXIT${Reset}"
         while ($true) {
             $mk = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
             if ($mk.Character -eq ' ' -or $mk.VirtualKeyCode -eq 32 -or $mk.Character -eq 'H' -or $mk.Character -eq 'h') { break }
-            if ($mk.Character -eq 'E' -or $mk.Character -eq 'e') {
+            if ($mk.VirtualKeyCode -eq 27) { 
+                # Esc pressed - exit script
+                Write-Host ""
+                exit 0
+            }
+            if ($mk.VirtualKeyCode -eq 13) {
+                # Enter pressed - export CSV
                 Export-WinAutoCSV
-                Write-Centered "$FGGreen Exported to Documents\wa! $Reset"
+                Write-Centered "$FGGreen Exported CSV to Script Directory! $Reset"
                 Start-Sleep -Seconds 2
             }
         }
@@ -1656,4 +1754,11 @@ Get-LogReport
 Write-Host ""
 Write-Boundary
 Write-Centered "$FGGreen ALL REQUESTED TASKS COMPLETE $Reset"
-Write
+Write-Footer
+Write-Host ""
+Invoke-AnimatedPause -ActionText "EXIT" -Timeout 0 | Out-Null
+Write-Host ""
+Write-Host ""
+Write-Host ""
+Write-Host ""
+Write-Host ""
