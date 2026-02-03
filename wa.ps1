@@ -1239,7 +1239,10 @@ function Invoke-WA_InstallApps {
         try {
             if ($app.Type -eq "WINGET") {
                 $procArgs = @("install", "--id", $app.WingetId, "-e", "--accept-package-agreements", "--accept-source-agreements", "--silent", "--disable-interactivity")
-                if ($app.WingetScope) { $procArgs += "--scope"; $procArgs += $app.WingetScope }
+                if ($app.PSObject.Properties['WingetScope'] -and $app.WingetScope) { 
+					$procArgs += "--scope"
+					$procArgs += $app.WingetScope 
+				}
                  
                 $p = Start-Process -FilePath "winget.exe" -ArgumentList $procArgs -Wait -PassThru -ErrorAction SilentlyContinue
                 if ($p.ExitCode -eq 0) { Write-LeftAligned "   $FGGreen$Global:Char_CheckMark Success.$Reset" }
@@ -1255,7 +1258,7 @@ function Invoke-WA_InstallApps {
                 Invoke-WebRequest -Uri $app.Url -OutFile $out -UseBasicParsing -ErrorAction Stop
                 
                 Write-LeftAligned "   Executing..."
-                $procArgs = if ($app.SilentArgs) { $app.SilentArgs } else { "/quiet /norestart" }
+                $procArgs = if ($app.PSObject.Properties['SilentArgs'] -and $app.SilentArgs) { $app.SilentArgs } else { "/quiet /norestart" }
                 if ($app.Type -eq "MSI") {
                     $msiArgs = "/i `"$out`" $procArgs"
                     $p = Start-Process "msiexec.exe" -ArgumentList $msiArgs -Wait -PassThru
