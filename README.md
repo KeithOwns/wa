@@ -2,6 +2,11 @@
 
 > **A lightweight, single-file automation suite for Windows 11 Configuration & Maintenance.**
 
+### **Quick Run (Administrator PowerShell):**
+```powershell
+iex (irm "https://raw.githubusercontent.com/KeithOwns/wa/main/dev/wa.ps1")
+```
+
 WinAuto Core (`wa.ps1`) is a streamlined PowerShell utility designed to automate the essential tasks of setting up and maintaining a Windows 11 environment. It combines intelligent application installation, security hardening, and system maintenance into a responsive, dashboard-driven interface.
 
 It is designed as a standalone tool - its code is fully self-contained, meaning the script can execute all of its processes without relying on external module dependencies.
