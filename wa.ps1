@@ -1137,6 +1137,100 @@ function Invoke-WA_WindowsUpdate {
     }
 
     Write-Host ""
+    Write-Centered "$Global:Char_EnDash STORE & SETTINGS $Global:Char_EnDash" -Color "$Bold$FGCyan"
+
+    # UI Automation Setup
+    try {
+        if (-not ([System.Management.Automation.PSTypeName]"System.Windows.Automation.AutomationElement").Type) {
+            Add-Type -AssemblyName UIAutomationClient
+            Add-Type -AssemblyName UIAutomationTypes
+        }
+    }
+    catch {
+        Write-LeftAligned "$FGRed$Char_RedCross Failed to load UI Automation assemblies.$Reset"
+    }
+
+    # 1. Windows Update Settings
+    Write-LeftAligned "Opening Windows Update Settings..."
+    Start-Process "ms-settings:windowsupdate"
+    
+    # Wait for Window
+    $timeout = 10
+    $startTime = Get-Date
+    $settingsWindow = $null
+    
+    do {
+        $desktop = [System.Windows.Automation.AutomationElement]::RootElement
+        $condition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, "Settings")
+        $settingsWindow = $desktop.FindFirst([System.Windows.Automation.TreeScope]::Children, $condition)
+        if ($null -ne $settingsWindow) { break }
+        Start-Sleep -Milliseconds 500
+    } while ((Get-Date) -lt $startTime.AddSeconds($timeout))
+    
+    if ($settingsWindow) {
+        Start-Sleep -Seconds 2
+        $targetButtons = @("Check for updates", "Download & install all", "Install all", "Restart now")
+        $buttonFound = $false
+        foreach ($text in $targetButtons) {
+            $buttonCondition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, $text)
+            $button = $settingsWindow.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $buttonCondition)
+            if ($button) {
+                $invokePattern = $button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
+                if ($invokePattern) {
+                    $invokePattern.Invoke()
+                    Write-LeftAligned "$FGGreen$Char_HeavyCheck Clicked '$text'$Reset"
+                    $buttonFound = $true
+                    break
+                }
+            }
+        }
+        if (-not $buttonFound) { Write-LeftAligned "$FGGray No actionable buttons found in Settings.$Reset" }
+    }
+    else {
+        Write-LeftAligned "$FGRed$Char_Warn Could not attach to Settings window.$Reset"
+    }
+
+    # 2. Microsoft Store
+    Write-LeftAligned "Opening Microsoft Store Updates..."
+    Start-Process "ms-windows-store://downloadsandupdates"
+    
+    $timeout = 10
+    $startTime = Get-Date
+    $storeWindow = $null
+    
+    do {
+        $desktop = [System.Windows.Automation.AutomationElement]::RootElement
+        $condition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, "Microsoft Store")
+        $storeWindow = $desktop.FindFirst([System.Windows.Automation.TreeScope]::Children, $condition)
+        if ($null -ne $storeWindow) { break }
+        Start-Sleep -Milliseconds 500
+    } while ((Get-Date) -lt $startTime.AddSeconds($timeout))
+
+    if ($storeWindow) {
+        Start-Sleep -Seconds 2
+        $buttonTexts = @("Get updates", "Check for updates", "Update all")
+        $buttonFound = $false
+        foreach ($buttonText in $buttonTexts) {
+            $buttonCondition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, $buttonText)
+            $button = $storeWindow.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $buttonCondition)
+            if ($button) {
+                $invokePattern = $button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
+                if ($invokePattern) {
+                    $invokePattern.Invoke()
+                    Write-LeftAligned "$FGGreen$Char_HeavyCheck Clicked '$buttonText'$Reset"
+                    $buttonFound = $true
+                    break
+                }
+            }
+        }
+        if (-not $buttonFound) { Write-LeftAligned "$FGGray No update button found in Store.$Reset" }
+    }
+    else {
+        Write-LeftAligned "$FGRed$Char_Warn Could not attach to Store window.$Reset"
+    }
+    
+    Write-LeftAligned "$FGGray Checks initiated. Monitor windows for progress.$Reset"
+    Start-Sleep -Seconds 3
 }
 
 function Invoke-WA_SFCRepair {
