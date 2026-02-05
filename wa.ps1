@@ -34,6 +34,7 @@ catch {}
 
 # --- INITIAL SETUP ---
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+[Console]::InputEncoding = [System.Text.Encoding]::UTF8
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $Global:ShowDetails = $false
@@ -103,6 +104,7 @@ Memory Integrity         ${FGDarkBlue}|${Reset} ${FGYellow}Config${Reset}   ${FG
 Kernel Stack Protection  ${FGDarkBlue}|${Reset} ${FGYellow}Config${Reset}   ${FGDarkBlue}|${Reset} ${FGGray}SET_KernelMode${Reset}
 LSA Protection           ${FGDarkBlue}|${Reset} ${FGYellow}Config${Reset}   ${FGDarkBlue}|${Reset} ${FGGray}SET_LocalSecurityAuth${Reset}
 Windows Firewall         ${FGDarkBlue}|${Reset} ${FGYellow}Config${Reset}   ${FGDarkBlue}|${Reset} ${FGGray}SET_FirewallON${Reset}
+Classic Context Menu     ${FGDarkBlue}|${Reset} ${FGYellow}Config${Reset}   ${FGDarkBlue}|${Reset} ${FGGray}wa.ps1${Reset}
 Taskbar Search Box       ${FGDarkBlue}|${Reset} ${FGYellow}Config${Reset}   ${FGDarkBlue}|${Reset} ${FGGray}SET_TaskbarSearchIcon${Reset}
 Task View Toggle         ${FGDarkBlue}|${Reset} ${FGYellow}Config${Reset}   ${FGDarkBlue}|${Reset} ${FGGray}SET_DisableTaskView${Reset}
 Widgets Toggle           ${FGDarkBlue}|${Reset} ${FGYellow}Config${Reset}   ${FGDarkBlue}|${Reset} ${FGGray}SET_WidgetsUIA${Reset}
@@ -118,29 +120,30 @@ ${FGDarkBlue}__________________________________________________________${Reset}
 "@
 
 $Global:WinAutoCSVContent = @'
-Stage,Step,Method,Technical Details,Revertible,Restart Required,Impact,SOURCE SCRIPT,Function
-Pre-Run Setup,Execution Policy / Admin Check,Inline,Set-ExecutionPolicy RemoteSigned -Scope Process,N/A,No,System,wa.ps1,(Script Header)
-Pre-Run Setup,Auto-Unblock,Inline,Unblock-File (Self),N/A,No,System,wa.ps1,(Script Header)
-Smart Run,System Hardening Check,Mixed,Checks Last Run date (30 days) to determine invalidation,N/A,No,Automation,CHECK_SystemHarden.ps1,Invoke-WinAutoConfiguration -SmartRun
-Smart Run,Maintenance Cycle,Mixed,Checks Last Run dates (SFC=30d; Disk=7d; Clean=7d) to trigger tasks,N/A,No,Automation,SET_ScheduleMaintn.ps1,Invoke-WinAutoMaintenance -SmartRun
-Install,Install Applications,Mixed,Iterates through apps list in JSON config,No,No,System,Install_Apps-wa.json,Invoke-WA_InstallApps
-Configuration,Real-Time Protection,PS WMI,Set-MpPreference -DisableRealtimeMonitoring 0,Yes,No,Security,SET_RealTimeProtect.ps1,Invoke-WA_SetRealTimeProtection
-Configuration,PUA Protection,PS WMI,Set-MpPreference -PUAProtection 1,Yes,No,Security,SET_DefenderPUA.ps1,Invoke-WA_SetPUA
-Configuration,PUA Protection (Edge),Registry (HKCU),HKCU:\Software\Microsoft\Edge\SmartScreenPuaEnabled (1),Yes,No,Security,SET_EdgePUA.ps1,Invoke-WA_SetPUA
-Configuration,Memory Integrity,Registry (HKLM),HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity (Enabled=1),Yes,Yes,Security,SET_MemoryIntegrity.ps1,Invoke-WA_SetMemoryIntegrity
-Configuration,Kernel Stack Protection,Registry (HKLM),HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\KernelShadowStacks (Enabled=1),Yes,Yes,Security,SET_KernelMode.ps1,Invoke-WA_SetKernelStack
-Configuration,LSA Protection,Registry (HKLM),HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\RunAsPPL (1),Yes,Yes,Security,SET_LocalSecurityAuth.ps1,Invoke-WA_SetLSA
-Configuration,Windows Firewall,PS Cmdlet,Set-NetFirewallProfile -Enabled True,Yes,No,Security,SET_FirewallON.ps1,Invoke-WA_SetFirewall
-Configuration,Taskbar Search Box,Registry (HKCU),HKCU:\Software\Microsoft\Windows\CurrentVersion\Search\SearchboxTaskbarMode (3),Yes,No,UI,SET_TaskbarSearchIcon.ps1,Invoke-WA_SetTaskbarDefaults
-Configuration,Task View Toggle,Registry (HKCU),HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced\ShowTaskViewButton (0),Yes,No,UI,SET_DisableTaskView.ps1,Invoke-WA_SetTaskbarDefaults
-Configuration,Widgets Toggle,UI Automation,Settings -> Taskbar -> Widgets Toggle,Yes,No,UI,SET_WidgetsUIA.ps1,Invoke-WA_SetTaskbarDefaults
-Configuration,Microsoft Update Service,Registry (HKLM),HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings\AllowMUUpdateService (1),Yes,No,Config,SET_MicrosoftUpdate.ps1,Invoke-WA_SetWindowsUpdateConfig
-Configuration,Restart Notifications,Registry (HKLM),HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings\RestartNotificationsAllowed2 (1),Yes,No,Config,SET_RestartIsRequired.ps1,Invoke-WA_SetWindowsUpdateConfig
-Configuration,App Restart Persistence,Registry (HKCU),HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\RestartApps (1),Yes,No,Config,SET_RestartApps.ps1,Invoke-WA_SetWindowsUpdateConfig
-Maintenance,WinGet App Updates,CMD Line,Checks for and updates all apps via WinGet,No,No,Maintenance,RUN_WingetUpgrade.ps1,Invoke-WA_WindowsUpdate
-Maintenance,Drive Optimization (TRIM),PS Cmdlet,Optimize-Volume -DriveLetter C -NormalPriority,No,No,Maintenance,RUN_OptimizeDisks.ps1,Invoke-WA_OptimizeDisks
-Maintenance,Temp File Cleanup,File System,Clears Windows Temp and User Temp,No,No,Maintenance,RUN_SystemCleanup.ps1,Invoke-WA_SystemCleanup
-Maintenance,SFC / DISM Repair,CMD Line,Runs SFC scan; if corruption found runs DISM,No,No,Maintenance,RUN_WindowsRepair.ps1,Invoke-WA_SFCRepair
+ACTION,STAGE,SOURCE SCRIPT,METHOD,TECHNICAL DETAILS,REVERTIBLE,RESTART REQUIRED,IMPACT,FUNCTION
+Execution Policy / Admin Check,Pre-Run Setup,wa.ps1,Inline,Set-ExecutionPolicy RemoteSigned -Scope Process,N/A,No,System,(Script Header)
+Auto-Unblock,Pre-Run Setup,wa.ps1,Inline,Unblock-File (Self),N/A,No,System,(Script Header)
+System Hardening Check,SmartRUN,CHECK_SystemHarden.ps1,Mixed,Checks Last Run date (30 days) to determine invalidation,N/A,No,Automation,Invoke-WinAutoConfiguration -SmartRun
+Maintenance Cycle,SmartRUN,SET_ScheduleMaintn.ps1,Mixed,Checks Last Run dates (SFC=30d; Disk=7d; Clean=7d) to trigger tasks,N/A,No,Automation,Invoke-WinAutoMaintenance -SmartRun
+Install Applications,Install,Install_RequiredApps-Config.json,Mixed,Iterates through apps list in JSON config,No,No,System,Invoke-WA_InstallApps
+Real-Time Protection,Configure,SET_RealTimeProtect.ps1,PS WMI,Set-MpPreference -DisableRealtimeMonitoring 0,Yes,No,Security,Invoke-WA_SetRealTimeProtection
+PUA Protection,Configure,SET_DefenderPUA.ps1,PS WMI,Set-MpPreference -PUAProtection 1,Yes,No,Security,Invoke-WA_SetPUA
+PUA Protection (Edge),Configure,SET_EdgePUA.ps1,Registry (HKCU),HKCU:\Software\Microsoft\Edge\SmartScreenPuaEnabled (1),Yes,No,Security,Invoke-WA_SetPUA
+Memory Integrity,Configure,SET_MemoryIntegrity.ps1,Registry (HKLM),HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity (Enabled=1),Yes,Yes,Security,Invoke-WA_SetMemoryIntegrity
+Kernel Stack Protection,Configure,SET_KernelMode.ps1,Registry (HKLM),HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\KernelShadowStacks (Enabled=1),Yes,Yes,Security,Invoke-WA_SetKernelStack
+LSA Protection,Configure,SET_LocalSecurityAuth.ps1,Registry (HKLM),HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\RunAsPPL (1),Yes,Yes,Security,Invoke-WA_SetLSA
+Windows Firewall,Configure,SET_FirewallON.ps1,PS Cmdlet,Set-NetFirewallProfile -Enabled True,Yes,No,Security,Invoke-WA_SetFirewall
+Classic Context Menu,Configure,wa.ps1,Registry (HKCU),HKCU:\Software\Classes\CLSID\{86ca1aa0...}\InprocServer32,Yes,No,UI,Invoke-WA_SetContextMenu
+Taskbar Search Box,Configure,SET_TaskbarSearchIcon.ps1,Registry (HKCU),HKCU:\Software\Microsoft\Windows\CurrentVersion\Search\SearchboxTaskbarMode (3),Yes,No,UI,Invoke-WA_SetTaskbarDefaults
+Task View Toggle,Configure,SET_DisableTaskView.ps1,Registry (HKCU),HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced\ShowTaskViewButton (0),Yes,No,UI,Invoke-WA_SetTaskbarDefaults
+Widgets Toggle,Configure,SET_WidgetsUIA.ps1,Registry (HKCU),HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced\TaskbarDa (0),Yes,No,UI,Invoke-WA_SetTaskbarDefaults
+Microsoft Update Service,Configure,SET_MicrosoftUpdate.ps1,Registry (HKLM),HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings\AllowMUUpdateService (1),Yes,No,Config,Invoke-WA_SetWindowsUpdateConfig
+Restart Notifications,Configure,SET_RestartIsRequired.ps1,Registry (HKLM),HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings\RestartNotificationsAllowed2 (1),Yes,No,Config,Invoke-WA_SetWindowsUpdateConfig
+App Restart Persistence,Configure,SET_RestartApps.ps1,Registry (HKCU),HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\RestartApps (1),Yes,No,Config,Invoke-WA_SetWindowsUpdateConfig
+WinGet App Updates,Maintain,RUN_WingetUpgrade.ps1,CMD Line,Checks for and updates all apps via WinGet,No,No,Maintenance,Invoke-WA_WindowsUpdate
+Drive Optimization,Maintain,RUN_OptimizeDisks.ps1,PS Cmdlet,Optimize-Volume -DriveLetter C -NormalPriority,No,No,Maintenance,Invoke-WA_OptimizeDisks
+Temp File Cleanup,Maintain,RUN_SystemCleanup.ps1,File System,Clears Windows Temp and User Temp,No,No,Maintenance,Invoke-WA_SystemCleanup
+SFC / DISM Repair,Maintain,RUN_WindowsRepair.ps1,CMD Line,Runs SFC scan; if corruption found runs DISM,No,No,Maintenance,Invoke-WA_SFCRepair
 '@
 
 
@@ -234,27 +237,7 @@ function Get-UIAToggleState {
     catch { return $null }
 }
 
-function Get-WA_LibraryScript {
-    param([string]$ScriptName)
-    $Locs = @()
-    if ($PSScriptRoot) { $Locs += $PSScriptRoot }
-    $Locs += (Get-Location).Path
-    $Locs += "C:\Users\admin\GitHub\WinAuto" # User Environment Root
 
-    foreach ($l in $Locs) {
-        if (-not $l) { continue }
-        $candidates = @(
-            (Join-Path $l "scripts\Library\$ScriptName"),
-            (Join-Path $l "..\scripts\Library\$ScriptName"),
-            (Join-Path $l "dev\scripts\Library\$ScriptName"),
-            (Join-Path $l $ScriptName)
-        )
-        foreach ($p in $candidates) {
-            if (Test-Path $p) { return (Resolve-Path $p).Path }
-        }
-    }
-    return $null
-}
 $env:WinAutoLogDir = $Global:WinAutoLogDir
 
 if ($null -eq (Get-Variable -Name 'WinAutoLogPath' -Scope Global -ErrorAction SilentlyContinue)) {
@@ -358,14 +341,12 @@ function Set-ConsoleSnapRight {
         $workArea = New-Object WinAutoNative.RECT
         $SPI_GETWORKAREA = 0x0030
         if ([WinAutoNative.ConsoleUtils]::SystemParametersInfo($SPI_GETWORKAREA, 0, [ref]$workArea, 0)) {
-            $waWidth = $workArea.Right - $workArea.Left
             $waHeight = $workArea.Bottom - $workArea.Top
             
             # Get actual pixel dimensions of the current window
             $winRect = New-Object WinAutoNative.RECT
             if ([WinAutoNative.ConsoleUtils]::GetWindowRect($hWnd, [ref]$winRect)) {
                 $pixelW = $winRect.Right - $winRect.Left
-                $pixelH = $winRect.Bottom - $winRect.Top
                 
                 # Target: Flush to the right edge of the work area
                 $targetX = $workArea.Right - $pixelW
@@ -524,27 +505,7 @@ function Get-LogReport {
     Write-Boundary
 }
 
-function Get-WinAutoLastRun {
-    param([string]$Module = "Maintenance")
-    $StateFile = "$Global:WinAutoLogDir\WinAuto_State.json"
-    if (Test-Path $StateFile) {
-        try {
-            $State = Get-Content $StateFile -Raw | ConvertFrom-Json
-            if ($State.$Module) { return $State.$Module }
-        }
-        catch {}
-    }
-    return "Never"
-}
 
-function Set-WinAutoLastRun {
-    param([string]$Module = "Maintenance")
-    $StateFile = "$Global:WinAutoLogDir\WinAuto_State.json"
-    $State = & { if (Test-Path $StateFile) { Get-Content $StateFile -Raw | ConvertFrom-Json } else { New-Object PSCustomObject } }
-    if (-not $State) { $State = New-Object PSCustomObject }
-    Add-Member -InputObject $State -MemberType NoteProperty -Name $Module -Value (Get-Date -Format "yyyy-MM-dd HH:mm:ss") -Force
-    $State | ConvertTo-Json | Set-Content $StateFile -Force
-}
 
 function Get-RegistryValue {
     param([string]$Path, [string]$Name)
@@ -648,16 +609,30 @@ function Invoke-WA_SetRealTimeProtection {
             return
         }
     }
-
+    Write-LeftAligned "Enabling Real-Time Protection..."
     try {
-        $target = & { if ($Undo) { $true } else { $false } }
-        $status = & { if ($Undo) { "DISABLED" } else { "ENABLED" } }
-        $tp = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows Defender\Features" -Name "TamperProtection" -ErrorAction SilentlyContinue).TamperProtection
-        if ($tp -eq 5) { Write-LeftAligned "$FGDarkYellow$Char_Warn Tamper Protection is ENABLED and blocking changes.$Reset"; return }
-        Set-MpPreference -DisableRealtimeMonitoring $target -ErrorAction Stop
-        Write-LeftAligned "$FGGreen$Global:Char_HeavyCheck  Real-time Protection is $status.$Reset"
+        Set-MpPreference -DisableRealtimeMonitoring 0 -Force -ErrorAction Stop
+        
+        # Verify
+        $retries = 3
+        $success = $false
+        while ($retries -gt 0) {
+            Start-Sleep -Milliseconds 500
+            $val = (Get-MpPreference).DisableRealtimeMonitoring
+            if ($val -eq $false) { $success = $true; break }
+            $retries--
+        }
+        
+        if ($success) {
+            Write-LeftAligned "$FGGreen$Global:Char_CheckMark Real-Time Protection ON.$Reset"
+        }
+        else {
+            Write-LeftAligned "$FGRed$Global:Char_RedCross Failed verify. Please check manually.$Reset"
+        }
     }
-    catch { Write-LeftAligned "$FGRed$Char_RedCross  Failed: $($_.Exception.Message)$Reset" }
+    catch {
+        Write-LeftAligned "$FGRed$Global:Char_RedCross Failed: $($_.Exception.Message)$Reset"
+    }
 }
 
 function Invoke-WA_SetPUA {
@@ -708,12 +683,12 @@ function Invoke-WA_SetMemoryIntegrity {
         
 
 
-        Write-Host "[SUCCESS] Memory Integrity Registry Keys set." -ForegroundColor Green
-        Write-Host "A system restart is required for this change to take effect." -ForegroundColor Cyan
+        Write-LeftAligned "$FGGreen$Global:Char_HeavyCheck Memory Integrity Registry Keys set.$Reset"
+        Write-LeftAligned "$FGCyan A system restart is required for this change to take effect.$Reset"
     }
     catch {
-        Write-Host "[ERROR] Failed to set registry key: $($_.Exception.Message)" -ForegroundColor Red
-        Write-Host "Possible causes: Tamper Protection is active, or insufficient permissions." -ForegroundColor Gray
+        Write-LeftAligned "$FGRed$Global:Char_RedCross Failed to set registry key: $($_.Exception.Message)$Reset"
+        Write-LeftAligned "$FGGray Possible causes: Tamper Protection is active, or insufficient permissions.$Reset"
     }
 }
 
@@ -753,12 +728,12 @@ function Invoke-WA_SetKernelStack {
         
 
 
-        Write-Host "[SUCCESS] Kernel-mode Stack Protection Registry Keys set." -ForegroundColor Green
-        Write-Host "A system restart is required for this change to take effect." -ForegroundColor Cyan
+        Write-LeftAligned "$FGGreen$Global:Char_HeavyCheck Kernel-mode Stack Protection Registry Keys set.$Reset"
+        Write-LeftAligned "$FGCyan A system restart is required for this change to take effect.$Reset"
     }
     catch {
-        Write-Host "[ERROR] Failed to set registry key: $($_.Exception.Message)" -ForegroundColor Red
-        Write-Host "Possible causes: Tamper Protection is active, or insufficient permissions." -ForegroundColor Gray
+        Write-LeftAligned "$FGRed$Global:Char_RedCross Failed to set registry key: $($_.Exception.Message)$Reset"
+        Write-LeftAligned "$FGGray Possible causes: Tamper Protection is active, or insufficient permissions.$Reset"
     }
 }
 
@@ -1007,6 +982,124 @@ function Invoke-WA_SetWindowsUpdateConfig {
         Write-Log -Message "Applied Windows Update settings (Config Phase)." -Level INFO
     }
     catch { Write-LeftAligned "$FGRed$Char_RedCross Error applying update settings: $($_.Exception.Message)$Reset" }
+}
+
+function Invoke-WA_SetContextMenu {
+    param([switch]$Undo)
+    Write-Header "CLASSIC CONTEXT MENU"
+    
+    $Path = "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32"
+    
+    try {
+        if ($Undo) {
+            # Revert to Windows 11 Default (Delete Key)
+            if (Test-Path $Path) {
+                Remove-Item -Path "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}" -Recurse -Force -ErrorAction SilentlyContinue
+                Write-LeftAligned "$FGGreen$Char_HeavyCheck Reverted to Windows 11 Default Menu.$Reset"
+                Write-LeftAligned "$FGCyan Restart Explorer to apply.$Reset"
+            }
+            else {
+                Write-LeftAligned "$FGGray Already using default menu.$Reset"
+            }
+        }
+        else {
+            # Enable Classic Menu (Create Key with Default Empty Value)
+            if (-not (Test-Path $Path)) {
+                New-Item -Path $Path -Force | Out-Null
+            }
+            # Set Default property to empty string (Required for this hack)
+            Set-ItemProperty -Path $Path -Name "(default)" -Value "" -Force
+            
+            Write-LeftAligned "$FGGreen$Char_HeavyCheck Classic Context Menu Enabled.$Reset"
+            Write-LeftAligned "$FGCyan Restart Explorer to apply.$Reset"
+        }
+        
+        Write-LeftAligned "Restarting Explorer..."
+        Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 1
+        Start-Process explorer
+    }
+    catch {
+        Write-LeftAligned "$FGRed$Char_RedCross Failed: $($_.Exception.Message)$Reset"
+    }
+}
+
+# --- ATTESTATION HELPERS (Global Access) ---
+function Test-Reg { param($P, $N, $V) try { (Get-ItemProperty $P $N -EA 0).$N -eq $V } catch { $false } }
+
+function Test-WinAutoAttestation {
+    # Returns $true if ALL critical configuration items are currently compliant.
+    # Used by SmartRUN to force specific repairs even if "Last Run" was recent.
+    
+    # 1. Registry Checks (Fast)
+    $s_Edge = Test-Reg "HKCU:\Software\Microsoft\Edge\SmartScreenPuaEnabled" "(default)" 1
+    $s_Mem = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity" "Enabled" 1
+    $s_Kern = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\KernelShadowStacks" "Enabled" 1
+    $s_LSA = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" "RunAsPPL" 1
+    $s_Task = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" "SearchboxTaskbarMode" 3
+    $s_View = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "ShowTaskViewButton" 0
+    $s_MU = Test-Reg "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" "AllowMUUpdateService" 1
+    $s_Rest = Test-Reg "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" "RestartNotificationsAllowed2" 1
+    $s_Pers = Test-Reg "HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" "RestartApps" 1
+    
+    # 2. Context Menu
+    $ctxPath = "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32"
+    $s_Ctx = $false
+    if (Test-Path $ctxPath) {
+        $val = (Get-ItemProperty $ctxPath)."(default)"
+        if ($val -eq "") { $s_Ctx = $true }
+    }
+    
+    # 3. Widgets Check (TaskbarDa: 0=Hidden/Compliant, 1=Visible)
+    $s_Wid = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "TaskbarDa" 0
+
+    # 4. WMI Checks (Real-Time & Firewall) - Critical Security
+    $s_RT = $false; $s_PUA = $false; $s_FW = $false
+    try { 
+        $mp = Get-MpPreference -ErrorAction SilentlyContinue
+        $s_RT = $mp.DisableRealtimeMonitoring -eq $false
+        $s_PUA = $mp.PUAProtection -eq 1
+    }
+    catch { $s_RT = $true; $s_PUA = $true } 
+    
+    try {
+        $profiles = Get-NetFirewallProfile
+        $allEnabled = $true
+
+        foreach ($profile in $profiles) {
+            $isEnabled = $profile.Enabled -eq $true
+            if (-not $isEnabled) { $allEnabled = $false }
+
+            if ($isEnabled) {
+                Write-LeftAligned "$FGGreen$Char_BallotCheck  $($profile.Name) Firewall: ENABLED$Reset"
+            }
+            else {
+                Write-LeftAligned "$FGRed$Char_RedCross  $($profile.Name) Firewall: DISABLED$Reset"
+            }
+        }
+
+        Write-Host ""
+
+        # Summary status
+        if ($allEnabled) {
+            Write-LeftAligned "$FGGreen$Char_HeavyCheck All firewall profiles are ENABLED.$Reset"
+        }
+        else {
+            Write-LeftAligned "$FGDarkYellow$Char_Warn One or more firewall profiles are DISABLED.$Reset"
+        }
+        $s_FW = $allEnabled
+
+    }
+    catch {
+        Write-LeftAligned "$FGRed$Char_RedCross  Error detecting firewall state: $($_.Exception.Message)$Reset"
+        $s_FW = $false
+    }
+    
+    # Check Aggregate
+    if (-not ($s_Edge -and $s_Mem -and $s_Kern -and $s_LSA -and $s_Task -and $s_View -and $s_MU -and $s_Rest -and $s_Pers -and $s_Ctx -and $s_Wid -and $s_RT -and $s_PUA -and $s_FW)) {
+        return $false
+    }
+    return $true
 }
 
 # --- MAINTENANCE FUNCTIONS ---
@@ -1305,10 +1398,19 @@ function Invoke-WinAutoConfiguration {
     Write-LeftAligned "$FGGray Last Run: $FGWhite$lastRun$Reset"
 
     if ($SmartRun -and $lastRun -ne "Never") {
+        # Check 30-day freshness
         $lastDate = Get-Date $lastRun
         if ((Get-Date) -lt $lastDate.AddDays(30)) {
-            Write-LeftAligned "$FGGreen$Global:Char_CheckMark Configuration is up to date. Skipping...$Reset"
-            return
+            # TIME SAYS SKIP, BUT WE MUST AUDIT COMPLIANCE
+            # If Attestation passes, we can safely skip. If it fails, we MUST run.
+            Write-LeftAligned "$FGGray History valid. verifying system compliance..."
+            if (Test-WinAutoAttestation) {
+                Write-LeftAligned "$FGGreen$Global:Char_CheckMark System Compliant. Skipping...$Reset"
+                return
+            }
+            else {
+                Write-LeftAligned "$FGRed$Global:Char_Warn DRIFT DETECTED. Forcing Re-Configuration.$Reset"
+            }
         }
     }
     Write-Boundary
@@ -1321,6 +1423,7 @@ function Invoke-WinAutoConfiguration {
     Invoke-WA_SetKernelStack
     
     # UI & Performance
+    Invoke-WA_SetContextMenu
     Invoke-WA_SetTaskbarDefaults
     Invoke-WA_SetWindowsUpdateConfig
     
@@ -1563,35 +1666,110 @@ while ($true) {
     $chPad = " " * $chPadCount
 
     if ($MenuSelection -eq 2) {
-        Write-LeftAligned "$ArrC${FGBlack}${BGYellow}Configure${Reset}${FGGray} Operating System:${Reset}$chPad${FGDarkBlue}| ${FGGray}$cHeadRight${Reset}" -Indent 0
+        Write-LeftAligned "$ArrC${FGBlack}${BGYellow}Configure${Reset}${FGGray} Operating System:${Reset}$chPad   ${FGDarkBlue}| ${FGGray}$cHeadRight${Reset}" -Indent 0
     }
     else {
-        Write-LeftAligned "$ArrC${FGYellow}C${FGDarkGray}onfigure Operating System:${Reset}$chPad${FGDarkBlue}| ${FGDarkGray}$cHeadRight${Reset}" -Indent 0
+        Write-LeftAligned "$ArrC${FGYellow}C${FGDarkGray}onfigure Operating System:${Reset}$chPad   ${FGDarkBlue}| ${FGDarkGray}$cHeadRight${Reset}" -Indent 0
     }
     
     # Config Details
     $cDetailColor = if ($MenuSelection -eq 2) { $FGGray } else { $FGDarkGray }
     
-    # Helper to print item
+    # Helper to print item with status
     function Write-ColItem {
-        param($Txt, $Met) 
+        param($Txt, $Met, $Status) 
+        # Status: $true (Green v), $false (Red x), $null (Gray -)
+        $icon = if ($null -eq $Status) { "${FGDarkGray}[-]${Reset}" } elseif ($Status) { "${FGGreen}[v]${Reset}" } else { "${FGRed}[x]${Reset}" }
         $pad = " " * (28 - $Txt.Length); 
-        Write-LeftAligned "${cDetailColor}- $Txt${Reset}$pad${FGDarkBlue}| ${cDetailColor}$Met${Reset}" -Indent 3 
+        Write-LeftAligned "$icon ${cDetailColor}$Txt${Reset}$pad${FGDarkBlue}| ${cDetailColor}$Met${Reset}" -Indent 3 
     }
     
-    Write-ColItem "Real-Time Protection" "PowerShell WMI"
-    Write-ColItem "PUA Protection" "PowerShell WMI"
-    Write-ColItem "PUA Protection (Edge)" "Registry (HKCU)"
-    Write-ColItem "Memory Integrity" "Registry (HKLM)"
-    Write-ColItem "Kernel Stack Protection" "Registry (HKLM)"
-    Write-ColItem "LSA Protection" "Registry (HKLM)"
-    Write-ColItem "Windows Firewall" "PowerShell Cmdlet"
-    Write-ColItem "Taskbar Search Box" "Registry (HKCU)"
-    Write-ColItem "Task View Toggle" "Registry (HKCU)"
-    Write-ColItem "Widgets Toggle" "UI Automation"
-    Write-ColItem "Microsoft Update Service" "Registry (HKLM)"
-    Write-ColItem "Restart Notifications" "Registry (HKLM)"
-    Write-ColItem "App Restart Persistence" "Registry (HKCU)"
+    # --- LIVE STATUS CHECKS (Lightweight) ---
+    $s_RT = $null; $s_PUA = $null; $s_FW = $null
+    if ($MenuSelection -eq 2) {
+        try { 
+            $mp = Get-MpPreference -ErrorAction SilentlyContinue
+            $s_RT = $mp.DisableRealtimeMonitoring -eq $false
+            $s_PUA = $mp.PUAProtection -eq 1
+        }
+        catch { $s_RT = $false; $s_PUA = $false } # Default to Red on error
+        
+        try {
+            $profiles = Get-NetFirewallProfile
+            $allEnabled = $true
+
+            foreach ($profile in $profiles) {
+                $isEnabled = $profile.Enabled -eq $true
+                if (-not $isEnabled) { $allEnabled = $false }
+            }
+
+            $s_FW = $allEnabled
+        }
+        catch { $s_FW = $false }
+    }
+    
+    # Registry Checks (Fast)
+    function Test-Reg { param($P, $N, $V) try { (Get-ItemProperty $P $N -EA 0).$N -eq $V } catch { $false } }
+    
+    $s_Edge = Test-Reg "HKCU:\Software\Microsoft\Edge\SmartScreenPuaEnabled" "(default)" 1
+    $s_Mem = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity" "Enabled" 1
+    $s_Kern = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\KernelShadowStacks" "Enabled" 1
+    $s_LSA = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" "RunAsPPL" 1
+    $s_Task = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" "SearchboxTaskbarMode" 3
+    $s_View = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "ShowTaskViewButton" 0
+    $s_MU = Test-Reg "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" "AllowMUUpdateService" 1
+    $s_Rest = Test-Reg "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" "RestartNotificationsAllowed2" 1
+    $s_Pers = Test-Reg "HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" "RestartApps" 1
+    
+    # Widgets Check via Registry (0=Hidden)
+    $s_Wid = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "TaskbarDa" 0
+
+    # Classic Context Menu Check (InprocServer32 Default Value must be empty string)
+    $ctxPath = "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32"
+    $s_Ctx = $false
+    if (Test-Path $ctxPath) {
+        $val = (Get-ItemProperty $ctxPath)."(default)"
+        if ($val -eq "") { $s_Ctx = $true }
+    }
+    
+    # --- LIVE WMI CHECKS ---
+    $s_RT = $null; $s_PUA = $null; $s_FW = $null
+    if ($MenuSelection -eq 2) {
+        try { 
+            $mp = Get-MpPreference -ErrorAction SilentlyContinue
+            $s_RT = $mp.DisableRealtimeMonitoring -eq $false
+            $s_PUA = $mp.PUAProtection -eq 1
+        }
+        catch { $s_RT = $false; $s_PUA = $false } # Default to Red on error
+        
+        try {
+            $profiles = Get-NetFirewallProfile
+            $allEnabled = $true
+
+            foreach ($profile in $profiles) {
+                $isEnabled = $profile.Enabled -eq $true
+                if (-not $isEnabled) { $allEnabled = $false }
+            }
+
+            $s_FW = $allEnabled
+        }
+        catch { $s_FW = $false }
+    }
+
+    Write-ColItem "Real-Time Protection" "PowerShell WMI" $s_RT
+    Write-ColItem "PUA Protection" "PowerShell WMI" $s_PUA
+    Write-ColItem "PUA Protection (Edge)" "Registry (HKCU)" $s_Edge
+    Write-ColItem "Memory Integrity" "Registry (HKLM)" $s_Mem
+    Write-ColItem "Kernel Stack Protection" "Registry (HKLM)" $s_Kern
+    Write-ColItem "LSA Protection" "Registry (HKLM)" $s_LSA
+    Write-ColItem "Windows Firewall" "PS Cmdlet" $s_FW
+    Write-ColItem "Classic Context Menu" "Registry (HKCU)" $s_Ctx
+    Write-ColItem "Taskbar Search Box" "Registry (HKCU)" $s_Task
+    Write-ColItem "Task View Toggle" "Registry (HKCU)" $s_View
+    Write-ColItem "Widgets Toggle" "UI Automation" $s_Wid
+    Write-ColItem "Microsoft Update Service" "Registry (HKLM)" $s_MU
+    Write-ColItem "Restart Notifications" "Registry (HKLM)" $s_Rest
+    Write-ColItem "App Restart Persistence" "Registry (HKCU)" $s_Pers
     
     Write-Host ""
     
@@ -1623,7 +1801,7 @@ while ($true) {
     }
     
     Write-MaintItem "WinGet App Updates" "CMD Line"
-    Write-MaintItem "Drive Optimization (TRIM)" "PowerShell Cmdlet"
+    Write-MaintItem "Drive Optimization" "PS Cmdlet"
     Write-MaintItem "Temp File Cleanup" "File System"
     Write-MaintItem "SFC / DISM Repair" "CMD Line"
 
