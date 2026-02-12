@@ -1,0 +1,41 @@
+WinAuto Standalone Development Roadmap & Feature Manifest
+=======================================================
+
+CURRENT STATUS (Integrated Features):
+------------------------------------
+1. Windows Update Configuration
+
+2. UI Automation Reliability
+   * Widget Toggling: Switched to UI Automation (Switch Flip method) to bypass kernel-level registry locks.
+   * Kernel Stack Protection: Integrated UI Automation fallback for Windows Security settings.
+   * Memory Integrity: Integrated UI Automation for toggling Core Isolation settings.
+3. UI Refinement
+   * Taskbar Search: Configured to 'Search box' (Windows 11 mode) for better accessibility.
+4. Environment Setup
+   * Self-Configuring Execution Policy: Pre-run setup automatically sets policy to 'RemoteSigned'.
+
+UPCOMING FEATURES (For 'Customizer' Logic):
+------------------------------------------
+1. Network Security (Planned)
+   * Legacy Protocols: Disables LLMNR via Registry.
+   * NetBIOS: Disables NetBIOS over TCP/IP on active adapters.
+   * Secure DNS: Automated configuration for Cloudflare DNS (1.1.1.1).
+2. Privacy & System Tweaks (Planned)
+   * Bloatware Removal: Silent uninstallation of junk apps (Spotify, TikTok, Candy Crush, etc.).
+   * Classic Context Menu: Restores Windows 10 style right-click menu natively.
+   * Explorer Configuration: Force show file extensions and hidden files.
+3. Interface Enhancements (Planned)
+   * Taskbar Alignment: Left align toggle for Windows 10 style navigation.
+   * Performance Mode: Visual Effects "Best Performance" toggle (visual impact warned).
+
+DEPRECATED / PENDING REVIEW:
+---------------------------
+* PowerShell Auditing: High log noise for standalone users.
+* User Account Hiding: Risk of accidental lockout.
+* High Performance Plan: Modern Windows power management is usually superior for battery life.
+
+SCRIPT VARIANTS (Future Roadmap):
+--------------------------------
+* WinAutoSECURE.ps1: Maximum hardening variant with all features enabled by default.
+* WinAutoCUSTOM.ps1: Community-built config based on user-selected profiles (Dev, Office, Gamer).
+* WinAutoMOUSE: Some type of script / app that allows the user to use a mouse or other input device other than a keyboard to interact
