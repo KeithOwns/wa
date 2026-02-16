@@ -24,8 +24,7 @@ It combines intelligent application orchestration, security hardening (CIS/NIST 
 ## 🏗️ Self-Contained Architecture
 
 WinAuto follows a **single-file delivery model**. 
-- **`wa.ps1`**: The Core Logic engine. It contains all necessary functions, UI rendering code, and logic internally. It does NOT require installing PowerShell modules from the gallery.
-- **`wai.ps1`**: The App-Integrated variant. It embeds the application list directly into the script, allowing for a strictly single-file execution without external JSON configs.
+- **`wa.ps1`**: The Core Logic engine. It contains all necessary functions, UI rendering code, and logic internally. It **embeds the application configuration**, requiring no external files.
 
 **Key Benefits:**
 1.  **Air-Gap Ready**: Copy the script to a USB drive and run it on a machine with no internet access.
@@ -86,8 +85,7 @@ iex (irm "https://raw.githubusercontent.com/KeithOwns/wa/main/dev/wa.ps1")
 
 **Option B: Manual Download (Air-Gap / Secure)**
 1.  Download `wa.ps1`.
-2.  (Optional) Place `Install_RequiredApps-Config.json` in the same folder.
-3.  Run from Administrator PowerShell:
+2.  Run from Administrator PowerShell:
     ```powershell
     .\wa.ps1
     ```
@@ -116,9 +114,9 @@ WinAuto features a unified, keyboard-driven text UI (TUI).
 
 ## ⚙️ Configuration (JSON)
 
-Application installation is driven by `Install_RequiredApps-Config.json`. If missing, WinAuto can download a default template.
+Application installation is driven by an **embedded JSON configuration** within `wa.ps1`. You can edit the `Get-WA_InstallAppList` function directly to modify the list of applications.
 
-**Schema:**
+**Internal Schema:**
 ```json
 {
   "BaseApps": [
