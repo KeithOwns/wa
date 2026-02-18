@@ -244,24 +244,24 @@ ${FGDarkCyan}__________________________________________________________${Reset}
 ${FGCyan}ACTION${Reset}                   ${FGDarkGray}|${Reset} ${FGCyan}STAGE${Reset}    ${FGDarkGray}|${Reset} ${FGDarkCyan}SOURCE SCRIPT${Reset}
 ${FGDarkGray}----------------------------------------------------------${Reset}
 Install Applications     ${FGDarkGray}|${Reset} ${FGDarkCyan}Install${Reset}  ${FGDarkGray}|${Reset} ${FGGray}wa.ps1 (Embedded)${Reset}
-Real-Time Protection     ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_RealTimeProtect${Reset}
-PUA Protection           ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_DefenderPUA${Reset}
-PUA Protection (Edge)    ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_EdgePUA${Reset}
-Memory Integrity         ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_MemoryIntegrity${Reset}
-Kernel Stack Protection  ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_KernelMode${Reset}
-LSA Protection           ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_LocalSecurityAuth${Reset}
-Windows Firewall         ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_FirewallON${Reset}
-Classic Context Menu     ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}wa.ps1${Reset}
-Taskbar Search Box       ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_TaskbarSearchIcon${Reset}
-Task View Toggle         ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_DisableTaskView${Reset}
-Widgets Toggle           ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_WidgetsUIA${Reset}
-Microsoft Update         ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_MicrosoftUpdate${Reset}
-Restart Notifications    ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_RestartIsRequired${Reset}
-App Restart Persistence  ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_RestartApps${Reset}
-WinGet App Updates       ${FGDarkGray}|${Reset} ${FGDarkBlue}Maintain${Reset} ${FGDarkGray}|${Reset} ${FGGray}RUN_WingetUpgrade${Reset}
-Drive Optimization       ${FGDarkGray}|${Reset} ${FGDarkBlue}Maintain${Reset} ${FGDarkGray}|${Reset} ${FGGray}RUN_OptimizeDisks${Reset}
-Temp File Cleanup        ${FGDarkGray}|${Reset} ${FGDarkBlue}Maintain${Reset} ${FGDarkGray}|${Reset} ${FGGray}RUN_SystemCleanup${Reset}
-SFC / DISM Repair        ${FGDarkGray}|${Reset} ${FGDarkBlue}Maintain${Reset} ${FGDarkGray}|${Reset} ${FGGray}RUN_WindowsRepair${Reset}
+Real-Time Protection     ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_RealTimeProt.ps1${Reset}
+PUA Protection           ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_DefenderPUA.ps1${Reset}
+PUA Protection (Edge)    ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_EdgePUA.ps1${Reset}
+Memory Integrity         ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_MemoryInteg.ps1${Reset}
+Kernel Stack Protection  ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_KernelMode.ps1${Reset}
+LSA Protection           ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_LocalSecurity.ps1${Reset}
+Windows Firewall         ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_FirewallON.ps1${Reset}
+Classic Context Menu     ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_ClassicMenu.ps1${Reset}
+Taskbar Search Box       ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_TaskbarSearch.ps1${Reset}
+Task View Toggle         ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_TaskViewOFF.ps1${Reset}
+Widgets Toggle           ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}UIA_WidgetsOFF.ps1${Reset}
+Microsoft Update         ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_MicrosoftUpd.ps1${Reset}
+Restart Notifications    ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_RestartIsReq.ps1${Reset}
+App Restart Persistence  ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_RestartApps.ps1${Reset}
+WinGet App Updates       ${FGDarkGray}|${Reset} ${FGDarkBlue}Maintain${Reset} ${FGDarkGray}|${Reset} ${FGGray}RUN_WingetUpgrade.ps1${Reset}
+Drive Optimization       ${FGDarkGray}|${Reset} ${FGDarkBlue}Maintain${Reset} ${FGDarkGray}|${Reset} ${FGGray}RUN_OptimizeDisks.ps1${Reset}
+Temp File Cleanup        ${FGDarkGray}|${Reset} ${FGDarkBlue}Maintain${Reset} ${FGDarkGray}|${Reset} ${FGGray}RUN_SystemCleanup.ps1${Reset}
+SFC / DISM Repair        ${FGDarkGray}|${Reset} ${FGDarkBlue}Maintain${Reset} ${FGDarkGray}|${Reset} ${FGGray}RUN_WindowsRepair.ps1${Reset}
 ${FGDarkCyan}__________________________________________________________${Reset}
 ${FGDarkCyan}__________________________________________________________${Reset}
 "@
@@ -280,7 +280,7 @@ Memory Integrity,Configure,SET_MemoryIntegrity.ps1,Registry (HKLM),HKLM:\SYSTEM\
 Kernel Stack Protection,Configure,SET_KernelMode.ps1,Registry (HKLM),HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\KernelShadowStacks (Enabled=1),Yes,Yes,Security,Invoke-WA_SetKernelStack
 LSA Protection,Configure,SET_LocalSecurityAuth.ps1,Registry (HKLM),HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\RunAsPPL (1),Yes,Yes,Security,Invoke-WA_SetLSA
 Windows Firewall,Configure,SET_FirewallON.ps1,PowerShell Cmdlt,Set-NetFirewallProfile -Enabled True,Yes,No,Security,Invoke-WA_SetFirewall
-Classic Context Menu,Configure,wa.ps1,Registry (HKCU),HKCU:\Software\Classes\CLSID\{86ca1aa0...}\InprocServer32,Yes,No,UI,Invoke-WA_SetContextMenu
+Classic Context Menu,Configure,SET_ClassicMenu.ps1,Registry (HKCU),HKCU:\Software\Classes\CLSID\{86ca1aa0...}\InprocServer32,Yes,No,UI,Invoke-WA_SetContextMenu
 Taskbar Search Box,Configure,SET_TaskbarSearchIcon.ps1,Registry (HKCU),HKCU:\Software\Microsoft\Windows\CurrentVersion\Search\SearchboxTaskbarMode (3),Yes,No,UI,Invoke-WA_SetTaskbarDefaults
 Task View Toggle,Configure,SET_DisableTaskView.ps1,Registry (HKCU),HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced\ShowTaskViewButton (0),Yes,No,UI,Invoke-WA_SetTaskbarDefaults
 Widgets Toggle,Configure,SET_WidgetsUIA.ps1,Registry (HKCU),HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced\TaskbarDa (0),Yes,No,UI,Invoke-WA_SetTaskbarDefaults
@@ -1365,41 +1365,20 @@ function Invoke-WA_SetVirusThreatProtect {
 
 function Invoke-WA_SetContextMenu {
     param([switch]$Undo)
-    Write-Header "CLASSIC CONTEXT MENU"
     
-    $Path = "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32"
+    $scriptPath = "$PSScriptRoot\scripts\AtomicScripts\SET_ClassicMenu.ps1"
     
-    try {
+    if (Test-Path $scriptPath) {
+        # Pass -Reverse if Undo switch is present (mapping old wa.ps1 logic to new standard)
         if ($Undo) {
-            # Revert to Windows 11 Default (Delete Key)
-            if (Test-Path $Path) {
-                Remove-Item -Path "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}" -Recurse -Force -ErrorAction SilentlyContinue
-                Write-LeftAligned "$FGGreen$Char_HeavyCheck Reverted to Windows 11 Default Menu.$Reset"
-                Write-LeftAligned "$FGCyan Restart Explorer to apply.$Reset"
-            }
-            else {
-                Write-LeftAligned "$FGGray Already using default menu.$Reset"
-            }
+            & $scriptPath -Reverse
         }
         else {
-            # Enable Classic Menu (Create Key with Default Empty Value)
-            if (-not (Test-Path $Path)) {
-                New-Item -Path $Path -Force | Out-Null
-            }
-            # Set Default property to empty string (Required for this hack)
-            Set-ItemProperty -Path $Path -Name "(default)" -Value "" -Force
-            
-            Write-LeftAligned "$FGGreen$Char_HeavyCheck Classic Context Menu Enabled.$Reset"
-            Write-LeftAligned "$FGCyan Restart Explorer to apply.$Reset"
+            & $scriptPath
         }
-        
-        Write-LeftAligned "Restarting Explorer..."
-        Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
-        Start-Sleep -Seconds 1
-        Start-Process explorer
     }
-    catch {
-        Write-LeftAligned "$FGRed$Char_RedCross Failed: $($_.Exception.Message)$Reset"
+    else {
+        Write-LeftAligned "$FGRed$Global:Char_RedCross Script not found: SET_ClassicMenu.ps1$Reset"
     }
 }
 
@@ -2156,6 +2135,13 @@ while ($true) {
 
 
 
+    if ($MenuSelection -eq 0) {
+        Write-Centered "${FGBlack}${BGDarkGray}__MANUAL-MODE-OFF__${Reset}"
+        # Alternative: Write-Centered "${FGBlack}${BGDarkGray}  MANUAL-MODE-OFF  ${Reset}"
+    }
+    else {
+        Write-Centered "${FGYellow}${BGDarkCyan}__MANUAL-MODE-ON__${Reset}"
+    }
     Write-Boundary # Separator
 
     # [I]nstall Applications (Pos 1)
@@ -2225,7 +2211,7 @@ while ($true) {
     }
     Write-Host ""
     
-    Write-LeftAligned "${FGDarkGray}[${FGWhite}1${FGDarkGray}] ${FGWhite}ENABLED / ${FGDarkGray}[${FGWhite}0${FGDarkGray}] ${FGWhite}DISABLED       ${FGDarkGray}|${FGWhite} METHOD$Reset" -Indent 2
+    Write-LeftAligned "${FGDarkGray}[${FGWhite}1${FGDarkGray}] ${FGWhite}ENABLED / ${FGDarkGray}[${FGWhite}0${FGDarkGray}] ${FGWhite}DISABLED       ${FGDarkGray}|${FGWhite} ATOMICSCRIPT$Reset" -Indent 2
     Write-Centered "${FGDarkGray}--------------------------------------------------------$Reset"
     
     # Config Details
@@ -2253,7 +2239,6 @@ while ($true) {
         $s_RT = $false; $s_PUA = $false 
         Write-Log "Failed to query Defender Preferences via WMI: $($_.Exception.Message)" -Level WARN
     } 
-
     
     try {
         $profiles = Get-NetFirewallProfile
@@ -2300,20 +2285,20 @@ while ($true) {
     # --- LIVE WMI CHECKS ---
 
 
-    Write-ColItem "Real-Time Protection" "PowerShell WMI" $s_RT
-    Write-ColItem "PUA Protection" "PowerShell WMI" $s_PUA
-    Write-ColItem "PUA Protection (Edge)" "Registry (HKCU)" $s_Edge
-    Write-ColItem "Memory Integrity" "Registry (HKLM)" $s_Mem
-    Write-ColItem "Kernel Stack Protection" "Registry (HKLM)" $s_Kern
-    Write-ColItem "LSA Protection" "Registry (HKLM)" $s_LSA
-    Write-ColItem "Windows Firewall" "PowerShell Cmdlt" $s_FW
-    Write-ColItem "Classic Context Menu" "Registry (HKCU)" $s_Ctx
-    Write-ColItem "Taskbar Search Box" "Registry (HKCU)" $s_Task
-    Write-ColItem "Task View Toggle" "Registry (HKCU)" $s_View
-    Write-ColItem "Widgets Toggle" "UI Automation" $s_Wid
-    Write-ColItem "Microsoft Update Service" "Registry (HKLM)" $s_MU
-    Write-ColItem "Restart Notifications" "Registry (HKLM)" $s_Rest
-    Write-ColItem "App Restart Persistence" "Registry (HKCU)" $s_Pers
+    Write-ColItem "Real-Time Protection" "SET_RealTimeProt.ps1" $s_RT
+    Write-ColItem "PUA Protection" "SET_DefenderPUA.ps1" $s_PUA
+    Write-ColItem "PUA Protection (Edge)" "SET_EdgePUA.ps1" $s_Edge
+    Write-ColItem "Memory Integrity" "SET_MemoryInteg.ps1" $s_Mem
+    Write-ColItem "Kernel Stack Protection" "SET_KernelMode.ps1" $s_Kern
+    Write-ColItem "LSA Protection" "SET_LocalSecurity.ps1" $s_LSA
+    Write-ColItem "Windows Firewall" "SET_FirewallON.ps1" $s_FW
+    Write-ColItem "Classic Context Menu" "SET_ClassicMenu.ps1" $s_Ctx
+    Write-ColItem "Taskbar Search Box" "SET_TaskbarSearch.ps1" $s_Task
+    Write-ColItem "Task View Toggle" "SET_TaskViewOFF.ps1" $s_View
+    Write-ColItem "Widgets Toggle" "UIA_WidgetsOFF.ps1" $s_Wid
+    Write-ColItem "Microsoft Update Service" "SET_MicrosoftUpd.ps1" $s_MU
+    Write-ColItem "Restart Notifications" "SET_RestartIsReq.ps1" $s_Rest
+    Write-ColItem "App Restart Persistence" "SET_RestartApps.ps1" $s_Pers
     
     Write-Host ""
     
@@ -2373,14 +2358,12 @@ while ($true) {
         Write-LeftAligned "${FGDarkGray}[${statusColor}$prefix${FGDarkGray}]${mDetailColor} $Txt${Reset}$pad${FGDarkGray}| ${mDetailColor}$Met${Reset}" -Indent 3  
     }
 
-    Write-LeftAligned "${FGDarkGray}[${FGWhite}#${FGDarkGray}]${FGWhite} OF DAYS SINCE LAST RUN      ${FGDarkGray}|${FGWhite} METHOD$Reset" -Indent 3
+    Write-LeftAligned "${FGDarkGray}[${FGWhite}#${FGDarkGray}]${FGWhite} OF DAYS SINCE LAST RUN      ${FGDarkGray}|${FGWhite} ATOMICSCRIPT$Reset" -Indent 3
     Write-Centered "${FGDarkGray}--------------------------------------------------------$Reset"
-    Write-MaintItem "WinGet App Updates" "Command Line" "Maintenance_WinUpdate" -Threshold 1
-    Write-MaintItem "Windows Settings Update" "UI Automation" "Maintenance_WinUpdate" -Threshold 1
-    Write-MaintItem "Microsoft Store Updates" "UI Automation" "Maintenance_WinUpdate" -Threshold 1
-    Write-MaintItem "Drive Optimization" "PowerShell Cmdlt" "Maintenance_Disk" -Threshold 7
-    Write-MaintItem "Temp File Cleanup" "File System" "Maintenance_Cleanup" -Threshold 7
-    Write-MaintItem "SFC / DISM Repair" "Command Line" "Maintenance_SFC" -Threshold 30
+    Write-MaintItem "WinGet App Updates" "RUN_WingetUpgrade.ps1" "Maintenance_WinUpdate" -Threshold 1
+    Write-MaintItem "Drive Optimization" "RUN_OptimizeDisks.ps1" "Maintenance_Disk" -Threshold 7
+    Write-MaintItem "Temp File Cleanup" "RUN_SystemCleanup.ps1" "Maintenance_Cleanup" -Threshold 7
+    Write-MaintItem "SFC / DISM Repair" "RUN_WindowsRepair.ps1" "Maintenance_SFC" -Threshold 30
 
     Write-Host ""
     Write-Host ""
