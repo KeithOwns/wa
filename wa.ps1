@@ -1707,12 +1707,12 @@ function Invoke-WA_SetRealTimeProt {
 
 }
 
-function Invoke-WA_SetDefenderPUA {
+function Invoke-WA_SetPUABlockApps {
     <#
 .SYNOPSIS
-    Enables or Disables Windows Defender PUA Protection.
+    Enables or Disables PUA (Potentially Unwanted Application) Blocking.
 .DESCRIPTION
-    Standardized for WinAuto. Configures System-wide Windows Defender PUA Protection.
+    Standardized for WinAuto.
     Standalone version: Can be copy-pasted directly into PowerShell.
     Includes Reverse Mode (-r) to undo changes.
 .PARAMETER Reverse
@@ -1725,7 +1725,7 @@ function Invoke-WA_SetDefenderPUA {
         [switch]$Force
     )
     # --- MAIN LOGIC ---
-    Write-Header "DEFENDER PUA PROTECTION"
+    Write-Header "PUA BLOCK APPS"
 
     try {
         $targetMp = if ($Reverse) { 0 } else { 1 }
