@@ -264,7 +264,7 @@ Windows Firewall         ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDa
 Classic Context Menu     ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_ClassicMenu.ps1${Reset}
 Taskbar Search Box       ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_TaskbarSearch.ps1${Reset}
 Task View Toggle         ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_TaskViewOFF.ps1${Reset}
-Widgets Toggle           ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}UIA_WidgetsOFF.ps1${Reset}
+
 Microsoft Update         ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_MicrosoftUpd.ps1${Reset}
 Restart Notifications    ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_RestartIsReq.ps1${Reset}
 App Restart Persistence  ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_RestartApps.ps1${Reset}
@@ -293,7 +293,7 @@ Windows Firewall,Configure,SET_FirewallON.ps1,PowerShell Cmdlt,Set-NetFirewallPr
 Classic Context Menu,Configure,SET_ClassicMenu.ps1,Registry (HKCU),HKCU:\Software\Classes\CLSID\{86ca1aa0...}\InprocServer32,Yes,No,UI,Invoke-WA_SetContextMenu
 Taskbar Search Box,Configure,SET_TaskbarSearchIcon.ps1,Registry (HKCU),HKCU:\Software\Microsoft\Windows\CurrentVersion\Search\SearchboxTaskbarMode (3),Yes,No,UI,Invoke-WA_SetTaskbarDefaults
 Task View Toggle,Configure,SET_DisableTaskView.ps1,Registry (HKCU),HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced\ShowTaskViewButton (0),Yes,No,UI,Invoke-WA_SetTaskbarDefaults
-Widgets Toggle,Configure,SET_WidgetsUIA.ps1,Registry (HKCU),HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced\TaskbarDa (0),Yes,No,UI,Invoke-WA_SetTaskbarDefaults
+
 Microsoft Update Service,Configure,SET_MicrosoftUpdate.ps1,Registry (HKLM),HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings\AllowMUUpdateService (1),Yes,No,Config,Invoke-WA_SetWindowsUpdateConfig
 Restart Notifications,Configure,SET_RestartIsRequired.ps1,Registry (HKLM),HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings\RestartNotificationsAllowed2 (1),Yes,No,Config,Invoke-WA_SetWindowsUpdateConfig
 App Restart Persistence,Configure,SET_RestartApps.ps1,Registry (HKCU),HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\RestartApps (1),Yes,No,Config,Invoke-WA_SetWindowsUpdateConfig
@@ -1438,7 +1438,8 @@ function Invoke-WA_InstallApps {
                 }
                 elseif ($app.PSObject.Properties['Url'] -and $app.Url) {
                     # Download and Install (MSI/EXE)
-                    $tempFile = "$env:TEMP\$($app.AppName).$($app.Type.ToLower())"
+                    $ext = if ($app.Type -eq "MSI") { ".msi" } else { ".exe" }
+                    $tempFile = "$env:TEMP\WinAuto_Install$ext"
                     Write-LeftAligned "Downloading installer..."
                     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
                     Invoke-WebRequest -Uri $app.Url -OutFile $tempFile -UseBasicParsing -ErrorAction Stop
@@ -1448,7 +1449,13 @@ function Invoke-WA_InstallApps {
                     if ($app.PSObject.Properties['PreInstallDelay'] -and $app.PreInstallDelay) { Start-Sleep -Seconds $app.PreInstallDelay }
                 
                     $procArgs = if ($app.PSObject.Properties['SilentArgs'] -and $app.SilentArgs) { $app.SilentArgs } else { "/quiet /norestart" }
-                    $p = Start-Process $tempFile -ArgumentList $procArgs -NoNewWindow -PassThru -Wait -ErrorAction Stop
+                    if ($app.Type -eq "MSI") {
+                        $msiArgs = "/i `"$tempFile`" $procArgs"
+                        $p = Start-Process "msiexec.exe" -ArgumentList $msiArgs -Wait -PassThru
+                    }
+                    else {
+                        $p = Start-Process $tempFile -ArgumentList $procArgs -NoNewWindow -PassThru -Wait -ErrorAction Stop
+                    }
                 
                     if ($p.ExitCode -eq 0 -or $p.ExitCode -eq 3010) {
                         Write-LeftAligned "$FGGreen$Global:Char_CheckMark Installation Successful.$Reset"
@@ -1522,7 +1529,6 @@ function Invoke-WinAutoConfiguration {
         Invoke-WA_SetClassicMenu
         Invoke-WA_SetTaskbarSearch
         Invoke-WA_SetTaskViewOFF
-        Invoke-WA_SetWidgetsOFF # UIA
         
         # Updates & Persistence
         Invoke-WA_SetMicrosoftUpd
@@ -2093,95 +2099,6 @@ function Invoke-WA_SetTaskViewOFF {
 
 }
 
-function Invoke-WA_SetWidgetsOFF {
-    <#
-.SYNOPSIS
-    Toggles Widgets via UI Automation.
-.DESCRIPTION
-    Standardized for WinAuto.
-    Uses UIA to toggle Widgets in Taskbar Settings.
-    Required because Registry keys are often overridden by the OS.
-    Standalone version. Includes Reverse Mode (-r).
-.PARAMETER Reverse
-    (Alias: -r) Toggles Widgets ON.
-#>
-    param(
-        [Parameter(Mandatory = $false)]
-        [Alias('r')]
-        [switch]$Reverse
-    )
-
-    function Get-UIAToggleState {
-        param([System.Windows.Automation.AutomationElement]$Element)
-        try {
-            $p = $Element.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
-            return $p.Current.ToggleState # 0=Off, 1=On
-        }
-        catch { return $null }
-    }
-
-    Write-Header "WIDGETS (UIA)"
-
-    try {
-        # Load UIA
-        if (-not ([System.Management.Automation.PSTypeName]"System.Windows.Automation.AutomationElement").Type) {
-            Add-Type -AssemblyName UIAutomationClient
-            Add-Type -AssemblyName UIAutomationTypes
-        }
-    
-        Write-LeftAligned "$FGGray Launching Taskbar Settings...$Reset"
-        Start-Process "ms-settings:taskbar"
-    
-        $Desktop = [System.Windows.Automation.AutomationElement]::RootElement
-        $Window = Get-UIAElement -Parent $Desktop -Name "Settings" -Scope "Children" -TimeoutSeconds 10
-    
-        if ($Window) {
-            $WElement = Get-UIAElement -Parent $Window -Name "Widgets" -Scope "Descendants"
-            if ($WElement) {
-                # In some builds, "Widgets" element is the text, the toggle is adjacent or parent?
-                # Usually the Toggle is named "Widgets" itself.
-              
-                $Toggle = $WElement
-                if ($WElement.Current.ControlType -ne [System.Windows.Automation.ControlType]::Button -and $WElement.Current.ControlType -ne [System.Windows.Automation.ControlType]::CheckBox) {
-                    # Try button inside
-                    $Toggle = Get-UIAElement -Parent $WElement -ControlType "Button" -Scope "Children"
-                }
-              
-                if ($Toggle) {
-                    $State = Get-UIAToggleState -Element $Toggle
-                    $TargetState = if ($Reverse) { 1 } else { 0 }
-                    $TargetStr = if ($Reverse) { "ON" } else { "OFF" }
-                  
-                    if ($State -ne $TargetState) {
-                        $Invoke = $Toggle.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
-                        if ($Invoke) { $Invoke.Invoke() } 
-                        else { 
-                            $TogPattern = $Toggle.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
-                            if ($TogPattern) { $TogPattern.Toggle() }
-                        }
-                        Write-LeftAligned "$FGGreen$Char_HeavyCheck Widgets toggled $TargetStr.$Reset"
-                    }
-                    else {
-                        Write-LeftAligned "$FGGray Widgets are already $TargetStr.$Reset"
-                    }
-                }
-            }
-            else {
-                Write-LeftAligned "$FGRed$Char_RedCross Widgets control not found.$Reset"
-            }
-         
-            try { $Window.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern).Close() } catch {}
-        }
-        else {
-            Write-LeftAligned "$FGRed$Char_RedCross Failed to open Settings.$Reset"
-        }
-
-    }
-    catch {
-        Write-LeftAligned "$FGRed$Char_RedCross Error: $($_.Exception.Message)$Reset"
-    }
-
-}
 
 function Invoke-WA_SetMicrosoftUpd {
     <#
@@ -2813,8 +2730,6 @@ while ($true) {
     $s_Rest = Test-Reg "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" "RestartNotificationsAllowed2" 1
     $s_Pers = Test-Reg "HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" "RestartApps" 1
     
-    # Widgets Check via Registry (0=Hidden)
-    $s_Wid = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "TaskbarDa" 0
 
     # Classic Context Menu Check (InprocServer32 Default Value must be empty string)
     $ctxPath = "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32"
@@ -2837,7 +2752,7 @@ while ($true) {
     Write-ColItem "Classic Context Menu" "SET_ClassicMenu.ps1" $s_Ctx
     Write-ColItem "Taskbar Search Box" "SET_TaskbarSearch.ps1" $s_Task
     Write-ColItem "Task View Toggle" "SET_TaskViewOFF.ps1" $s_View
-    Write-ColItem "Widgets Toggle" "UIA_WidgetsOFF.ps1" $s_Wid
+
     Write-ColItem "Microsoft Update Service" "SET_MicrosoftUpd.ps1" $s_MU
     Write-ColItem "Restart Notifications" "SET_RestartIsReq.ps1" $s_Rest
     Write-ColItem "App Restart Persistence" "SET_RestartApps.ps1" $s_Pers
