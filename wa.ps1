@@ -158,7 +158,7 @@ trap {
     $msg = "CRITICAL UNHANDLED ERROR: $($_.Exception.Message)`n$($_.ScriptStackTrace)"
     try { Write-Log $msg -Level ERROR } catch { Write-Host "LOG FAIL: $msg" -ForegroundColor Red }
     Write-Error $msg
-    exit 1
+    return
 }
 
 # --- MANIFEST CONTENT ---
@@ -735,392 +735,6 @@ function Get-ThirdPartyAV {
 }
 
 
-function Invoke-WA_SetRealTimeProtection {
-    param([switch]$Undo)
-    Write-Header "REAL-TIME PROTECTION"
-
-    if (-not $Undo) {
-        $thirdParty = Get-ThirdPartyAV
-        if ($thirdParty) {
-            Write-LeftAligned "$FGDarkYellow$Global:Char_Warn 3rd Party AV detected ($($thirdParty.displayName)). Skipping Defender config.$Reset"
-            return
-        }
-    }
-    Write-LeftAligned "Enabling Real-Time Protection..."
-    try {
-        Set-MpPreference -DisableRealtimeMonitoring 0 -Force -ErrorAction Stop
-        
-        # Verify
-        $retries = 3
-        $success = $false
-        while ($retries -gt 0) {
-            Start-Sleep -Milliseconds 500
-            $val = (Get-MpPreference).DisableRealtimeMonitoring
-            if ($val -eq $false) { $success = $true; break }
-            $retries--
-        }
-        
-        if ($success) {
-            Write-LeftAligned "$FGGreen$Global:Char_CheckMark Real-Time Protection ON.$Reset"
-        }
-        else {
-            Write-LeftAligned "$FGRed$Global:Char_RedCross Failed verify. Please check manually.$Reset"
-        }
-    }
-    catch {
-        Write-LeftAligned "$FGRed$Global:Char_RedCross Failed: $($_.Exception.Message)$Reset"
-    }
-}
-
-function Invoke-WA_SetPUA {
-    param([switch]$Undo)
-    Write-Header "PUA PROTECTION"
-    try {
-        $target = & { if ($Undo) { 0 } else { 1 } }
-        $statusText = & { if ($Undo) { "DISABLED" } else { "ENABLED" } }
-
-        # 1. Defender PUA
-        if (-not $Undo -and (Get-ThirdPartyAV)) {
-            Write-LeftAligned "$FGGray Skipping Defender PUA (3rd Party AV Active).$Reset"
-        }
-        else {
-            Set-MpPreference -PUAProtection $target -ErrorAction Stop
-            Write-LeftAligned "$FGGreen$Global:Char_HeavyCheck  Defender PUA Blocking is $statusText.$Reset"
-        }
-
-        # 2. Edge PUA
-        Set-RegistryDword -Path "HKCU:\Software\Microsoft\Edge\SmartScreenPuaEnabled" -Name "(default)" -Value $target
-        Write-LeftAligned "$FGGreen$Global:Char_HeavyCheck  Edge 'Block downloads' is $statusText.$Reset"
-    }
-    catch { Write-LeftAligned "$FGRed$Char_RedCross  Failed: $($_.Exception.Message)$Reset" }
-}
-
-function Invoke-WA_SetMemoryIntegrity {
-    # Ensure Admin
-    if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]"Administrator")) {
-        Write-Warning "Run as Administrator required."
-        break
-    }
-
-    $Path = "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity"
-    $Name = "Enabled"
-    $Value = 1
-
-    try {
-        # Create Path if missing
-        if (-not (Test-Path $Path)) {
-            New-Item -Path $Path -Force | Out-Null
-        }
-
-        # Set Value
-        Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type DWord -Force -ErrorAction Stop
-        
-        # Add Tracking Keys
-        Set-ItemProperty -Path $Path -Name "WasEnabledBy" -Value 2 -Type DWord -Force -ErrorAction SilentlyContinue
-        
-
-
-        Write-LeftAligned "$FGGreen$Global:Char_HeavyCheck Memory Integrity Registry Keys set.$Reset"
-        Write-LeftAligned "$FGCyan A system restart is required for this change to take effect.$Reset"
-    }
-    catch {
-        Write-LeftAligned "$FGRed$Global:Char_RedCross Failed to set registry key: $($_.Exception.Message)$Reset"
-        Write-LeftAligned "$FGGray Possible causes: Tamper Protection is active, or insufficient permissions.$Reset"
-    }
-}
-
-function Invoke-WA_SetLSA {
-    param([switch]$Undo)
-    Write-Header "LSA PROTECTION"
-    $target = & { if ($Undo) { 0 } else { 1 } }
-    try {
-        Set-RegistryDword -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -Name "RunAsPPL" -Value $target
-        Write-LeftAligned "$FGGreen$Global:Char_HeavyCheck LSA Protection configured.$Reset"
-    }
-    catch { Write-LeftAligned "$FGRed$Char_RedCross Failed: $($_.Exception.Message)$Reset" }
-}
-
-function Invoke-WA_SetKernelStack {
-    # Ensure Admin
-    if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]"Administrator")) {
-        Write-Warning "Run as Administrator required."
-        break
-    }
-
-    $Path = "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\KernelShadowStacks"
-    $Name = "Enabled"
-    $Value = 1
-
-    try {
-        # Create Path if missing
-        if (-not (Test-Path $Path)) {
-            New-Item -Path $Path -Force | Out-Null
-        }
-
-        # Set Value
-        Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type DWord -Force -ErrorAction Stop
-        
-        # Add Tracking Keys
-        Set-ItemProperty -Path $Path -Name "WasEnabledBy" -Value 2 -Type DWord -Force -ErrorAction SilentlyContinue
-        
-
-
-        Write-LeftAligned "$FGGreen$Global:Char_HeavyCheck Kernel-mode Stack Protection Registry Keys set.$Reset"
-        Write-LeftAligned "$FGCyan A system restart is required for this change to take effect.$Reset"
-    }
-    catch {
-        Write-LeftAligned "$FGRed$Global:Char_RedCross Failed to set registry key: $($_.Exception.Message)$Reset"
-        Write-LeftAligned "$FGGray Possible causes: Tamper Protection is active, or insufficient permissions.$Reset"
-    }
-}
-
-
-
-
-function Invoke-WA_SetFirewall {
-    param([switch]$Undo)
-    Write-Header "WINDOWS FIREWALL"
-
-    try {
-        $target = if ($Undo) { 'False' } else { 'True' }
-        $status = if ($Undo) { "DISABLED" } else { "ENABLED" }
-
-        $profiles = Get-NetFirewallProfile
-
-        foreach ($fwProfile in $profiles) {
-            if ($fwProfile.Enabled -eq $target) {
-                Write-LeftAligned "$FGGreen$Char_BallotCheck  $($fwProfile.Name) Firewall is $status.$Reset"
-            }
-            else {
-                try {
-                    Set-NetFirewallProfile -Name $fwProfile.Name -Enabled $target -ErrorAction Stop
-                    Write-LeftAligned "$FGGreen$Char_HeavyCheck  $($fwProfile.Name) Firewall is $status.$Reset"
-                }
-                catch {
-                    Write-LeftAligned "$FGRed$Char_RedCross  Failed to modify $($profile.Name) firewall: $($_.Exception.Message)$Reset"
-                }
-            }
-        }
-
-    }
-    catch {
-        Write-LeftAligned "$FGRed$Char_RedCross  Critical Error: $($_.Exception.Message)$Reset"
-    }
-}
-
-
-
-function Invoke-WA_SetTaskbarDefaults {
-
-
-
-    param([switch]$Undo)
-
-
-
-    Write-Header "TASKBAR CONFIGURATION"
-
-
-
-    
-
-
-
-    $adv = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
-
-
-
-    $search = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search"
-
-
-
-
-
-
-
-    # Inner helper for robust setting
-
-
-
-    function Set-KeySafe {
-
-
-
-        param($P, $N, $V)
-
-
-
-        try {
-
-
-
-            if (-not (Test-Path $P)) { New-Item -Path $P -Force -ErrorAction SilentlyContinue | Out-Null }
-
-
-
-            Set-ItemProperty -Path $P -Name $N -Value $V -Type DWord -Force -ErrorAction Stop
-
-
-
-        }
-        catch {
-
-
-
-            Write-LeftAligned "$FGRed$Char_RedCross Failed to set $N : $($_.Exception.Message)$Reset"
-
-
-
-        }
-
-
-
-    }
-
-
-    if ($Undo) {
-
-
-
-        Set-KeySafe $search "SearchboxTaskbarMode" 2
-
-
-
-        Set-KeySafe $adv "ShowTaskViewButton" 1
-
-
-
-        # Widgets: ON (UI Automation Bypass)
-        Write-LeftAligned "Toggling Widgets ON (UI)..."
-        Start-Process "ms-settings:taskbar"
-        Start-Sleep -Seconds 5
-        $Desktop = [System.Windows.Automation.AutomationElement]::RootElement
-        $SWindow = Get-UIAElement -Parent $Desktop -Name "Settings" -ControlType ([System.Windows.Automation.ControlType]::Window) -Scope "Children"
-
-        if ($SWindow) {
-            try { $SWindow.SetFocus() } catch {}
-            $WElement = Get-UIAElement -Parent $SWindow -Name "Widgets" -Scope "Descendants"
-            
-            if ($WElement) {
-                # Try finding a button inside if the element itself isn't one
-                $WToggle = $WElement
-                if ($WElement.Current.ControlType -ne [System.Windows.Automation.ControlType]::CheckBox -and $WElement.Current.ControlType -ne [System.Windows.Automation.ControlType]::Button) {
-                    $WToggle = Get-UIAElement -Parent $WElement -ControlType ([System.Windows.Automation.ControlType]::Button) -Scope "Children"
-                }
-
-                if ($WToggle) {
-                    $State = Get-UIAToggleState -Element $WToggle
-                    if ($State -eq 0) { 
-                        Invoke-UIAElement -Element $WToggle | Out-Null
-                        Write-LeftAligned "$FGGreen$Char_HeavyCheck Widgets enabled.$Reset" 
-                    }
-                    else {
-                        Write-LeftAligned "  Widgets already ON."
-                    }
-                }
-            }
-            Stop-Process -Name "SystemSettings" -Force -ErrorAction SilentlyContinue
-        }
-        else {
-            # Fallback registry is already handled elsewhere or we can skip here
-            Write-LeftAligned "$FGRed$Char_Warn Could not automate Widgets.$Reset"
-        }
-
-        Write-LeftAligned "$FGGreen$Char_HeavyCheck Taskbar defaults reverted.$Reset"
-
-
-
-    }
-    else {
-
-
-
-        # Search: Search box (Value 3)
-        Set-KeySafe $search "SearchboxTaskbarMode" 3
-
-
-
-        # Taskview: OFF
-
-
-
-        Set-KeySafe $adv "ShowTaskViewButton" 0
-
-
-
-        # Widgets: OFF (UI Automation Bypass)
-        Write-LeftAligned "Toggling Widgets OFF (UI)..."
-        Start-Process "ms-settings:taskbar"
-        Start-Sleep -Seconds 5
-        $Desktop = [System.Windows.Automation.AutomationElement]::RootElement
-        $SWindow = Get-UIAElement -Parent $Desktop -Name "Settings" -ControlType ([System.Windows.Automation.ControlType]::Window) -Scope "Children"
-
-        if ($SWindow) {
-            try { $SWindow.SetFocus() } catch {}
-            $WElement = Get-UIAElement -Parent $SWindow -Name "Widgets" -Scope "Descendants"
-            
-            if ($WElement) {
-                # Try finding a button inside if the element itself isn't one
-                $WToggle = $WElement
-                if ($WElement.Current.ControlType -ne [System.Windows.Automation.ControlType]::CheckBox -and $WElement.Current.ControlType -ne [System.Windows.Automation.ControlType]::Button) {
-                    $WToggle = Get-UIAElement -Parent $WElement -ControlType ([System.Windows.Automation.ControlType]::Button) -Scope "Children"
-                }
-
-                if ($WToggle) {
-                    $State = Get-UIAToggleState -Element $WToggle
-                    if ($State -eq 1) { 
-                        Invoke-UIAElement -Element $WToggle | Out-Null
-                        Write-LeftAligned "$FGGreen$Char_HeavyCheck Widgets disabled.$Reset" 
-                    }
-                    else {
-                        Write-LeftAligned "  Widgets already OFF."
-                    }
-                }
-            }
-            Stop-Process -Name "SystemSettings" -Force -ErrorAction SilentlyContinue
-        }
-        else {
-            # Fallback
-            Write-LeftAligned "$FGRed$Char_Warn Could not automate Widgets.$Reset"
-        }
-
-        Write-LeftAligned "$FGGreen$Char_HeavyCheck Taskbar configuration applied.$Reset"
-
-
-
-    }
-
-
-
-}
-
-
-
-
-
-
-
-
-function Invoke-WA_SetWindowsUpdateConfig {
-    param()
-    Write-Header "WINDOWS UPDATE CONFIGURATION"
-    
-    $WU_UX = "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings"
-    try {
-        Set-RegistryDword -Path $WU_UX -Name "AllowMUUpdateService" -Value 1
-        Set-RegistryDword -Path $WU_UX -Name "RestartNotificationsAllowed2" -Value 1
-
-        # Enable Restartable Apps
-        $WinlogonPath = "HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
-        Set-ItemProperty -Path $WinlogonPath -Name "RestartApps" -Value 1 -Type DWord -Force
-        
-        # Logic adapted from STABLE (Inline Only)
-        Write-LeftAligned "$FGGreen$Char_HeavyCheck Windows Update settings applied.$Reset"
-        Write-Log -Message "Applied Windows Update settings (Config Phase)." -Level INFO
-    }
-    catch { Write-LeftAligned "$FGRed$Char_RedCross Error applying update settings: $($_.Exception.Message)$Reset" }
-}
-
 function Invoke-WA_SetSmartScreen {
     Write-Header "SMARTSCREEN FILTER (UIA)"
     
@@ -1363,24 +977,7 @@ function Invoke-WA_SetVirusThreatProtect {
     }
 }
 
-function Invoke-WA_SetContextMenu {
-    param([switch]$Undo)
-    
-    $scriptPath = "$PSScriptRoot\scripts\AtomicScripts\SET_ClassicMenu.ps1"
-    
-    if (Test-Path $scriptPath) {
-        # Pass -Reverse if Undo switch is present (mapping old wa.ps1 logic to new standard)
-        if ($Undo) {
-            & $scriptPath -Reverse
-        }
-        else {
-            & $scriptPath
-        }
-    }
-    else {
-        Write-LeftAligned "$FGRed$Global:Char_RedCross Script not found: SET_ClassicMenu.ps1$Reset"
-    }
-}
+
 
 # --- ATTESTATION HELPERS (Global Access) ---
 function Test-Reg { param($P, $N, $V) try { (Get-ItemProperty $P $N -EA 0).$N -eq $V } catch { $false } }
@@ -1591,56 +1188,7 @@ function Invoke-WA_WindowsUpdate {
     Start-Sleep -Seconds 3
 }
 
-function Invoke-WA_SFCRepair {
-    Write-Header "SYSTEM REPAIR (SFC)"
-    Write-LeftAligned "Running sfc /scannow..."
-    try {
-        $raw = & sfc /scannow 2>&1
-        $code = $LASTEXITCODE
-    }
-    catch {
-        Write-Log "SFC Failed to run: $_" -Level WARN
-        $raw = "Error: $_"
-        $code = -1
-    }
-    $out = ($raw -join " ")
-    
-    # 0 = No violations, 100 = Repaired
-    if ($code -eq 0 -or $out -match "did not find any integrity violations") {
-        Write-LeftAligned "$FGGreen$Global:Char_CheckMark System Healthy.$Reset"
-    }
-    elseif ($code -eq 100 -or $out -match "successfully repaired") {
-        Write-LeftAligned "$FGGreen$Global:Char_CheckMark Corruption repaired.$Reset"
-    }
-    elseif ($out -match "found corrupt files" -or $out -match "could not perform the requested operation") {
-        Write-LeftAligned "$FGRed$Global:Char_Warn Corruption found or Scan Failed. Running DISM...$Reset"
-        & DISM /Online /Cleanup-Image /RestoreHealth | Out-Null
-    }
-    else {
-        # Fallback for unexpected output rather than assuming corruption
-        Write-LeftAligned "$FGGray Scan finished with code $code. (Log: $env:WINDIR\Logs\CBS\CBS.log)$Reset"
-    }
-}
 
-function Invoke-WA_OptimizeDisks {
-    Write-Header "DISK OPTIMIZATION"
-    $vols = Get-Volume | Where-Object { $_.DriveLetter -and $_.DriveType -eq 'Fixed' }
-    foreach ($v in $vols) {
-        Write-LeftAligned "Optimizing Drive $($v.DriveLetter)..."
-        Optimize-Volume -DriveLetter $v.DriveLetter -NormalPriority -ErrorAction SilentlyContinue
-    }
-    Write-LeftAligned "$FGGreen$Global:Char_CheckMark Complete.$Reset"
-}
-
-function Invoke-WA_SystemCleanup {
-    Write-Header "SYSTEM CLEANUP"
-    $paths = @("$env:TEMP", "$env:WINDIR\Temp")
-    foreach ($p in $paths) {
-        Write-LeftAligned "Cleaning $p..."
-        Get-ChildItem -Path $p -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-    }
-    Write-LeftAligned "$FGGreen$Global:Char_CheckMark Cleanup Complete.$Reset"
-}
 
 function Get-WA_InstallAppList {
     # --- EXTERNAL CONFIGURATION ---
@@ -1940,30 +1488,41 @@ function Invoke-WinAutoConfiguration {
     Write-Boundary
 
     if (-not $SkipConfig) {
-        Invoke-WA_SetMemoryIntegrity
-        Invoke-WA_SetRealTimeProtection
-        Invoke-WA_SetPUA
-        Invoke-WA_SetLSA
-        Invoke-WA_SetFirewall
-        Invoke-WA_SetKernelStack
+        # Core Security (Embedded Standalone)
+        Invoke-WA_SetMemoryInteg
+        Invoke-WA_SetRealTimeProt
+        Invoke-WA_SetDefenderPUA
+        Invoke-WA_SetEdgePUA
+        Invoke-WA_SetLocalSecurity
+        Invoke-WA_SetFirewallON
+        Invoke-WA_SetKernelMode
     }
     
     # UIA Remediation Steps (Always run in SmartRUN to catch UI drift)
-    Invoke-WA_SetSmartScreen
+    # Keeping original UIA helpers if not replaced
+    Invoke-WA_SetSmartScreen 
     Invoke-WA_SetFirewallUIA
     Invoke-WA_SetVirusThreatProtect
     
     if (-not $SkipConfig) {
-        # UI & Performance
-        Invoke-WA_SetContextMenu
-        Invoke-WA_SetTaskbarDefaults
-        Invoke-WA_SetWindowsUpdateConfig
+        # UI & Performance (Embedded Standalone)
+        Invoke-WA_SetClassicMenu
+        Invoke-WA_SetTaskbarSearch
+        Invoke-WA_SetTaskViewOFF
+        Invoke-WA_SetWidgetsOFF # UIA
+        
+        # Updates & Persistence
+        Invoke-WA_SetMicrosoftUpd
+        Invoke-WA_SetRestartIsReq
+        Invoke-WA_SetRestartApps
     
         # Restart Explorer to force refresh of Taskbar/Start Menu registry settings (Standard UI changes)
         Write-LeftAligned "Restarting Explorer to apply UI settings..."
         Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
         Start-Sleep -Seconds 1
-        Start-Process explorer
+        if (-not (Get-Process explorer -ErrorAction SilentlyContinue)) {
+            Start-Process explorer
+        }
     }
 
     Write-Boundary
@@ -1992,12 +1551,9 @@ function Invoke-WinAutoMaintenance {
     try {
         Write-Boundary
         Invoke-WA_SystemPreCheck
-        # Invoke-WA_WindowsUpdate (Moved to End)
-    
-        # C++ Redist Removal for wa.ps1 (Requested)
     
         if (Test-RunNeeded -Key "Maintenance_SFC" -Days 30) {
-            Invoke-WA_SFCRepair
+            Invoke-WA_WindowsRepair
             Set-WinAutoLastRun -Module "Maintenance_SFC"
         }
     
@@ -2013,7 +1569,11 @@ function Invoke-WinAutoMaintenance {
     
         # Run Windows Update Action (Skip if run in last 24 hours)
         if (Test-RunNeeded -Key "Maintenance_WinUpdate" -Days 1) {
-            Invoke-WA_WindowsUpdate
+            Invoke-WA_WingetUpgrade
+            # Keep original Windows Update if needed?
+            # Original was Invoke-WA_WindowsUpdate
+            # Check if we should execute both? 
+            # Invoke-WA_WindowsUpdate
             Set-WinAutoLastRun -Module "Maintenance_WinUpdate"
         }
 
@@ -2030,6 +1590,974 @@ function Invoke-WinAutoMaintenance {
         else { throw $_ }
     }
 }
+
+
+# --- EMBEDDED ATOMIC SCRIPTS ---
+
+function Invoke-WA_SetRealTimeProt {
+    <#
+.SYNOPSIS
+    Enables or Disables Real-time Protection.
+.DESCRIPTION
+    Standardized for WinAuto. Checks for Tamper Protection before changes.
+    Standalone version.
+    Includes Reverse Mode (-r).
+.PARAMETER Reverse
+    (Alias: -r) Reverses the setting (Disables Real-time Protection).
+#>
+    param(
+        [Parameter(Mandatory = $false)]
+        [Alias('r')]
+        [switch]$Reverse
+    )
+    Write-Header "REAL-TIME PROTECTION"
+
+    # --- MAIN ---
+
+    try {
+        $target = if ($Reverse) { $true } else { $false }
+        $status = if ($Reverse) { "DISABLED" } else { "ENABLED" }
+
+        $tp = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows Defender\Features" -Name "TamperProtection" -ErrorAction SilentlyContinue).TamperProtection
+
+        if ($tp -eq 5) {
+            Write-LeftAligned "$FGDarkYellow$Char_Warn Tamper Protection is ENABLED and blocking changes.$Reset"
+        }
+        else {
+            Set-MpPreference -DisableRealtimeMonitoring $target -ErrorAction Stop
+
+            # Verify
+            $current = (Get-MpPreference).DisableRealtimeMonitoring
+            if ($current -eq $target) {
+                Write-LeftAligned "$FGGreen$Char_HeavyCheck  Real-time Protection is $status.$Reset"
+            }
+            else {
+                Write-LeftAligned "$FGDarkYellow$Char_Warn Real-time Protection verification failed.$Reset"
+            }
+        }
+    }
+    catch {
+        Write-LeftAligned "$FGRed$Char_RedCross  Failed: $($_.Exception.Message)$Reset"
+    }
+
+}
+
+function Invoke-WA_SetDefenderPUA {
+    <#
+.SYNOPSIS
+    Enables or Disables Windows Defender PUA Protection.
+.DESCRIPTION
+    Standardized for WinAuto. Configures System-wide Windows Defender PUA Protection.
+    Standalone version: Can be copy-pasted directly into PowerShell.
+    Includes Reverse Mode (-r) to undo changes.
+.PARAMETER Reverse
+    (Alias: -r) Reverses the setting (Disables PUA blocking).
+#>
+    param(
+        [Parameter(Mandatory = $false)]
+        [Alias('r')]
+        [switch]$Reverse,
+        [switch]$Force
+    )
+    # --- MAIN LOGIC ---
+    Write-Header "DEFENDER PUA PROTECTION"
+
+    try {
+        $targetMp = if ($Reverse) { 0 } else { 1 }
+        $statusText = if ($Reverse) { "DISABLED" } else { "ENABLED" }
+
+        # System-wide Defender PUA
+        Set-MpPreference -PUAProtection $targetMp -ErrorAction Stop
+        Write-LeftAligned "$FGGreen$Char_HeavyCheck  Defender PUA Blocking is $statusText.$Reset"
+
+        # Verification
+        $currentMp = (Get-MpPreference).PUAProtection
+        if ($currentMp -ne $targetMp) {
+            Write-LeftAligned "$FGDarkYellow$Char_Warn Verification failed for Defender PUA. Status: $currentMp$Reset"
+        }
+
+    }
+    catch {
+        Write-LeftAligned "$FGRed$Char_RedCross  Failed: $($_.Exception.Message)$Reset"
+    }
+
+}
+
+function Invoke-WA_SetEdgePUA {
+    <#
+.SYNOPSIS
+    Enables or Disables Edge SmartScreen PUA Protection.
+.DESCRIPTION
+    Standardized for WinAuto. Configures User-specific Edge SmartScreen PUA (Block downloads).
+    Standalone version: Can be copy-pasted directly into PowerShell.
+    Includes Reverse Mode (-r) to undo changes.
+.PARAMETER Reverse
+    (Alias: -r) Reverses the setting (Disables PUA blocking).
+#>
+    param(
+        [Parameter(Mandatory = $false)]
+        [Alias('r')]
+        [switch]$Reverse,
+        [switch]$Force
+    )
+    # --- MAIN LOGIC ---
+    Write-Header "EDGE PUA PROTECTION"
+
+    try {
+        $targetEdge = if ($Reverse) { 0 } else { 1 }
+        $statusText = if ($Reverse) { "DISABLED" } else { "ENABLED" }
+
+        # User-specific Edge SmartScreen PUA (Block downloads)
+        $edgeKeyPath = "HKCU:\Software\Microsoft\Edge\SmartScreenPuaEnabled"
+        if (-not (Test-Path $edgeKeyPath)) {
+            New-Item -Path $edgeKeyPath -Force | Out-Null
+        }
+        Set-ItemProperty -Path $edgeKeyPath -Name "(default)" -Value $targetEdge -Type DWord -Force
+    
+        Write-LeftAligned "$FGGreen$Char_HeavyCheck  Edge 'Block downloads' is $statusText.$Reset"
+
+    }
+    catch {
+        Write-LeftAligned "$FGRed$Char_RedCross  Failed: $($_.Exception.Message)$Reset"
+    }
+
+}
+
+function Invoke-WA_SetMemoryInteg {
+    <#
+.SYNOPSIS
+    Enables Memory Integrity (Core Isolation) via Registry.
+.DESCRIPTION
+    Standardized for WinAuto.
+    Sets HypervisorEnforcedCodeIntegrity 'Enabled' value to 1 (On) or 0 (Off).
+    Requires System Restart.
+    Standalone version. Includes Reverse Mode (-r).
+.PARAMETER Reverse
+    (Alias: -r) Reverses the setting (Disables Memory Integrity).
+#>
+    param(
+        [Parameter(Mandatory = $false)]
+        [Alias('r')]
+        [switch]$Reverse
+    )
+    Write-Header "MEMORY INTEGRITY REG"
+
+    $Path = "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity"
+    $Name = "Enabled"
+    $Value = if ($Reverse) { 0 } else { 1 }
+    $ActionStr = if ($Reverse) { "DISABLED" } else { "ENABLED" }
+
+    try {
+        # Create Path if missing
+        if (-not (Test-Path $Path)) {
+            New-Item -Path $Path -Force | Out-Null
+        }
+
+        # Set Value
+        Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type DWord -Force -ErrorAction Stop
+    
+        # Add Tracking Keys (if enabling)
+        if (-not $Reverse) {
+            Set-ItemProperty -Path $Path -Name "WasEnabledBy" -Value 2 -Type DWord -Force -ErrorAction SilentlyContinue
+        }
+    
+        Write-LeftAligned "$FGGreen$Char_HeavyCheck  Memory Integrity Registry Key set to $ActionStr.$Reset"
+        Write-LeftAligned "$FGDarkYellow$Char_Warn  A system restart is required to take effect.$Reset"
+    }
+    catch {
+        Write-LeftAligned "$FGRed$Char_RedCross  Failed: $($_.Exception.Message)$Reset"
+        Write-LeftAligned "$FGCyan  Hint: Tamper Protection might be blocking this.$Reset"
+    }
+
+}
+
+# --- EMBEDDED ATOMIC SCRIPTS (Security Part 2) ---
+
+function Invoke-WA_SetKernelMode {
+    <#
+.SYNOPSIS
+    Toggles Kernel-mode Hardware-enforced Stack Protection.
+.DESCRIPTION
+    Uses UI Automation to toggle the setting in Windows Security.
+    Requires 'UIAutomationClient' assembly.
+    Standalone version. Includes Reverse Mode (-r).
+.PARAMETER Reverse
+    (Alias: -r) Toggles the setting to OFF.
+#>
+    param(
+        [Parameter(Mandatory = $false)]
+        [Alias('r')]
+        [switch]$Reverse
+    )
+    Write-Header "KERNEL STACK PROTECTION"
+
+    # --- MAIN LOGIC ---
+    try {
+        # Check Registry First (Fast Fail)
+        $RegPath = "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\KernelShadowStacks"
+        $CurrentVal = (Get-ItemProperty -Path $RegPath -Name "Enabled" -ErrorAction SilentlyContinue).Enabled
+    
+        $TargetVal = if ($Reverse) { 0 } else { 1 }
+        $ActionStr = if ($Reverse) { "DISABLE" } else { "ENABLE" }
+
+        if ($CurrentVal -eq $TargetVal) {
+            Write-LeftAligned "$FGGreen$Char_HeavyCheck Kernel Stack Protection is already set to $TargetVal.$Reset"
+            return
+        }
+
+        Write-LeftAligned "$FGGray Attempting to $ActionStr Kernel Stack Protection via UI...$Reset"
+
+        # Load UIA
+        if (-not ([System.Management.Automation.PSTypeName]"System.Windows.Automation.AutomationElement").Type) {
+            Add-Type -AssemblyName UIAutomationClient
+            Add-Type -AssemblyName UIAutomationTypes
+        }
+
+        # Launch Windows Security
+        Start-Process "windowsdefender://coreisolation"
+    
+        # Find Window
+        $Desktop = [System.Windows.Automation.AutomationElement]::RootElement
+        $Window = Get-UIAElement -Parent $Desktop -Name "Windows Security" -Scope "Children" -TimeoutSeconds 10
+    
+        if ($Window) {
+            Write-LeftAligned "  Windows Security Opened."
+         
+            # Locate Toggle
+            $ToggleName = "Kernel-mode Hardware-enforced Stack Protection"
+            # Note: The toggle usually has the same name as the label in Settings/Security UI
+            # But sometimes it's just "On" or "Off" button NEXT to the label.
+            # In Core Isolation page, it's usually a toggle button.
+         
+            # We search for the specific text element, then find the toggle near it? 
+            # Or search for the Toggle directly?
+            # Based on previous research: The toggle is named "Kernel-mode Hardware-enforced Stack Protection"
+         
+            $Toggle = Get-UIAElement -Parent $Window -Name "Kernel-mode Hardware-enforced Stack Protection" -Scope "Descendants"
+         
+            if ($Toggle) {
+                $ToggleBase = $Toggle.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+                if ($ToggleBase) {
+                    $CurrentState = $ToggleBase.Current.ToggleState # 0=Off, 1=On
+                    $TargetState = if ($Reverse) { 0 } else { 1 }
+                 
+                    if ($CurrentState -ne $TargetState) {
+                        $ToggleBase.Toggle()
+                        Write-LeftAligned "$FGGreen$Char_HeavyCheck Toggled setting.$Reset"
+                        Write-LeftAligned "$FGDarkYellow$Char_Warn Restart required.$Reset"
+                    }
+                    else {
+                        Write-LeftAligned "$FGGray Setting already matches target.$Reset"
+                    }
+                }
+            }
+            else {
+                Write-LeftAligned "$FGRed$Char_RedCross Toggle control not found.$Reset"
+            }
+         
+            # Cleanup
+            try { $Window.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern).Close() } catch {}
+        }
+        else {
+            Write-LeftAligned "$FGRed$Char_RedCross Failed to open Windows Security window.$Reset"
+        }
+
+    }
+    catch {
+        Write-LeftAligned "$FGRed$Char_RedCross Error: $($_.Exception.Message)$Reset"
+    }
+
+}
+
+function Invoke-WA_SetLocalSecurity {
+    <#
+.SYNOPSIS
+    Enables LSA Protection (RunAsPPL) via Registry.
+.DESCRIPTION
+    Standardized for WinAuto.
+    Sets 'RunAsPPL' value to 1 (On) or 0 (Off) in HKLM\SYSTEM\CurrentControlSet\Control\Lsa.
+    Standalone version. Includes Reverse Mode (-r).
+.PARAMETER Reverse
+    (Alias: -r) Reverses the setting (Disables LSA Protection).
+#>
+    param(
+        [Parameter(Mandatory = $false)]
+        [Alias('r')]
+        [switch]$Reverse
+    )
+    Write-Header "LSA PROTECTION REG"
+
+    $Path = "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa"
+    $Name = "RunAsPPL"
+    $Value = if ($Reverse) { 0 } else { 1 }
+    $ActionStr = if ($Reverse) { "DISABLED" } else { "ENABLED" }
+
+    try {
+        if (-not (Test-Path $Path)) { New-Item -Path $Path -Force | Out-Null }
+
+        Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type DWord -Force -ErrorAction Stop
+    
+        Write-LeftAligned "$FGGreen$Char_HeavyCheck  LSA Protection (RunAsPPL) set to $ActionStr.$Reset"
+        Write-LeftAligned "$FGDarkYellow$Char_Warn  A system restart is required to take effect.$Reset"
+    }
+    catch {
+        Write-LeftAligned "$FGRed$Char_RedCross  Failed: $($_.Exception.Message)$Reset"
+    }
+
+}
+
+function Invoke-WA_SetFirewallON {
+    <#
+.SYNOPSIS
+    Enables Windows Firewall for all profiles.
+.DESCRIPTION
+    Standardized for WinAuto.
+    Ensures Domain, Public, and Private firewall profiles are Enabled.
+    Standalone version. Includes Reverse Mode (-r).
+.PARAMETER Reverse
+    (Alias: -r) Reverses the setting (Disables Firewall).
+#>
+    param(
+        [Parameter(Mandatory = $false)]
+        [Alias('r')]
+        [switch]$Reverse
+    )
+    Write-Header "WINDOWS FIREWALL"
+
+    try {
+        $target = if ($Reverse) { $false } else { $true }
+    
+        Set-NetFirewallProfile -Profile Domain, Public, Private -Enabled $target -ErrorAction Stop
+    
+        $statusStr = if ($target) { "ENABLED" } else { "DISABLED" }
+        Write-LeftAligned "$FGGreen$Char_HeavyCheck  Firewall (All Profiles) is $statusStr.$Reset"
+    }
+    catch {
+        Write-LeftAligned "$FGRed$Char_RedCross  Failed: $($_.Exception.Message)$Reset"
+    }
+
+}
+
+# --- EMBEDDED ATOMIC SCRIPTS (UI Config Part 3) ---
+
+function Invoke-WA_SetClassicMenu {
+    <#
+.SYNOPSIS
+    Restores the Classic Context Menu (Windows 10 Style).
+.DESCRIPTION
+    Standardized for WinAuto.
+    Modifies HKCU\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32
+    Restarts Explorer to apply.
+    Standalone version. Includes Reverse Mode (-r).
+.PARAMETER Reverse
+    (Alias: -r) Reverses the setting (Restores Windows 11 Menu).
+#>
+    param(
+        [Parameter(Mandatory = $false)]
+        [Alias('r')]
+        [switch]$Reverse
+    )
+    Write-Header "CLASSIC CONTEXT MENU"
+    
+    $Key = "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}"
+    $Path = "$Key\InprocServer32"
+    
+    try {
+        if ($Reverse) {
+            # Remove key to restore Win11 default
+            if (Test-Path $Key) {
+                Remove-Item -Path $Key -Recurse -Force -ErrorAction SilentlyContinue
+                Write-LeftAligned "$FGGreen$Char_HeavyCheck Restored Windows 11 Context Menu.$Reset"
+                Write-LeftAligned "$FGGray Restarting Explorer...$Reset"
+                Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+                Start-Sleep -Seconds 1
+            }
+            else {
+                Write-LeftAligned "$FGGray Windows 11 Menu is already active.$Reset"
+            }
+        }
+        else {
+            # Create Key for Classic Menu
+            if (-not (Test-Path $Path)) {
+                New-Item -Path $Path -Force | Out-Null
+            }
+            # Set default value to empty string
+            Set-ItemProperty -Path $Path -Name "(default)" -Value "" -Force
+         
+            Write-LeftAligned "$FGGreen$Char_HeavyCheck Enabled Classic Context Menu.$Reset"
+            Write-LeftAligned "$FGGray Restarting Explorer...$Reset"
+            Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 1
+        }
+    }
+    catch {
+        Write-LeftAligned "$FGRed$Char_RedCross Failed: $($_.Exception.Message)$Reset"
+    }
+
+}
+
+function Invoke-WA_SetTaskbarSearch {
+    <#
+.SYNOPSIS
+    Sets Taskbar Search to 'Search icon only'.
+.DESCRIPTION
+    Standardized for WinAuto.
+    Sets 'SearchboxTaskbarMode' to 3 (Icon Only) or 1 (Box).
+    Restarts Explorer to apply.
+    Standalone version. Includes Reverse Mode (-r).
+.PARAMETER Reverse
+    (Alias: -r) Reverses the setting (Sets to Search Box - Value 1).
+#>
+    param(
+        [Parameter(Mandatory = $false)]
+        [Alias('r')]
+        [switch]$Reverse
+    )
+    Write-Header "TASKBAR SEARCH CONFIG"
+
+    $Path = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search"
+    $Name = "SearchboxTaskbarMode"
+    
+    # 3 = Icon Only (WinAuto Default), 1 = Search Box (Default Win11)
+    $Value = if ($Reverse) { 1 } else { 3 } 
+    $ActionStr = if ($Reverse) { "BOX" } else { "ICON ONLY" }
+
+    try {
+        if (-not (Test-Path $Path)) { New-Item -Path $Path -Force | Out-Null }
+    
+        Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type DWord -Force
+    
+        Write-LeftAligned "$FGGreen$Char_HeavyCheck Taskbar Search set to $ActionStr.$Reset"
+        Write-LeftAligned "$FGGray Restarting Explorer...$Reset"
+        Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 1
+    }
+    catch {
+        Write-LeftAligned "$FGRed$Char_RedCross Failed: $($_.Exception.Message)$Reset"
+    }
+
+}
+
+function Invoke-WA_SetTaskViewOFF {
+    <#
+.SYNOPSIS
+    Hides the Task View button from the Taskbar.
+.DESCRIPTION
+    Standardized for WinAuto.
+    Sets 'ShowTaskViewButton' to 0 (Off).
+    Restarts Explorer to apply.
+    Standalone version. Includes Reverse Mode (-r).
+.PARAMETER Reverse
+    (Alias: -r) Reverses the setting (Shows Task View).
+#>
+    param(
+        [Parameter(Mandatory = $false)]
+        [Alias('r')]
+        [switch]$Reverse
+    )
+    Write-Header "TASK VIEW TOGGLE"
+
+    $Path = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
+    $Name = "ShowTaskViewButton"
+    
+    $Value = if ($Reverse) { 1 } else { 0 } 
+    $ActionStr = if ($Reverse) { "SHOWN" } else { "HIDDEN" }
+
+    try {
+        if (-not (Test-Path $Path)) { New-Item -Path $Path -Force | Out-Null }
+    
+        Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type DWord -Force
+    
+        Write-LeftAligned "$FGGreen$Char_HeavyCheck Task View button is $ActionStr.$Reset"
+        Write-LeftAligned "$FGGray Restarting Explorer...$Reset"
+        Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 1
+    }
+    catch {
+        Write-LeftAligned "$FGRed$Char_RedCross Failed: $($_.Exception.Message)$Reset"
+    }
+
+}
+
+function Invoke-WA_SetWidgetsOFF {
+    <#
+.SYNOPSIS
+    Toggles Widgets via UI Automation.
+.DESCRIPTION
+    Standardized for WinAuto.
+    Uses UIA to toggle Widgets in Taskbar Settings.
+    Required because Registry keys are often overridden by the OS.
+    Standalone version. Includes Reverse Mode (-r).
+.PARAMETER Reverse
+    (Alias: -r) Toggles Widgets ON.
+#>
+    param(
+        [Parameter(Mandatory = $false)]
+        [Alias('r')]
+        [switch]$Reverse
+    )
+
+    function Get-UIAToggleState {
+        param([System.Windows.Automation.AutomationElement]$Element)
+        try {
+            $p = $Element.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+            return $p.Current.ToggleState # 0=Off, 1=On
+        }
+        catch { return $null }
+    }
+
+    Write-Header "WIDGETS (UIA)"
+
+    try {
+        # Load UIA
+        if (-not ([System.Management.Automation.PSTypeName]"System.Windows.Automation.AutomationElement").Type) {
+            Add-Type -AssemblyName UIAutomationClient
+            Add-Type -AssemblyName UIAutomationTypes
+        }
+    
+        Write-LeftAligned "$FGGray Launching Taskbar Settings...$Reset"
+        Start-Process "ms-settings:taskbar"
+    
+        $Desktop = [System.Windows.Automation.AutomationElement]::RootElement
+        $Window = Get-UIAElement -Parent $Desktop -Name "Settings" -Scope "Children" -TimeoutSeconds 10
+    
+        if ($Window) {
+            $WElement = Get-UIAElement -Parent $Window -Name "Widgets" -Scope "Descendants"
+            if ($WElement) {
+                # In some builds, "Widgets" element is the text, the toggle is adjacent or parent?
+                # Usually the Toggle is named "Widgets" itself.
+              
+                $Toggle = $WElement
+                if ($WElement.Current.ControlType -ne [System.Windows.Automation.ControlType]::Button -and $WElement.Current.ControlType -ne [System.Windows.Automation.ControlType]::CheckBox) {
+                    # Try button inside
+                    $Toggle = Get-UIAElement -Parent $WElement -ControlType "Button" -Scope "Children"
+                }
+              
+                if ($Toggle) {
+                    $State = Get-UIAToggleState -Element $Toggle
+                    $TargetState = if ($Reverse) { 1 } else { 0 }
+                    $TargetStr = if ($Reverse) { "ON" } else { "OFF" }
+                  
+                    if ($State -ne $TargetState) {
+                        $Invoke = $Toggle.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
+                        if ($Invoke) { $Invoke.Invoke() } 
+                        else { 
+                            $TogPattern = $Toggle.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+                            if ($TogPattern) { $TogPattern.Toggle() }
+                        }
+                        Write-LeftAligned "$FGGreen$Char_HeavyCheck Widgets toggled $TargetStr.$Reset"
+                    }
+                    else {
+                        Write-LeftAligned "$FGGray Widgets are already $TargetStr.$Reset"
+                    }
+                }
+            }
+            else {
+                Write-LeftAligned "$FGRed$Char_RedCross Widgets control not found.$Reset"
+            }
+         
+            try { $Window.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern).Close() } catch {}
+        }
+        else {
+            Write-LeftAligned "$FGRed$Char_RedCross Failed to open Settings.$Reset"
+        }
+
+    }
+    catch {
+        Write-LeftAligned "$FGRed$Char_RedCross Error: $($_.Exception.Message)$Reset"
+    }
+
+}
+
+function Invoke-WA_SetMicrosoftUpd {
+    <#
+.SYNOPSIS
+    Sets 'Receive updates for other Microsoft products'.
+.DESCRIPTION
+    Standardized for WinAuto.
+    Sets 'AllowMUUpdateService' registry key.
+    Standalone version. Includes Reverse Mode (-r).
+.PARAMETER Reverse
+    (Alias: -r) Disables the setting.
+#>
+    param(
+        [Parameter(Mandatory = $false)]
+        [Alias('r')]
+        [switch]$Reverse
+    )
+    Write-Header "MICROSOFT UPDATE"
+    
+    $Path = "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings"
+    $Name = "AllowMUUpdateService"
+    $Value = if ($Reverse) { 0 } else { 1 } # 1=On
+    $StatusStr = if ($Reverse) { "DISABLED" } else { "ENABLED" }
+
+    try {
+        if (-not (Test-Path $Path)) { New-Item -Path $Path -Force | Out-Null }
+        Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type DWord -Force
+    
+        Write-LeftAligned "$FGGreen$Char_HeavyCheck MS Update Service is $StatusStr.$Reset"
+    }
+    catch {
+        Write-LeftAligned "$FGRed$Char_RedCross Failed: $($_.Exception.Message)$Reset"
+    }
+
+}
+
+function Invoke-WA_SetRestartIsReq {
+    <#
+.SYNOPSIS
+    Sets 'Notify me when a restart is required'.
+.DESCRIPTION
+    Standardized for WinAuto.
+    Sets 'RestartNotificationsAllowed2' registry key.
+    Standalone version. Includes Reverse Mode (-r).
+.PARAMETER Reverse
+    (Alias: -r) Disables the setting.
+#>
+    param(
+        [Parameter(Mandatory = $false)]
+        [Alias('r')]
+        [switch]$Reverse
+    )
+    Write-Header "RESTART NOTIFICATIONS"
+    
+    $Path = "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings"
+    $Name = "RestartNotificationsAllowed2"
+    $Value = if ($Reverse) { 0 } else { 1 } # 1=On
+    $StatusStr = if ($Reverse) { "DISABLED" } else { "ENABLED" }
+
+    try {
+        if (-not (Test-Path $Path)) { New-Item -Path $Path -Force | Out-Null }
+        Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type DWord -Force
+    
+        Write-LeftAligned "$FGGreen$Char_HeavyCheck Restart Notifications are $StatusStr.$Reset"
+    }
+    catch {
+        Write-LeftAligned "$FGRed$Char_RedCross Failed: $($_.Exception.Message)$Reset"
+    }
+
+}
+
+function Invoke-WA_SetRestartApps {
+    <#
+.SYNOPSIS
+    Sets 'Restart apps after signing in'.
+.DESCRIPTION
+    Standardized for WinAuto.
+    Sets 'RestartApps' registry key in Winlogon.
+    Standalone version. Includes Reverse Mode (-r).
+.PARAMETER Reverse
+    (Alias: -r) Disables the setting.
+#>
+    param(
+        [Parameter(Mandatory = $false)]
+        [Alias('r')]
+        [switch]$Reverse
+    )
+    Write-Header "APP RESTART PERSISTENCE"
+    
+    $Path = "HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
+    $Name = "RestartApps"
+    $Value = if ($Reverse) { 0 } else { 1 } # 1=On
+    $StatusStr = if ($Reverse) { "DISABLED" } else { "ENABLED" }
+
+    try {
+        if (-not (Test-Path $Path)) { New-Item -Path $Path -Force | Out-Null }
+        Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type DWord -Force
+    
+        Write-LeftAligned "$FGGreen$Char_HeavyCheck App Restart Persistence is $StatusStr.$Reset"
+    }
+    catch {
+        Write-LeftAligned "$FGRed$Char_RedCross Failed: $($_.Exception.Message)$Reset"
+    }
+
+}
+
+# --- EMBEDDED ATOMIC SCRIPTS (Maintenance Part 4) ---
+
+function Invoke-WA_WingetUpgrade {
+    <#
+.SYNOPSIS
+    WinGet Application Updater.
+.DESCRIPTION
+    Updates all installed applications using Windows Package Manager (winget).
+    Standalone version. Includes Reverse Mode (-r) stub.
+.PARAMETER Reverse
+    (Alias: -r) No-Op. Upgrades cannot be reversed automatically.
+#>
+    param(
+        [Parameter(Mandatory = $false)]
+        [Alias('r')]
+        [switch]$Reverse,
+        [switch]$Undo
+    )
+    Write-Header "WINGET APP UPDATE"
+
+    if ($Reverse) {
+        Write-LeftAligned "$FGYellow$Char_Warn Reverse Mode: App upgrades cannot be reversed automatically.$Reset"
+        Write-Host ""
+        $copyright = "Copyright (c) 2026 WinAuto"; $cPad = [Math]::Floor((60 - $copyright.Length) / 2); Write-Host (" " * $cPad + "$FGCyan$copyright$Reset"); Write-Host ""
+        return
+    }
+
+    # Check for WinGet
+    if (-not (Get-Command winget.exe -ErrorAction SilentlyContinue)) {
+        Write-LeftAligned "$FGRed$Char_Warn WinGet is not installed or not in PATH.$Reset"
+        Write-LeftAligned "Please install App Installer from the Microsoft Store."
+        return
+    }
+
+    Write-LeftAligned "$FGGray Running winget upgrade --all...$Reset"
+    Write-Host ""
+
+    try {
+        $wingetArgs = @(
+            "upgrade",
+            "--all",
+            "--include-unknown",
+            "--accept-package-agreements",
+            "--accept-source-agreements",
+            "--silent"
+        )
+    
+        Start-Process "winget.exe" -ArgumentList $wingetArgs -Wait -NoNewWindow
+    
+        Write-Host ""
+        Write-LeftAligned "$FGGreen$Char_HeavyCheck WinGet update completed.$Reset"
+    }
+    catch {
+        Write-LeftAligned "$FGRed$Char_Warn Update failed: $($_.Exception.Message)$Reset"
+    }
+
+}
+
+function Invoke-WA_OptimizeDisks {
+    <#
+.SYNOPSIS
+    Optimizes all fixed disks (TRIM for SSD, Defrag for HDD).
+.DESCRIPTION
+    Standardized for WinAuto.
+    Standalone version. Includes Reverse Mode (-r) stub.
+.PARAMETER Reverse
+    (Alias: -r) No-Op. Optimization cannot be reversed.
+#>
+    param(
+        [Parameter(Mandatory = $false)]
+        [Alias('r')]
+        [switch]$Reverse,
+        [switch]$Undo
+    )
+    Write-Header "DISK OPTIMIZATION"
+
+    if ($Reverse) {
+        Write-LeftAligned "$FGYellow$Char_Warn Reverse Mode: Disk optimization cannot be reversed.$Reset"
+        Write-Host ""
+        $copyright = "Copyright (c) 2026 WinAuto"; $cPad = [Math]::Floor((60 - $copyright.Length) / 2); Write-Host (" " * $cPad + "$FGCyan$copyright$Reset"); Write-Host ""
+        return
+    }
+
+    try {
+        $volumes = Get-Volume | Where-Object { $_.DriveLetter -and $_.DriveType -eq 'Fixed' }
+        foreach ($v in $volumes) {
+            $drive = $v.DriveLetter
+            Write-LeftAligned "$FGWhite$Char_HeavyMinus Drive $drive`: $Reset"
+        
+            $isSSD = $false
+            $part = Get-Partition -DriveLetter $drive -ErrorAction SilentlyContinue
+            if ($part) {
+                $disk = Get-Disk -Number $part.DiskNumber -ErrorAction SilentlyContinue
+                if ($disk -and $disk.MediaType -eq 'SSD') { $isSSD = $true }
+            }
+
+            if ($isSSD) {
+                Write-LeftAligned "  $FGYellow Type: SSD - Running TRIM...$Reset"
+                Optimize-Volume -DriveLetter $drive -ReTrim | Out-Null
+            }
+            else {
+                Write-LeftAligned "  $FGYellow Type: HDD - Running Defrag...$Reset"
+                Optimize-Volume -DriveLetter $drive -Defrag | Out-Null
+            }
+            Write-LeftAligned "  $FGGreen$Char_HeavyCheck Optimization Complete.$Reset"
+        }
+    }
+    catch {
+        $errMsg = "$($_.Exception.Message)"
+        Write-LeftAligned "$FGRed$Char_RedCross Error: $errMsg$Reset"
+    }
+
+}
+
+function Invoke-WA_SystemCleanup {
+    <#
+.SYNOPSIS
+    Performs System & User Temp Cleanup.
+.DESCRIPTION
+    Standardized for WinAuto. Removes files from Temp folders.
+    Standalone version. Includes Reverse Mode (-r) stub.
+.PARAMETER Reverse
+    (Alias: -r) No-Op. File deletion cannot be reversed.
+#>
+    param(
+        [Parameter(Mandatory = $false)]
+        [Alias('r')]
+        [switch]$Reverse,
+        [switch]$Undo
+    )
+    Write-Header "SYSTEM CLEANUP"
+
+    if ($Reverse) {
+        Write-LeftAligned "$FGYellow$Char_Warn Reverse Mode: File cleanup cannot be reversed.$Reset"
+        Write-Host ""
+        $copyright = "Copyright (c) 2026 WinAuto"; $cPad = [Math]::Floor((60 - $copyright.Length) / 2); Write-Host (" " * $cPad + "$FGCyan$copyright$Reset"); Write-Host ""
+        return
+    }
+
+    try {
+        $paths = @("$env:TEMP", "$env:WINDIR\Temp")
+        $total = 0
+
+        foreach ($p in $paths) {
+            if (Test-Path $p) {
+                Write-LeftAligned "$FGWhite$Char_HeavyMinus Cleaning: $p$Reset"
+                try {
+                    $items = Get-ChildItem -Path $p -Recurse -Force -ErrorAction SilentlyContinue
+                    if ($items) {
+                        $c = @($items).Count
+                        $items | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+                        Write-LeftAligned "  $FGGreen$Char_BallotCheck Removed $c items.$Reset"
+                        $total += $c
+                    }
+                    else {
+                        Write-LeftAligned "  $FGGray Already empty.$Reset"
+                    }
+                }
+                catch {
+                    Write-LeftAligned "  $FGRed$Char_Warn Partial cleanup failure.$Reset"
+                }
+            }
+        }
+    
+        Write-Host ""
+        Write-LeftAligned "$FGGreen$Char_HeavyCheck Cleanup Complete. Total items removed: $total$Reset"
+
+    }
+    catch {
+        $errMsg = "$($_.Exception.Message)"
+        Write-LeftAligned "$FGRed$Char_RedCross Error: $errMsg$Reset"
+    }
+
+}
+
+function Invoke-WA_WindowsRepair {
+    <#
+.SYNOPSIS
+    Windows System File Integrity & Repair Tool (SFC/DISM).
+.DESCRIPTION
+    Automated flow to check and repair Windows system files using SFC and DISM.
+    Standalone version. Includes Reverse Mode (-r) stub.
+.PARAMETER Reverse
+    (Alias: -r) No-Op. System repairs cannot be reversed.
+#>
+    param(
+        [Parameter(Mandatory = $false)]
+        [Alias('r')]
+        [switch]$Reverse,
+        [switch]$Undo
+    )
+    Set-StrictMode -Version Latest
+    $ErrorActionPreference = 'Stop'
+
+    function Invoke-SFCScan {
+        Write-Host ""
+        Write-LeftAligned "$Bold$FGWhite$Char_HeavyMinus System File Checker (SFC)$Reset"
+        Write-LeftAligned "$FGGray Initializing sfc /scannow...$Reset"
+    
+        try {
+            $rawOutput = & sfc /scannow 2>&1
+            $sfcOutput = ($rawOutput -join " ") -replace '[^\x20-\x7E]', '' # Keep only printable ASCII
+            Write-Host ""
+        
+            if ($sfcOutput -match "did not find any integrity violations") {
+                Write-LeftAligned "$FGGreen$Char_BallotCheck System files are healthy.$Reset"
+                return "SUCCESS"
+            }
+            elseif ($sfcOutput -match "found corrupt files and successfully repaired them") {
+                Write-LeftAligned "$FGGreen$Char_BallotCheck Corrupt files were found and repaired.$Reset"
+                return "REPAIRED"
+            }
+            elseif ($sfcOutput -match "found corrupt files but was unable to fix some of them") {
+                Write-LeftAligned "$FGRed$Char_RedCross SFC found unfixable corruption.$Reset"
+                return "FAILED"
+            }
+            else {
+                Write-LeftAligned "$FGDarkMagenta$Char_Warn SFC completed with unknown status.$Reset"
+                return "UNKNOWN"
+            }
+        }
+        catch {
+            $errMsg = "$($_.Exception.Message)"
+            Write-LeftAligned "$FGRed$Char_RedCross SFC execution error: $errMsg$Reset"
+            return "ERROR"
+        }
+    }
+
+    function Invoke-DISMRepair {
+        Write-Host ""
+        Write-LeftAligned "$Bold$FGWhite$Char_HeavyMinus Deployment Image Servicing (DISM)$Reset"
+        Write-LeftAligned "$FGYellow Starting online image repair...$Reset"
+        Write-LeftAligned "$FGGray This may take several minutes.$Reset"
+    
+        try {
+            $dismOutput = & DISM /Online /Cleanup-Image /RestoreHealth 2>&1 | Out-String
+        
+            if ($dismOutput -match "The restore operation completed successfully") {
+                Write-LeftAligned "$FGGreen$Char_BallotCheck DISM repair completed successfully.$Reset"
+                return $true
+            }
+            else {
+                Write-LeftAligned "$FGRed$Char_RedCross DISM repair failed.$Reset"
+                return $false
+            }
+        }
+        catch {
+            $errMsg = "$($_.Exception.Message)"
+            Write-LeftAligned "$FGRed$Char_RedCross DISM execution error: $errMsg$Reset"
+            return $false
+        }
+    }
+
+    Write-Header "SYSTEM REPAIR FLOW"
+
+    if ($Reverse) {
+        Write-LeftAligned "$FGYellow$Char_Warn Reverse Mode: System repairs cannot be reversed.$Reset"
+        Write-Host ""
+        $copyright = "Copyright (c) 2026 WinAuto"; $cPad = [Math]::Floor((60 - $copyright.Length) / 2); Write-Host (" " * $cPad + "$FGCyan$copyright$Reset"); Write-Host ""
+        return
+    }
+
+    $result = Invoke-SFCScan
+
+    if ($result -eq "FAILED") {
+        Write-Host ""
+        Write-LeftAligned "$FGYellow Triggering DISM Repair to fix underlying component store...$Reset"
+        $dismSuccess = Invoke-DISMRepair
+    
+        if ($dismSuccess) {
+            Write-Host ""
+            Write-LeftAligned "$FGYellow Re-running SFC to verify repairs...$Reset"
+            Invoke-SFCScan | Out-Null
+        }
+    }
+
+    Write-Host ""
+    Write-Boundary
+    Write-Centered "$FGGreen REPAIR FLOW COMPLETE $Reset"
+    Write-Boundary
+
+}
+
+# --- END OF EMBEDDING ---
 
 # --- MAIN EXECUTION ---
 # Ensure log directory exists
@@ -2056,7 +2584,7 @@ if ($Silent -or $Module) {
     }
     
     Write-Log "CLI Execution Complete."
-    exit 0
+    return
 }
 
 Set-ConsoleSnapRight -Columns 60
@@ -2211,7 +2739,7 @@ while ($true) {
     }
     Write-Host ""
     
-    Write-LeftAligned "${FGDarkGray}[${FGWhite}1${FGDarkGray}] ${FGWhite}ENABLED / ${FGDarkGray}[${FGWhite}0${FGDarkGray}] ${FGWhite}DISABLED       ${FGDarkGray}|${FGWhite} ATOMICSCRIPT$Reset" -Indent 2
+    Write-LeftAligned "${FGDarkGray}[${FGWhite}1${FGDarkGray}] ${FGWhite}ENABLED / ${FGDarkGray}[${FGWhite}0${FGDarkGray}] ${FGWhite}DISABLED       ${FGDarkGray}|${FGWhite} ATOMIC_SCRIPT$Reset" -Indent 2
     Write-Centered "${FGDarkGray}--------------------------------------------------------$Reset"
     
     # Config Details
@@ -2302,6 +2830,7 @@ while ($true) {
     
     Write-Host ""
     
+    
 
     
     Write-Boundary # Separator
@@ -2358,7 +2887,7 @@ while ($true) {
         Write-LeftAligned "${FGDarkGray}[${statusColor}$prefix${FGDarkGray}]${mDetailColor} $Txt${Reset}$pad${FGDarkGray}| ${mDetailColor}$Met${Reset}" -Indent 3  
     }
 
-    Write-LeftAligned "${FGDarkGray}[${FGWhite}#${FGDarkGray}]${FGWhite} OF DAYS SINCE LAST RUN      ${FGDarkGray}|${FGWhite} ATOMICSCRIPT$Reset" -Indent 3
+    Write-LeftAligned "${FGDarkGray}[${FGWhite}#${FGDarkGray}]${FGWhite} OF DAYS SINCE LAST RUN      ${FGDarkGray}|${FGWhite} ATOMIC_SCRIPT$Reset" -Indent 3
     Write-Centered "${FGDarkGray}--------------------------------------------------------$Reset"
     Write-MaintItem "WinGet App Updates" "RUN_WingetUpgrade.ps1" "Maintenance_WinUpdate" -Threshold 1
     Write-MaintItem "Drive Optimization" "RUN_OptimizeDisks.ps1" "Maintenance_Disk" -Threshold 7
@@ -2485,7 +3014,7 @@ while ($true) {
                 Write-Host ""
                 Write-Centered "Copyright (c) 2026 WinAuto"
                 Write-Host ""
-                exit 0
+                return
             }
             if ($mk.VirtualKeyCode -eq 13) {
                 # Enter pressed - export CSV
