@@ -144,18 +144,67 @@
     Write-LeftAligned "$FGWhite$Char_Finger Installing $AppName via WinGet...$Reset"
 
     try {
-        # Ensure WinGet sources are current (accept agreements for fresh machines)
-        Write-LeftAligned "$FGGray Updating WinGet sources...$Reset"
-        Start-Process "winget.exe" -ArgumentList "source update --disable-interactivity" -NoNewWindow -Wait -ErrorAction SilentlyContinue
-
-        $installArgs = "install --id $WingetId --exact --accept-package-agreements --accept-source-agreements --silent --disable-interactivity --scope $WingetScope"
-        $p = Start-Process "winget.exe" -ArgumentList $installArgs -NoNewWindow -PassThru -Wait
+        # Retry loop for source errors
+        $maxRetries = 2
+        $retryCount = 0
+        $success = $false
         
-        if ($p.ExitCode -eq 0) {
-            Write-LeftAligned "$FGGreen$Char_CheckMark Installation Successful.$Reset"
-        }
-        else {
-            throw "WinGet exited with code $($p.ExitCode)"
+        do {
+            # Ensure WinGet sources are current
+            if ($retryCount -eq 0) {
+                Write-LeftAligned "$FGGray Updating WinGet sources...$Reset"
+                Start-Process "winget.exe" -ArgumentList "source update --disable-interactivity" -NoNewWindow -Wait -ErrorAction SilentlyContinue
+            }
+
+            $installArgs = "install --id $WingetId --exact --accept-package-agreements --accept-source-agreements --silent --disable-interactivity --scope $WingetScope"
+            $p = Start-Process "winget.exe" -ArgumentList $installArgs -NoNewWindow -PassThru -Wait
+            
+            if ($p.ExitCode -eq 0) {
+                Write-LeftAligned "$FGGreen$Char_CheckMark Installation Successful.$Reset"
+                $success = $true
+            }
+            elseif ($p.ExitCode -eq -1978335217) {
+                # 0x8a15000f : Data required by the source is missing
+                Write-LeftAligned "$FGYellow$Char_Warn WinGet Source Error detected (0x8a15000f). Resetting sources...$Reset"
+                Start-Process "winget.exe" -ArgumentList "source reset --force" -NoNewWindow -Wait -ErrorAction SilentlyContinue
+                Start-Process "winget.exe" -ArgumentList "source update --disable-interactivity" -NoNewWindow -Wait -ErrorAction SilentlyContinue
+                $retryCount++
+            }
+            else {
+                throw "WinGet exited with code $($p.ExitCode)"
+            }
+        } while (-not $success -and $retryCount -lt $maxRetries)
+        
+        if (-not $success) {
+            Write-LeftAligned "$FGYellow$Char_Warn WinGet installation failed after retries. Attempting direct download fallback...$Reset"
+            
+            # Fallback: Direct Download of Deployable MSI/EXE
+            # URL Verified: 2026-02-18
+            $fallbackUrl = "https://www.crestron.com/Crestron/media/Crestron/WidenResources/Web%20Content/Software/AirMedia/airmedia_windows_5.10.1.160_deployable.exe"
+            $tempFile = "$env:TEMP\AirMedia_Install.exe"
+            
+            try {
+                Write-LeftAligned "$FGGray Downloading installer from Crestron...$Reset"
+                [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
+                Invoke-WebRequest -Uri $fallbackUrl -OutFile $tempFile -UseBasicParsing -ErrorAction Stop
+                
+                Write-LeftAligned "$FGGray Running installer...$Reset"
+                # Deployable EXE usually accepts standard silent args or extracts MSI
+                # Trying standard silent args for this specific deployable wrapper
+                $p = Start-Process $tempFile -ArgumentList "/quiet /norestart" -Wait -PassThru
+                
+                if ($p.ExitCode -eq 0 -or $p.ExitCode -eq 3010) {
+                    Write-LeftAligned "$FGGreen$Char_CheckMark Fallback Installation Successful.$Reset"
+                }
+                else {
+                    throw "Fallback installer exited with code $($p.ExitCode)"
+                }
+                
+                Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+            }
+            catch {
+                throw "Fallback installation failed: $($_.Exception.Message)"
+            }
         }
     }
     catch {
