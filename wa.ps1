@@ -13,7 +13,6 @@
 # --- CLI PARAMETERS ---
 param(
     [Parameter(Mandatory = $false)]
-    [ValidateSet("SmartRun", "Install", "Config", "Maintenance", "Help")]
     [string]$Module,
 
     [Parameter(Mandatory = $false)]
@@ -27,6 +26,12 @@ param(
     
     # Verbose is automatic due to [Parameter()] attributes
 )
+
+# Validate -Module (manual check for iex compatibility)
+if ($Module -and $Module -notin @("SmartRun", "Install", "Config", "Maintenance", "Help")) {
+    Write-Error "Invalid Module: '$Module'. Valid values: SmartRun, Install, Config, Maintenance, Help"
+    return
+}
 
 $Global:Silent = $Silent
 $Global:Module = $Module
