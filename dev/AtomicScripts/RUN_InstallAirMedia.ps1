@@ -144,7 +144,12 @@
     Write-LeftAligned "$FGWhite$Char_Finger Installing $AppName via WinGet...$Reset"
 
     try {
-        $installArgs = "install --id $WingetId --exact --source winget --accept-package-agreements --accept-source-agreements --silent --scope $WingetScope"
+        # Initialize WinGet sources (required on fresh machines)
+        Write-LeftAligned "$FGGray Initializing WinGet sources...$Reset"
+        Start-Process "winget.exe" -ArgumentList "source reset --force --disable-interactivity" -NoNewWindow -Wait -ErrorAction SilentlyContinue
+        Start-Process "winget.exe" -ArgumentList "source update --disable-interactivity" -NoNewWindow -Wait -ErrorAction SilentlyContinue
+
+        $installArgs = "install --id $WingetId --exact --accept-package-agreements --accept-source-agreements --silent --scope $WingetScope"
         $p = Start-Process "winget.exe" -ArgumentList $installArgs -NoNewWindow -PassThru -Wait
         
         if ($p.ExitCode -eq 0) {
