@@ -136,34 +136,6 @@ $Global:FGMagenta = "$Esc[95m"
 $Global:FGWhite = "$Esc[97m"
 $Global:FGGray = "$Esc[37m"
 $Global:FGDarkYellow = "$Esc[33m"
-$Global:FGBlack = "$Esc[30m"
-
-# Script Palette (Background)
-$Global:BGDarkGreen = "$Esc[42m"
-$Global:BGDarkGray = "$Esc[100m"
-$Global:BGYellow = "$Esc[103m"
-$Global:BGRed = "$Esc[41m"
-$Global:BGDarkCyan = "$Esc[46m"
-$Global:BGWhite = "$Esc[107m"
-
-# --- Unicode Icons & Characters ---
-$Global:Char_HeavyCheck = "[v]" 
-$Global:Char_HeavyCheck = "[v]" 
-$Global:Char_Warn = "!" 
-$Global:Char_BallotCheck = "[v]" 
-
-$Global:Char_Copyright = "(c)" 
-$Global:Char_Finger = "->" 
-$Global:Char_CheckMark = "v" 
-$Global:Char_FailureX = "x" 
-$Global:Char_RedCross = "x"
-$Global:Char_HeavyMinus = "-" 
-$Global:Char_EnDash = "-"
-
-$Global:RegPath_WU_UX = "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings"
-$Global:RegPath_WU_POL = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
-$Global:RegPath_Winlogon_User = "HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" 
-$Global:RegPath_Winlogon_Machine = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
 
 # --- LOGGING & REGISTRY ---
 function Write-Log {
@@ -171,7 +143,7 @@ function Write-Log {
     if (-not $Path) { $Path = "C:\Windows\Temp\WinAuto.log" }
     
     # Verbose Output (CLI Support)
-    if ($VerbosePreference -eq 'Continue') {
+    if ($Global:VerbosePreference -eq 'Continue') {
         Write-Host "[$Level] $Message" -ForegroundColor Gray
     }
 
@@ -190,13 +162,88 @@ trap {
 }
 
 # --- MANIFEST CONTENT ---
+$Global:WinAutoManifestContent = @'
+- wa.ps1: Functional Outline -
+________________________________________________________
+Pre-Run Setup
+- Execution Policy check    | (Inline)
+- Administrator check       | (Inline)
+- Environment Setup         | (Inline: Variables, Logging, UI Types)
+________________________________________________________
+[S]martRUN
+Method: Orchestration Loop
+Actions:
+- Install Apps Check        | Invoke-WA_InstallApps
+- Configuration Check       | Invoke-WinAutoConfiguration -SmartRun
+- Maintenance Check         | Invoke-WinAutoMaintenance -SmartRun
+________________________________________________________
+[I]nstall Applications
+Method: Config Driven (Embedded JSON)
+Actions:
+- Read Config & Detect Type | Get-WA_InstallAppList
+- Check Installed State     | Test-AppInstalled
+- Install (Winget/MSI/EXE)  | Invoke-WA_InstallApps
+________________________________________________________
+[C]onfiguration
+Security Actions:
+- Real-Time Protection      | Invoke-WA_SetRealTimeProtection (Set-MpPreference)
+- PUA Protection            | Invoke-WA_SetPUA (Set-MpPreference)
+- Memory Integrity          | Invoke-WA_SetMemoryIntegrity (Registry)
+- Kernel Stack Protection   | Invoke-WA_SetKernelStack (Registry)
+- LSA Protection            | Invoke-WA_SetLSA (Reg: Control\Lsa)
+- Windows Firewall          | Invoke-WA_SetFirewall (Set-NetFirewallProfile)
+UI & UX Actions:
+- Taskbar/Search/Widgets    | Invoke-WA_SetTaskbarDefaults (Reg: HKCU/HKLM)
+- Windows Update Config     | Invoke-WA_SetWindowsUpdateConfig (Reg: UX/Settings)
+________________________________________________________
+
+[M]aintenance
+Orchestrated Maintenance:
+- System Pre-Flight Check   | Invoke-WA_SystemPreCheck
+- Windows Update (API/UI)   | Invoke-WA_WindowsUpdate
+- SFC System Scan           | Invoke-WA_SFCRepair (Conditional: 30 days)
+- DISM Repair               | Invoke-WA_SFCRepair (Triggered on corruption)
+- WinGet/Store Updates      | Invoke-WA_WindowsUpdate
+- Drive Opt (Trim/Defrag)   | Invoke-WA_OptimizeDisks (Conditional: 7 days)
+- System Cleanup            | Invoke-WA_SystemCleanup (Conditional: 7 days)
+'@
+$Global:FGBlack = "$Esc[30m"
+
+# Script Palette (Background)
+$Global:BGDarkGreen = "$Esc[42m"
+$Global:BGDarkGray = "$Esc[100m"
+$Global:BGYellow = "$Esc[103m"
+$Global:BGRed = "$Esc[41m"
+$Global:BGDarkCyan = "$Esc[46m"
+$Global:BGWhite = "$Esc[107m"
+
+# --- Unicode Icons & Characters ---
+$Global:Char_HeavyCheck = "[v]" 
+
+$Global:Char_Warn = "!" 
+$Global:Char_BallotCheck = "[v]" 
+
+$Global:Char_Copyright = "(c)" 
+$Global:Char_Finger = "->" 
+$Global:Char_CheckMark = "v" 
+$Global:Char_FailureX = "x" 
+$Global:Char_RedCross = "x"
+$Global:Char_HeavyMinus = "-" 
+$Global:Char_EnDash = "-"
+
+$Global:RegPath_WU_UX = "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings"
+$Global:RegPath_WU_POL = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
+$Global:RegPath_Winlogon_User = "HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" 
+$Global:RegPath_Winlogon_Machine = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
+
+# --- MANIFEST CONTENT ---
 
 $Global:WinAutoManifestContent = @"
 ${FGDarkCyan}============================================================${Reset}
 ${FGDarkCyan}__________________________________________________________${Reset}
 ${FGCyan}ACTION${Reset}                   ${FGDarkGray}|${Reset} ${FGCyan}STAGE${Reset}    ${FGDarkGray}|${Reset} ${FGDarkCyan}SOURCE SCRIPT${Reset}
 ${FGDarkGray}----------------------------------------------------------${Reset}
-Install Applications     ${FGDarkGray}|${Reset} ${FGDarkCyan}Install${Reset}  ${FGDarkGray}|${Reset} ${FGGray}Install_Apps-wa${Reset}
+Install Applications     ${FGDarkGray}|${Reset} ${FGDarkCyan}Install${Reset}  ${FGDarkGray}|${Reset} ${FGGray}wa.ps1 (Embedded)${Reset}
 Real-Time Protection     ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_RealTimeProtect${Reset}
 PUA Protection           ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_DefenderPUA${Reset}
 PUA Protection (Edge)    ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_EdgePUA${Reset}
@@ -225,7 +272,7 @@ Execution Policy / Admin Check,Pre-Run Setup,wa.ps1,Inline,Set-ExecutionPolicy R
 Auto-Unblock,Pre-Run Setup,wa.ps1,Inline,Unblock-File (Self),N/A,No,System,(Script Header)
 System Hardening Check,SmartRUN,CHECK_SystemHarden.ps1,Mixed,Checks Last Run date (30 days) to determine invalidation,N/A,No,Automation,Invoke-WinAutoConfiguration -SmartRun
 Maintenance Cycle,SmartRUN,SET_ScheduleMaintn.ps1,Mixed,Checks Last Run dates (SFC=30d; Disk=7d; Clean=7d) to trigger tasks,N/A,No,Automation,Invoke-WinAutoMaintenance -SmartRun
-Install Applications,Install,Install_RequiredApps-Config.json,Mixed,Iterates through apps list in JSON config,No,No,System,Invoke-WA_InstallApps
+Install Applications,Install,wa.ps1 (Embedded),Mixed,Iterates through embedded JSON list,No,No,System,Invoke-WA_InstallApps
 Real-Time Protection,Configure,SET_RealTimeProtect.ps1,PS WMI,Set-MpPreference -DisableRealtimeMonitoring 0,Yes,No,Security,Invoke-WA_SetRealTimeProtection
 PUA Protection,Configure,SET_DefenderPUA.ps1,PS WMI,Set-MpPreference -PUAProtection 1,Yes,No,Security,Invoke-WA_SetPUA
 PUA Protection (Edge),Configure,SET_EdgePUA.ps1,Registry (HKCU),HKCU:\Software\Microsoft\Edge\SmartScreenPuaEnabled (1),Yes,No,Security,Invoke-WA_SetPUA
@@ -246,15 +293,6 @@ Temp File Cleanup,Maintain,RUN_SystemCleanup.ps1,File System,Clears Windows Temp
 SFC / DISM Repair,Maintain,RUN_WindowsRepair.ps1,Command Line,Runs SFC scan; if corruption found runs DISM,No,No,Maintenance,Invoke-WA_SFCRepair
 '@
 
-
-# --- SYSTEM PATHS ---
-if ($null -eq (Get-Variable -Name 'WinAutoLogDir' -Scope Global -ErrorAction SilentlyContinue)) {
-    # Use local 'logs' folder relative to script
-    $root = if ($PSScriptRoot) { $PSScriptRoot } else { $PWD.Path }
-    $Global:WinAutoLogDir = Join-Path $root "logs"
-    if (-not (Test-Path $Global:WinAutoLogDir)) { New-Item -ItemType Directory -Force -Path $Global:WinAutoLogDir | Out-Null }
-}
-$env:WinAutoLogDir = $Global:WinAutoLogDir
 
 # UI Automation Preparation
 if (-not ([System.Management.Automation.PSTypeName]"System.Windows.Automation.AutomationElement").Type) {
@@ -338,11 +376,7 @@ function Get-UIAToggleState {
 }
 
 
-$env:WinAutoLogDir = $Global:WinAutoLogDir
 
-if ($null -eq (Get-Variable -Name 'WinAutoLogPath' -Scope Global -ErrorAction SilentlyContinue)) {
-    $Global:WinAutoLogPath = "$Global:WinAutoLogDir\wa.log"
-}
 
 # --- SHARED UI FUNCTIONS ---
 
@@ -527,8 +561,13 @@ function Get-WinAutoLastRun {
 function Set-WinAutoLastRun {
     param([string]$Module)
     $path = "HKLM:\SOFTWARE\WinAuto"
-    if (-not (Test-Path $path)) { New-Item -Path $path -Force | Out-Null }
-    Set-ItemProperty -Path $path -Name "LastRun_$Module" -Value (Get-Date).ToString() -Force | Out-Null
+    try {
+        if (-not (Test-Path $path)) { New-Item -Path $path -Force | Out-Null }
+        Set-ItemProperty -Path $path -Name "LastRun_$Module" -Value (Get-Date).ToString() -Force | Out-Null
+    }
+    catch {
+        Write-Log "Failed to update LastRun for $Module : $_" -Level WARN
+    }
 }
 
 function Write-Header {
@@ -577,6 +616,9 @@ function Write-BodyTitle {
 
 # --- LOGGING & REGISTRY ---
 # --- LOGGING & REGISTRY ---
+
+
+
 
 function Get-LogReport {
     param([string]$Path = $Global:WinAutoLogPath)
@@ -645,6 +687,7 @@ $Global:TickAction = {
 
 function Wait-KeyPressWithTimeout {
     param([int]$Seconds = 10, [scriptblock]$OnTick)
+    if ($Global:Silent) { return [PSCustomObject]@{ VirtualKeyCode = 13; Character = [char]13 } }
     $StopWatch = [System.Diagnostics.Stopwatch]::StartNew()
     while ($StopWatch.Elapsed.TotalSeconds -lt $Seconds) {
         if ($OnTick) { & $OnTick $StopWatch.Elapsed }
@@ -668,6 +711,7 @@ function Wait-KeyPressWithTimeout {
 
 function Invoke-AnimatedPause {
     param([string]$ActionText = "CONTINUE", [int]$Timeout = 10, [string]$SelectionChar = $null, [string]$PreActionWord = "to", [int]$OverrideCursorTop)
+    if ($Global:Silent) { return [PSCustomObject]@{ VirtualKeyCode = 13; Character = [char]13 } }
     $PromptCursorTop = if ($OverrideCursorTop) { $OverrideCursorTop } else { [Console]::CursorTop }
     if ($Timeout -le 0) {
         & $Global:TickAction -ElapsedTimespan ([timespan]::Zero) -ActionText $ActionText -Timeout 0 -PromptCursorTop $PromptCursorTop -SelectionChar $SelectionChar -PreActionWord $PreActionWord
@@ -1153,6 +1197,172 @@ function Invoke-WA_SetSmartScreen {
     }
 }
 
+function Invoke-WA_SetFirewallUIA {
+    Write-Header "FIREWALL PROTECTION (UIA)"
+    
+    # UIA Preparation
+    if (-not ([System.Management.Automation.PSTypeName]"System.Windows.Automation.AutomationElement").Type) {
+        try {
+            Add-Type -AssemblyName UIAutomationClient
+            Add-Type -AssemblyName UIAutomationTypes
+        }
+        catch {
+            Write-LeftAligned "$FGRed$Global:Char_RedCross Failed to load UI Automation assemblies.$Reset"
+            return
+        }
+    }
+
+    # 1. Launch Windows Security
+    Write-LeftAligned "Opening Windows Security..."
+    Start-Process "windowsdefender://network"
+    Start-Sleep -Seconds 2
+
+    # 2. Find Window
+    $timeout = 10
+    $startTime = Get-Date
+    $window = $null
+
+    Write-LeftAligned "Searching for 'Windows Security' window..."
+
+    do {
+        $desktop = [System.Windows.Automation.AutomationElement]::RootElement
+        $condition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, "Windows Security")
+        $window = $desktop.FindFirst([System.Windows.Automation.TreeScope]::Children, $condition)
+        if ($null -ne $window) { break }
+        Start-Sleep -Milliseconds 500
+    } while ((Get-Date) -lt $startTime.AddSeconds($timeout))
+
+    if ($window) {
+        Write-LeftAligned "$FGGreen$Global:Char_HeavyCheck Window found.$Reset"
+        
+        # 3. Search for 'Turn on' (or 'Restore settings') button
+        $targets = @("Turn on", "Restore settings")
+        $button = $null
+        
+        foreach ($t in $targets) {
+            $cond = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, $t)
+            $button = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $cond)
+            if ($button) { 
+                Write-LeftAligned "$FGGreen$Global:Char_HeavyCheck Found '$t' button.$Reset"
+                break 
+            }
+        }
+        
+        if ($button) {
+            try {
+                $invokePattern = $button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
+                if ($invokePattern) {
+                    $invokePattern.Invoke()
+                    Write-LeftAligned "$FGGreen$Global:Char_HeavyCheck Clicked button.$Reset"
+                    Start-Sleep -Seconds 1
+                }
+                else {
+                    Write-LeftAligned "$FGDarkYellow$Global:Char_Warn Button found but not clickable.$Reset"
+                }
+            }
+            catch {
+                Write-LeftAligned "$FGRed$Global:Char_RedCross Failed to click button: $($_.Exception.Message)$Reset"
+            }
+        }
+        else {
+            Write-LeftAligned "$FGGray No 'Turn on' button found (Already enabled?).$Reset"
+        }
+        
+        # Close Window
+        try {
+            $windowPattern = $window.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern)
+            if ($windowPattern) { $windowPattern.Close() }
+        }
+        catch {}
+    }
+    else {
+        Write-LeftAligned "$FGRed$Global:Char_RedCross Timeout waiting for Windows Security window.$Reset"
+    }
+}
+
+function Invoke-WA_SetVirusThreatProtect {
+    Write-Header "VIRUS & THREAT PROTECTION (UIA)"
+    
+    # UIA Preparation
+    if (-not ([System.Management.Automation.PSTypeName]"System.Windows.Automation.AutomationElement").Type) {
+        try {
+            Add-Type -AssemblyName UIAutomationClient
+            Add-Type -AssemblyName UIAutomationTypes
+        }
+        catch {
+            Write-LeftAligned "$FGRed$Global:Char_RedCross Failed to load UI Automation assemblies.$Reset"
+            return
+        }
+    }
+
+    # 1. Launch Windows Security
+    Write-LeftAligned "Opening Windows Security..."
+    Start-Process "windowsdefender://threat"
+    Start-Sleep -Seconds 2
+
+    # 2. Find Window
+    $timeout = 10
+    $startTime = Get-Date
+    $window = $null
+
+    Write-LeftAligned "Searching for 'Windows Security' window..."
+
+    do {
+        $desktop = [System.Windows.Automation.AutomationElement]::RootElement
+        $condition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, "Windows Security")
+        $window = $desktop.FindFirst([System.Windows.Automation.TreeScope]::Children, $condition)
+        if ($null -ne $window) { break }
+        Start-Sleep -Milliseconds 500
+    } while ((Get-Date) -lt $startTime.AddSeconds($timeout))
+
+    if ($window) {
+        Write-LeftAligned "$FGGreen$Global:Char_HeavyCheck Window found.$Reset"
+        
+        # 3. Search for 'Turn on' (or 'Restart now') button
+        $targets = @("Turn on", "Restart now")
+        $button = $null
+        
+        foreach ($t in $targets) {
+            $cond = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, $t)
+            $button = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $cond)
+            if ($button) { 
+                Write-LeftAligned "$FGGreen$Global:Char_HeavyCheck Found '$t' button.$Reset"
+                break 
+            }
+        }
+        
+        if ($button) {
+            try {
+                $invokePattern = $button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
+                if ($invokePattern) {
+                    $invokePattern.Invoke()
+                    Write-LeftAligned "$FGGreen$Global:Char_HeavyCheck Clicked button.$Reset"
+                    Start-Sleep -Seconds 1
+                }
+                else {
+                    Write-LeftAligned "$FGDarkYellow$Global:Char_Warn Button found but not clickable.$Reset"
+                }
+            }
+            catch {
+                Write-LeftAligned "$FGRed$Global:Char_RedCross Failed to click button: $($_.Exception.Message)$Reset"
+            }
+        }
+        else {
+            Write-LeftAligned "$FGGray No 'Turn on' button found (Already enabled?).$Reset"
+        }
+        
+        # Close Window
+        try {
+            $windowPattern = $window.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern)
+            if ($windowPattern) { $windowPattern.Close() }
+        }
+        catch {}
+    }
+    else {
+        Write-LeftAligned "$FGRed$Global:Char_RedCross Timeout waiting for Windows Security window.$Reset"
+    }
+}
+
 function Invoke-WA_SetContextMenu {
     param([switch]$Undo)
     Write-Header "CLASSIC CONTEXT MENU"
@@ -1405,8 +1615,15 @@ function Invoke-WA_WindowsUpdate {
 function Invoke-WA_SFCRepair {
     Write-Header "SYSTEM REPAIR (SFC)"
     Write-LeftAligned "Running sfc /scannow..."
-    $raw = & sfc /scannow 2>&1
-    $code = $LASTEXITCODE
+    try {
+        $raw = & sfc /scannow 2>&1
+        $code = $LASTEXITCODE
+    }
+    catch {
+        Write-Log "SFC Failed to run: $_" -Level WARN
+        $raw = "Error: $_"
+        $code = -1
+    }
     $out = ($raw -join " ")
     
     # 0 = No violations, 100 = Repaired
@@ -1447,22 +1664,84 @@ function Invoke-WA_SystemCleanup {
 }
 
 function Get-WA_InstallAppList {
-    $paths = @(
-        "$env:USERPROFILE\Documents\wa\Install_RequiredApps-Config.json",
-        "$env:USERPROFILE\Downloads\Install_RequiredApps-Config.json"
-    )
-    
-    $jsonPath = $null
-    foreach ($p in $paths) {
-        if (Test-Path $p) { $jsonPath = $p; break }
+    # --- EXTERNAL CONFIGURATION ---
+    if ($Global:Config -and (Test-Path $Global:Config)) {
+        try {
+            Write-Log "Loading external configuration from: $Global:Config"
+            $json = Get-Content -Raw $Global:Config -ErrorAction Stop
+            if ($json) { 
+                $obj = $json | ConvertFrom-Json -ErrorAction Stop
+                if ($obj.BaseApps) { return $obj.BaseApps }
+                return $obj # Fallback if user just provided a raw array
+            }
+        }
+        catch {
+            Write-Log "Failed to load external config: $($_.Exception.Message)" -Level ERROR
+            Write-Warning "External config failed to load. Falling back to embedded defaults."
+        }
     }
 
-    if (-not $jsonPath) { return $null }
+    # Hardcoded Configuration (Embedded Install_RequiredApps-Config.json)
+    $jsonContent = @'
+{
+  "BaseApps": [
+    { 
+      "AppName": "Adobe Creative Cloud", 
+      "MatchName": "*Adobe Creative Cloud*", 
+      "Type": "WINGET", 
+      "CheckMethod": "Registry", 
+      "WingetId": "Adobe.CreativeCloud", 
+      "InstallOrder": 50 
+    },
+    { 
+      "AppName": "Box", 
+      "MatchName": "Box", 
+      "Type": "MSI", 
+      "CheckMethod": "Registry", 
+      "InstallOrder": 40, 
+      "Url": "https://e3.boxcdn.net/box-installers/desktop/releases/win/Box-x64.msi" 
+    },
+    { 
+      "AppName": "Box for Office", 
+      "MatchName": "*Box for Office*", 
+      "Type": "EXE", 
+      "CheckMethod": "Registry", 
+      "InstallOrder": 41, 
+      "Url": "https://e3.boxcdn.net/box-installers/boxforoffice/currentrelease/BoxForOffice.exe", 
+      "SilentArgs": "/quiet /norestart", 
+      "PreInstallDelay": 10 
+    },
+    { 
+      "AppName": "Box Tools", 
+      "MatchName": "*Box Tools*", 
+      "Type": "EXE", 
+      "CheckMethod": "Registry", 
+      "InstallOrder": 42, 
+      "Url": "https://e3.boxcdn.net/box-installers/boxedit/win/currentrelease/BoxToolsInstaller.exe", 
+      "SilentArgs": "/quiet /norestart ALLUSERS=1" 
+    }
+  ],
+  "LaptopApps": [
+    {
+      "AppName": "Crestron AirMedia",
+      "MatchName": "*AirMedia*",
+      "Type": "WINGET",
+      "CheckMethod": "Registry",
+      "WingetScope": "Machine",
+      "WingetId": "Crestron.AirMedia",
+      "InstallOrder": 100
+    }
+  ]
+}
+'@
 
     try {
-        $config = Get-Content $jsonPath -Raw | ConvertFrom-Json
+        $config = $jsonContent | ConvertFrom-Json -ErrorAction Stop
     }
-    catch { return $null }
+    catch {
+        Write-Log "Critical Error: Embedded JSON Configuration is invalid. Exception: $($_.Exception.Message)" -Level ERROR
+        return $null 
+    }
 
     # Device Type Detection
     $IsDesktop = $false
@@ -1536,55 +1815,21 @@ function Invoke-WA_InstallApps {
     $AppList = Get-WA_InstallAppList
     
     if ($null -eq $AppList) {
-        Write-LeftAligned "$FGRed$Global:Char_Warn Config file not found.$Reset"
-        Write-Host ""
-        Write-LeftAligned "Searched Locations:"
-        Write-LeftAligned " - Documents\wa\Install_RequiredApps-Config.json"
-        Write-LeftAligned " - Downloads\Install_RequiredApps-Config.json"
-        
-        Write-Host ""
-        Write-LeftAligned "Would you like to download the default config from GitHub? [Y/N] (Defaults to Yes in 10s)"
-        $key = Wait-KeyPressWithTimeout -Seconds 10
-        
-        if ($key.Character -eq 'y' -or $key.Character -eq 'Y' -or $key.VirtualKeyCode -eq 13) {
-            Write-Host ""
-            Write-LeftAligned "Downloading..."
-            try {
-                $waDir = "$env:USERPROFILE\Documents\wa"
-                if (-not (Test-Path $waDir)) { New-Item -ItemType Directory -Path $waDir -Force | Out-Null }
-                
-                $target = "$waDir\Install_RequiredApps-Config.json"
-                $url = "https://raw.githubusercontent.com/KeithOwns/wa/main/Install_Apps-wa.json"
-                
-                [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
-                Invoke-WebRequest -Uri $url -OutFile $target -UseBasicParsing -ErrorAction Stop
-                
-                Write-LeftAligned "$FGGreen$Global:Char_CheckMark Download Complete.$Reset"
-                Start-Sleep -Seconds 1
-                $AppList = Get-WA_InstallAppList
-            }
-            catch {
-                Write-LeftAligned "$FGRed$Global:Char_RedCross Download Failed: $($_.Exception.Message)$Reset"
-                Start-Sleep -Seconds 2
-                return
-            }
-        }
-        else {
-            return
-        }
+        $msg = "Configuration Error: Embedded JSON is invalid or could not be parsed."
+        Write-LeftAligned "$FGRed$Global:Char_Warn $msg$Reset"
+        Write-Log $msg -Level ERROR
+        return
     }
     
     if ($null -eq $AppList) { return } # Failed to download or parse
 
     
     # Helper: Test-AppInstalled (Inline for standalone)
-
-    # Helper: Test-AppInstalled (Inline for standalone)
     function Test-AppInstalled {
         param($App)
         # Registry Check
         $scopes = @("HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall", "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall")
-        $pattern = if ($App.MatchName) { $App.MatchName } else { $App.AppName }
+        $pattern = if ($App.PSObject.Properties['MatchName'] -and $App.MatchName) { $App.MatchName } else { $App.AppName }
         
         foreach ($s in $scopes) {
             if (Test-Path $s) {
@@ -1597,6 +1842,7 @@ function Invoke-WA_InstallApps {
         return $false
     }
     
+    
     # --- CONFIRMATION PROMPT ---
     $AppsToInstall = @()
     foreach ($app in $AppList) {
@@ -1605,9 +1851,9 @@ function Invoke-WA_InstallApps {
         }
     }
 
-    if ($AppsToInstall.Count -gt 0) {
+    if (@($AppsToInstall).Count -gt 0) {
         Write-Host ""
-        Write-LeftAligned "$FGYellow$Char_Warn $($AppsToInstall.Count) applications are missing or outdated.$Reset"
+        Write-LeftAligned "$FGYellow$Char_Warn $(@($AppsToInstall).Count) applications are missing or outdated.$Reset"
         
         $Confirmed = $true
         if (-not $Global:Silent -and -not $SmartRun) {
@@ -1617,71 +1863,73 @@ function Invoke-WA_InstallApps {
                 $Confirmed = $false
             }
         }
-
+        
         if (-not $Confirmed) {
             Write-LeftAligned "Skipping installation as requested."
             return
         }
+        
+        # Proceed with Installation
+        Write-LeftAligned "Processing $(@($AppList).Count) applications..."
+    
+        foreach ($app in $AppList) {
+            Write-Host ""
+            if (Test-AppInstalled -App $app) {
+                Write-LeftAligned "$FGGreen$Global:Char_BallotCheck $($app.AppName) is already installed.$Reset"
+                continue
+            }
+
+            Write-LeftAligned "$FGWhite$Global:Char_Finger Installing $($app.AppName)...$Reset"
+        
+            try {
+                if ($app.Type -eq "WINGET") {
+                    Write-LeftAligned "Installing via WinGet ($($app.WingetId))..."
+                    $installArgs = "install --id $($app.WingetId) --exact --source winget --accept-package-agreements --accept-source-agreements --silent"
+                    if ($app.PSObject.Properties['WingetScope'] -and $app.WingetScope) { $installArgs += " --scope $($app.WingetScope)" }
+                
+                    $p = Start-Process winget -ArgumentList $installArgs -NoNewWindow -PassThru -Wait
+                    if ($p.ExitCode -eq 0) {
+                        Write-LeftAligned "$FGGreen$Global:Char_CheckMark Installation Successful.$Reset"
+                        Write-Log "Installed $($app.AppName) via WinGet." -Level INFO
+                    }
+                    else {
+                        throw "WinGet exited with code $($p.ExitCode)"
+                    }
+                }
+                elseif ($app.PSObject.Properties['Url'] -and $app.Url) {
+                    # Download and Install (MSI/EXE)
+                    $tempFile = "$env:TEMP\$($app.AppName).$($app.Type.ToLower())"
+                    Write-LeftAligned "Downloading installer..."
+                    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
+                    Invoke-WebRequest -Uri $app.Url -OutFile $tempFile -UseBasicParsing -ErrorAction Stop
+                
+                    Write-LeftAligned "Running installer..."
+                    # Handle PreInstallDelay if property exists
+                    if ($app.PSObject.Properties['PreInstallDelay'] -and $app.PreInstallDelay) { Start-Sleep -Seconds $app.PreInstallDelay }
+                
+                    $procArgs = if ($app.PSObject.Properties['SilentArgs'] -and $app.SilentArgs) { $app.SilentArgs } else { "/quiet /norestart" }
+                    $p = Start-Process $tempFile -ArgumentList $procArgs -NoNewWindow -PassThru -Wait -ErrorAction Stop
+                
+                    if ($p.ExitCode -eq 0 -or $p.ExitCode -eq 3010) {
+                        Write-LeftAligned "$FGGreen$Global:Char_CheckMark Installation Successful.$Reset"
+                        Write-Log "Installed $($app.AppName)." -Level INFO
+                    }
+                    else { throw "Installer exited with code $($p.ExitCode)" }
+                
+                    Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+                }
+            }
+            catch {
+                Write-LeftAligned "   $FGRed$Global:Char_Warn Error: $($_.Exception.Message)$Reset"
+                Write-Log "Failed to install $($app.AppName): $($_.Exception.Message)" -Level ERROR
+            }
+        }
+    
+        Invoke-AnimatedPause -Timeout 5 | Out-Null
     }
     else {
         Write-LeftAligned "$FGGreen$Char_HeavyCheck All applications installed.$Reset"
-        return
     }
-
-    Write-LeftAligned "Processing $($AppList.Count) applications..."
-    
-    foreach ($app in $AppList) {
-        Write-Host ""
-        if (Test-AppInstalled -App $app) {
-            Write-LeftAligned "$FGGreen$Global:Char_BallotCheck $($app.AppName) is already installed.$Reset"
-            continue
-        }
-
-        Write-LeftAligned "$FGWhite$Global:Char_Finger Installing $($app.AppName)...$Reset"
-        
-        try {
-            if ($app.Type -eq "WINGET") {
-                $procArgs = @("install", "--id", $app.WingetId, "-e", "--accept-package-agreements", "--accept-source-agreements", "--silent", "--disable-interactivity")
-                if ($app.PSObject.Properties['WingetScope'] -and $app.WingetScope) { 
-                    $procArgs += "--scope"
-                    $procArgs += $app.WingetScope 
-                }
-                 
-                $p = Start-Process -FilePath "winget.exe" -ArgumentList $procArgs -Wait -PassThru -ErrorAction SilentlyContinue
-                if ($p.ExitCode -eq 0) { Write-LeftAligned "   $FGGreen$Global:Char_CheckMark Success.$Reset" }
-                else { Write-LeftAligned "   $FGRed$Global:Char_RedCross Failed (Code: $($p.ExitCode)).$Reset" }
-            }
-            elseif ($app.Type -eq "MSI" -or $app.Type -eq "EXE") {
-                if (-not $app.Url) { throw "Missing URL" }
-                $ext = if ($app.Type -eq "MSI") { ".msi" } else { ".exe" }
-                $out = "$env:TEMP\WinAuto_Install$ext"
-                
-                Write-LeftAligned "   Downloading..."
-                [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
-                Invoke-WebRequest -Uri $app.Url -OutFile $out -UseBasicParsing -ErrorAction Stop
-                
-                Write-LeftAligned "   Executing..."
-                $procArgs = if ($app.PSObject.Properties['SilentArgs'] -and $app.SilentArgs) { $app.SilentArgs } else { "/quiet /norestart" }
-                if ($app.Type -eq "MSI") {
-                    $msiArgs = "/i `"$out`" $procArgs"
-                    $p = Start-Process "msiexec.exe" -ArgumentList $msiArgs -Wait -PassThru
-                }
-                else {
-                    $p = Start-Process $out -ArgumentList $procArgs -Wait -PassThru
-                }
-                
-                if ($p.ExitCode -eq 0 -or $p.ExitCode -eq 3010) { Write-LeftAligned "   $FGGreen$Global:Char_CheckMark Success.$Reset" }
-                else { Write-LeftAligned "   $FGRed$Global:Char_RedCross Failed (Code: $($p.ExitCode)).$Reset" }
-                
-                Remove-Item $out -Force -ErrorAction SilentlyContinue
-            }
-        }
-        catch {
-            Write-LeftAligned "   $FGRed$Global:Char_Warn Error: $($_.Exception.Message)$Reset"
-        }
-    }
-    
-    Invoke-AnimatedPause -Timeout 5 | Out-Null
 }
 
 # --- MODULE HANDLERS ---
@@ -1692,16 +1940,18 @@ function Invoke-WinAutoConfiguration {
     $lastRun = Get-WinAutoLastRun -Module "Configuration"
     Write-LeftAligned "$FGGray Last Run: $FGWhite$lastRun$Reset"
 
+    $SkipConfig = $false
+
     if ($SmartRun -and $lastRun -ne "Never") {
         # Check 30-day freshness
         $lastDate = Get-Date $lastRun
         if ((Get-Date) -lt $lastDate.AddDays(30)) {
             # TIME SAYS SKIP, BUT WE MUST AUDIT COMPLIANCE
-            # If Attestation passes, we can safely skip. If it fails, we MUST run.
+            # If Attestation passes, we can safely skip REGISTRY items.
             Write-LeftAligned "$FGGray History valid. verifying system compliance..."
             if (Test-WinAutoAttestation) {
-                Write-LeftAligned "$FGGreen$Global:Char_CheckMark System Compliant. Skipping...$Reset"
-                return
+                Write-LeftAligned "$FGGreen$Global:Char_CheckMark System Compliant. Skipping Core Configuration...$Reset"
+                $SkipConfig = $true
             }
             else {
                 Write-LeftAligned "$FGRed$Global:Char_Warn DRIFT DETECTED. Forcing Re-Configuration.$Reset"
@@ -1710,24 +1960,32 @@ function Invoke-WinAutoConfiguration {
     }
     Write-Boundary
 
-    Invoke-WA_SetMemoryIntegrity
-    Invoke-WA_SetRealTimeProtection
-    Invoke-WA_SetPUA
-    Invoke-WA_SetLSA
-    Invoke-WA_SetFirewall
+    if (-not $SkipConfig) {
+        Invoke-WA_SetMemoryIntegrity
+        Invoke-WA_SetRealTimeProtection
+        Invoke-WA_SetPUA
+        Invoke-WA_SetLSA
+        Invoke-WA_SetFirewall
+        Invoke-WA_SetKernelStack
+    }
+    
+    # UIA Remediation Steps (Always run in SmartRUN to catch UI drift)
     Invoke-WA_SetSmartScreen
-    Invoke-WA_SetKernelStack
+    Invoke-WA_SetFirewallUIA
+    Invoke-WA_SetVirusThreatProtect
     
-    # UI & Performance
-    Invoke-WA_SetContextMenu
-    Invoke-WA_SetTaskbarDefaults
-    Invoke-WA_SetWindowsUpdateConfig
+    if (-not $SkipConfig) {
+        # UI & Performance
+        Invoke-WA_SetContextMenu
+        Invoke-WA_SetTaskbarDefaults
+        Invoke-WA_SetWindowsUpdateConfig
     
-    # Restart Explorer to force refresh of Taskbar/Start Menu registry settings (Standard UI changes)
-    Write-LeftAligned "Restarting Explorer to apply UI settings..."
-    Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
-    Start-Sleep -Seconds 1
-    Start-Process explorer
+        # Restart Explorer to force refresh of Taskbar/Start Menu registry settings (Standard UI changes)
+        Write-LeftAligned "Restarting Explorer to apply UI settings..."
+        Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 1
+        Start-Process explorer
+    }
 
     Write-Boundary
     Write-Centered "$FGGreen CONFIGURATION COMPLETE $Reset"
@@ -1798,8 +2056,32 @@ function Invoke-WinAutoMaintenance {
 # Ensure log directory exists
 if (-not (Test-Path $Global:WinAutoLogDir)) { New-Item -Path $Global:WinAutoLogDir -ItemType Directory -Force | Out-Null }
 Write-Log "WinAuto Standalone Session Started" -Level INFO
+
+# --- CLI CONTROLLER ---
+if ($Silent -or $Module) {
+    if ($Module) { Write-Log "Starting CLI Mode (Module: $Module)" }
+    else { Write-Log "Starting CLI Mode (Silent Default)" }
+
+    if (-not $Module -and $Silent) { $Module = "SmartRun" }
+
+    switch ($Module) {
+        "SmartRun" { 
+            Invoke-WinAutoConfiguration -SmartRun
+            Invoke-WinAutoMaintenance -SmartRun
+            if (-not $Global:AllAppsInstalled) { Invoke-WA_InstallApps -SmartRun }
+        }
+        "Install" { Invoke-WA_InstallApps }
+        "Config" { Invoke-WinAutoConfiguration }
+        "Maintenance" { Invoke-WinAutoMaintenance }
+        "Help" { Write-Host $Global:WinAutoManifestContent; exit 0 }
+    }
+    
+    Write-Log "CLI Execution Complete."
+    exit 0
+}
+
 Set-ConsoleSnapRight -Columns 60
-Disable-QuickEdit
+# Disable-QuickEdit
 
 $MenuSelection = 0  # 0=Smart, 1=Config, 2=Maintenance
 # Per-section expansion flags
@@ -1967,7 +2249,11 @@ while ($true) {
         $s_RT = $mp.DisableRealtimeMonitoring -eq $false
         $s_PUA = $mp.PUAProtection -eq 1
     }
-    catch { $s_RT = $false; $s_PUA = $false } # Default to Red on error
+    catch { 
+        $s_RT = $false; $s_PUA = $false 
+        Write-Log "Failed to query Defender Preferences via WMI: $($_.Exception.Message)" -Level WARN
+    } 
+
     
     try {
         $profiles = Get-NetFirewallProfile
@@ -1980,7 +2266,11 @@ while ($true) {
 
         $s_FW = $allEnabled
     }
-    catch { $s_FW = $false }
+    catch { 
+        $s_FW = $false 
+        Write-Log "Failed to query Firewall Profiles: $($_.Exception.Message)" -Level WARN
+    }
+
     # }
     
     # Registry Checks (Fast)
