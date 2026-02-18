@@ -1,8 +1,3 @@
-# Admin check (manual, for iex compatibility — #Requires does not work with Invoke-Expression)
-if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Error "This script requires Administrator privileges. Please run in an elevated PowerShell window."
-    return
-}
 <#
 .SYNOPSIS
     WinAuto (Core Edition)
@@ -30,6 +25,12 @@ param(
     
     # Verbose is automatic due to [Parameter()] attributes
 )
+
+# Admin check (manual, for iex compatibility — #Requires does not work with Invoke-Expression)
+if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Write-Error "This script requires Administrator privileges. Please run in an elevated PowerShell window."
+    return
+}
 
 # Validate -Module (manual check for iex compatibility)
 if ($Module -and $Module -notin @("SmartRun", "Install", "Config", "Maintenance", "Help")) {
