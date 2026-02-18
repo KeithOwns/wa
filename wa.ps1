@@ -259,8 +259,8 @@ Box for Office           ${FGDarkGray}|${Reset} ${FGDarkCyan}Install${Reset}  ${
 Box Tools                ${FGDarkGray}|${Reset} ${FGDarkCyan}Install${Reset}  ${FGDarkGray}|${Reset} ${FGGray}RUN_InstallBoxTools.ps1${Reset}
 Crestron AirMedia        ${FGDarkGray}|${Reset} ${FGDarkCyan}Install${Reset}  ${FGDarkGray}|${Reset} ${FGGray}RUN_InstallAirMedia.ps1${Reset}
 Real-Time Protection     ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_RealTimeProt.ps1${Reset}
-PUA Protection           ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_DefenderPUA.ps1${Reset}
-PUA Protection (Edge)    ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_EdgePUA.ps1${Reset}
+PUA Block Apps           ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_PUABlockApps.ps1${Reset}
+PUA Downloads            ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_PUABlockDLs.ps1${Reset}
 Memory Integrity         ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_MemoryInteg.ps1${Reset}
 Kernel Stack Protection  ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_KernelMode.ps1${Reset}
 LSA Protection           ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_LocalSecurity.ps1${Reset}
@@ -292,8 +292,8 @@ Box for Office,Install,RUN_InstallBoxOffice.ps1,ATOMIC_SCRIPT,EXE installer with
 Box Tools,Install,RUN_InstallBoxTools.ps1,ATOMIC_SCRIPT,EXE installer with silent args,No,No,System,Invoke-WA_InstallApps
 Crestron AirMedia,Install,RUN_InstallAirMedia.ps1,ATOMIC_SCRIPT,Uses AtomicScript for WinGet/Machine install,No,No,System,Invoke-WA_InstallApps
 Real-Time Protection,Configure,SET_RealTimeProtect.ps1,PS WMI,Set-MpPreference -DisableRealtimeMonitoring 0,Yes,No,Security,Invoke-WA_SetRealTimeProtection
-PUA Protection,Configure,SET_DefenderPUA.ps1,PS WMI,Set-MpPreference -PUAProtection 1,Yes,No,Security,Invoke-WA_SetPUA
-PUA Protection (Edge),Configure,SET_EdgePUA.ps1,Registry (HKCU),HKCU:\Software\Microsoft\Edge\SmartScreenPuaEnabled (1),Yes,No,Security,Invoke-WA_SetPUA
+PUA Block Apps,Configure,SET_PUABlockApps.ps1,PS WMI,Set-MpPreference -PUAProtection 1,Yes,No,Security,Invoke-WA_SetPUABlockApps
+PUA Downloads,Configure,SET_PUABlockDLs.ps1,Registry (HKCU),HKCU:\Software\Microsoft\Edge\SmartScreenPuaEnabled (1),Yes,No,Security,Invoke-WA_SetPUABlockDLs
 Memory Integrity,Configure,SET_MemoryIntegrity.ps1,Registry (HKLM),HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity (Enabled=1),Yes,Yes,Security,Invoke-WA_SetMemoryIntegrity
 Kernel Stack Protection,Configure,SET_KernelMode.ps1,Registry (HKLM),HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\KernelShadowStacks (Enabled=1),Yes,Yes,Security,Invoke-WA_SetKernelStack
 LSA Protection,Configure,SET_LocalSecurityAuth.ps1,Registry (HKLM),HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\RunAsPPL (1),Yes,Yes,Security,Invoke-WA_SetLSA
@@ -1539,8 +1539,8 @@ function Invoke-WinAutoConfiguration {
         # Core Security (Embedded Standalone)
         Invoke-WA_SetMemoryInteg
         Invoke-WA_SetRealTimeProt
-        Invoke-WA_SetDefenderPUA
-        Invoke-WA_SetEdgePUA
+        Invoke-WA_SetPUABlockApps
+        Invoke-WA_SetPUABlockDLs
         Invoke-WA_SetLocalSecurity
         Invoke-WA_SetFirewallON
         Invoke-WA_SetKernelMode
@@ -1665,8 +1665,8 @@ function Invoke-WA_SetRealTimeProt {
         foreach ($av in $avList) {
             # 397568 is typical implementation for Defender, but name check is robust
             if ($av.displayName -and $av.displayName -notmatch "Windows Defender" -and $av.displayName -notmatch "Microsoft Defender Antivirus") {
-                Write-LeftAligned "$FGDarkYellow$Char_Warn Third-party Antivirus Detected: $($av.displayName)$Reset"
-                Write-LeftAligned "   Skipping Real-Time Protection toggle to avoid conflicts."
+                # UI Update: Show [-] in DarkGray for 3rd Party AV
+                Write-LeftAligned "[$FGDarkGray-$Reset] Real-time Protection managed by $($av.displayName)."
                 
                 # Footer
                 Write-Host ""
@@ -1748,7 +1748,7 @@ function Invoke-WA_SetDefenderPUA {
 
 }
 
-function Invoke-WA_SetEdgePUA {
+function Invoke-WA_SetPUABlockDLs {
     <#
 .SYNOPSIS
     Enables or Disables Edge SmartScreen PUA Protection.
@@ -1766,7 +1766,7 @@ function Invoke-WA_SetEdgePUA {
         [switch]$Force
     )
     # --- MAIN LOGIC ---
-    Write-Header "EDGE PUA PROTECTION"
+    Write-Header "PUA DOWNLOADS"
 
     try {
         $targetEdge = if ($Reverse) { 0 } else { 1 }
