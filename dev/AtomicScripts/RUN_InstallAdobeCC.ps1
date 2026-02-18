@@ -1,12 +1,12 @@
 #Requires -RunAsAdministrator
 <#
 .SYNOPSIS
-    Crestron AirMedia Installer - Standalone AtomicScript
+    Adobe Creative Cloud Installer - Standalone AtomicScript
 .DESCRIPTION
-    Installs Crestron AirMedia via WinGet (Machine scope).
+    Installs Adobe Creative Cloud via WinGet.
     Standalone version. Includes Reverse Mode (-r) for uninstall.
 .PARAMETER Reverse
-    (Alias: -r) Uninstalls Crestron AirMedia via WinGet.
+    (Alias: -r) Uninstalls Adobe Creative Cloud via WinGet.
 #>
 
 & {
@@ -70,10 +70,9 @@
     }
 
     # --- CONFIG ---
-    $AppName = "Crestron AirMedia"
-    $MatchName = "*AirMedia*"
-    $WingetId = "Crestron.AirMedia"
-    $WingetScope = "Machine"
+    $AppName = "Adobe Creative Cloud"
+    $MatchName = "*Adobe Creative Cloud*"
+    $WingetId = "Adobe.CreativeCloud"
 
     # --- DETECTION ---
     function Test-AppInstalled {
@@ -92,7 +91,7 @@
         return $false
     }
 
-    Write-Header "CRESTRON AIRMEDIA INSTALLER"
+    Write-Header "ADOBE CREATIVE CLOUD INSTALLER"
 
     # --- REVERSE MODE (Uninstall) ---
     if ($Reverse) {
@@ -144,11 +143,9 @@
     Write-LeftAligned "$FGWhite$Char_Finger Installing $AppName via WinGet...$Reset"
 
     try {
-        # Standard WinGet Install
-        Write-LeftAligned "$FGGray Updating WinGet sources...$Reset"
-        Start-Process "winget.exe" -ArgumentList "source update --disable-interactivity" -NoNewWindow -Wait -ErrorAction SilentlyContinue
 
-        $installArgs = "install --id $WingetId --exact --accept-package-agreements --accept-source-agreements --silent --disable-interactivity --scope $WingetScope"
+
+        $installArgs = "install --id $WingetId --exact --accept-package-agreements --accept-source-agreements --silent --disable-interactivity"
         $p = Start-Process "winget.exe" -ArgumentList $installArgs -NoNewWindow -PassThru -Wait
         
         if ($p.ExitCode -eq 0) {

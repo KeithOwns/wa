@@ -1,12 +1,12 @@
 #Requires -RunAsAdministrator
 <#
 .SYNOPSIS
-    Crestron AirMedia Installer - Standalone AtomicScript
+    Box Tools Installer - Standalone AtomicScript
 .DESCRIPTION
-    Installs Crestron AirMedia via WinGet (Machine scope).
+    Downloads and installs Box Tools (EXE) silently.
     Standalone version. Includes Reverse Mode (-r) for uninstall.
 .PARAMETER Reverse
-    (Alias: -r) Uninstalls Crestron AirMedia via WinGet.
+    (Alias: -r) Uninstalls Box Tools.
 #>
 
 & {
@@ -70,10 +70,10 @@
     }
 
     # --- CONFIG ---
-    $AppName = "Crestron AirMedia"
-    $MatchName = "*AirMedia*"
-    $WingetId = "Crestron.AirMedia"
-    $WingetScope = "Machine"
+    $AppName = "Box Tools"
+    $MatchName = "*Box Tools*"
+    $ExeUrl = "https://e3.boxcdn.net/box-installers/boxedit/win/currentrelease/BoxToolsInstaller.exe"
+    $SilentArgs = "/quiet /norestart ALLUSERS=1"
 
     # --- DETECTION ---
     function Test-AppInstalled {
@@ -92,30 +92,59 @@
         return $false
     }
 
-    Write-Header "CRESTRON AIRMEDIA INSTALLER"
+    Write-Header "BOX TOOLS INSTALLER"
 
     # --- REVERSE MODE (Uninstall) ---
     if ($Reverse) {
-        Write-LeftAligned "$FGYellow$Char_Warn Reverse Mode: Uninstalling via WinGet...$Reset"
+        Write-LeftAligned "$FGYellow$Char_Warn Reverse Mode: Attempting to uninstall $AppName...$Reset"
         
-        if (-not (Get-Command winget.exe -ErrorAction SilentlyContinue)) {
-            Write-LeftAligned "$FGRed$Char_RedCross WinGet is not available.$Reset"
-            Write-Host ""
-            $copyright = "Copyright (c) 2026 WinAuto"; $cPad = [Math]::Floor((60 - $copyright.Length) / 2); Write-Host (" " * $cPad + "$FGCyan$copyright$Reset"); Write-Host ""
-            return
+        $scopes = @(
+            "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+            "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
+        )
+        $uninstallString = $null
+        foreach ($s in $scopes) {
+            if (Test-Path $s) {
+                foreach ($k in (Get-ChildItem $s -ErrorAction SilentlyContinue)) {
+                    $dn = $k.GetValue('DisplayName', $null)
+                    if ($dn -and $dn -like $MatchName) {
+                        $uninstallString = $k.GetValue('UninstallString', $null)
+                        break
+                    }
+                }
+            }
+            if ($uninstallString) { break }
         }
 
-        try {
-            $p = Start-Process "winget.exe" -ArgumentList "uninstall --id $WingetId --silent --accept-source-agreements" -Wait -PassThru -NoNewWindow
-            if ($p.ExitCode -eq 0) {
-                Write-LeftAligned "$FGGreen$Char_HeavyCheck $AppName uninstalled.$Reset"
+        if ($uninstallString) {
+            try {
+                Write-LeftAligned "$FGGray Running uninstaller...$Reset"
+                if ($uninstallString -match 'msiexec') {
+                    $guid = [regex]::Match($uninstallString, '\{[A-F0-9\-]+\}').Value
+                    if ($guid) {
+                        $p = Start-Process "msiexec.exe" -ArgumentList "/x $guid /quiet /norestart" -Wait -PassThru
+                    }
+                    else {
+                        $p = Start-Process "cmd.exe" -ArgumentList "/c $uninstallString /quiet /norestart" -Wait -PassThru
+                    }
+                }
+                else {
+                    $p = Start-Process "cmd.exe" -ArgumentList "/c $uninstallString /quiet /norestart" -Wait -PassThru
+                }
+
+                if ($p.ExitCode -eq 0 -or $p.ExitCode -eq 3010) {
+                    Write-LeftAligned "$FGGreen$Char_HeavyCheck $AppName uninstalled.$Reset"
+                }
+                else {
+                    Write-LeftAligned "$FGRed$Char_RedCross Uninstall finished with code $($p.ExitCode).$Reset"
+                }
             }
-            else {
-                Write-LeftAligned "$FGRed$Char_RedCross Uninstall finished with code $($p.ExitCode).$Reset"
+            catch {
+                Write-LeftAligned "$FGRed$Char_RedCross Uninstall failed: $($_.Exception.Message)$Reset"
             }
         }
-        catch {
-            Write-LeftAligned "$FGRed$Char_RedCross Uninstall failed: $($_.Exception.Message)$Reset"
+        else {
+            Write-LeftAligned "$FGGray $AppName is not installed.$Reset"
         }
 
         Write-Host ""
@@ -132,31 +161,27 @@
         return
     }
 
-    if (-not (Get-Command winget.exe -ErrorAction SilentlyContinue)) {
-        Write-LeftAligned "$FGRed$Char_Warn WinGet is not installed or not in PATH.$Reset"
-        Write-LeftAligned "Please install App Installer from the Microsoft Store."
-        Write-Host ""
-        Write-Boundary
-        Start-Sleep -Seconds 3
-        return
-    }
-
-    Write-LeftAligned "$FGWhite$Char_Finger Installing $AppName via WinGet...$Reset"
+    Write-LeftAligned "$FGWhite$Char_Finger Installing $AppName...$Reset"
 
     try {
-        # Standard WinGet Install
-        Write-LeftAligned "$FGGray Updating WinGet sources...$Reset"
-        Start-Process "winget.exe" -ArgumentList "source update --disable-interactivity" -NoNewWindow -Wait -ErrorAction SilentlyContinue
+        # Download
+        $tempFile = "$env:TEMP\WinAuto_InstallBoxTools.exe"
+        Write-LeftAligned "$FGGray Downloading installer...$Reset"
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
+        Invoke-WebRequest -Uri $ExeUrl -OutFile $tempFile -UseBasicParsing -ErrorAction Stop
 
-        $installArgs = "install --id $WingetId --exact --accept-package-agreements --accept-source-agreements --silent --disable-interactivity --scope $WingetScope"
-        $p = Start-Process "winget.exe" -ArgumentList $installArgs -NoNewWindow -PassThru -Wait
-        
-        if ($p.ExitCode -eq 0) {
+        # Install via EXE
+        Write-LeftAligned "$FGGray Running installer...$Reset"
+        $p = Start-Process $tempFile -ArgumentList $SilentArgs -Wait -PassThru
+
+        if ($p.ExitCode -eq 0 -or $p.ExitCode -eq 3010) {
             Write-LeftAligned "$FGGreen$Char_CheckMark Installation Successful.$Reset"
         }
         else {
-            throw "WinGet exited with code $($p.ExitCode)"
+            throw "Installer exited with code $($p.ExitCode)"
         }
+
+        Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
     }
     catch {
         Write-LeftAligned "$FGRed$Char_Warn Error: $($_.Exception.Message)$Reset"
