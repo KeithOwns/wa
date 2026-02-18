@@ -62,6 +62,24 @@
 
     Write-Header "REAL-TIME PROTECTION"
 
+    # --- PRE-CHECK: 3RD PARTY AV ---
+    try {
+        $avList = Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntivirusProduct -ErrorAction SilentlyContinue
+        foreach ($av in $avList) {
+            # 397568 is typical implementation for Defender, but name check is robust
+            if ($av.displayName -and $av.displayName -notmatch "Windows Defender" -and $av.displayName -notmatch "Microsoft Defender Antivirus") {
+                Write-LeftAligned "$FGDarkYellow$Char_Warn Third-party Antivirus Detected: $($av.displayName)$Reset"
+                Write-LeftAligned "   Skipping Real-Time Protection toggle to avoid conflicts."
+                
+                # Footer
+                Write-Host ""
+                $copyright = "Copyright (c) 2026 WinAuto"; $cPad = [Math]::Floor((60 - $copyright.Length) / 2); Write-Host (" " * $cPad + "$FGCyan$copyright$Reset"); Write-Host ""
+                return
+            }
+        }
+    }
+    catch {}
+
     # --- MAIN ---
 
     try {
