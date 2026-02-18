@@ -9,6 +9,30 @@
     Usage: Copy and paste this script into an Administrator PowerShell window.
 #>
 
+
+# --- CLI PARAMETERS ---
+param(
+    [Parameter(Mandatory = $false)]
+    [ValidateSet("SmartRun", "Install", "Config", "Maintenance", "Help")]
+    [string]$Module,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$Silent,
+
+    [Parameter(Mandatory = $false)]
+    [string]$LogPath,
+
+    [Parameter(Mandatory = $false)]
+    [string]$Config
+    
+    # Verbose is automatic due to [Parameter()] attributes
+)
+
+$Global:Silent = $Silent
+$Global:Module = $Module
+$Global:Config = $Config
+$Global:LogPath = $LogPath
+
 # --- EXECUTION POLICY CONFIGURATION ---
 # Ensures local scripts can run by setting policy to 'RemoteSigned'
 try {
@@ -39,6 +63,53 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $Global:ShowDetails = $false
 $Global:WinAutoFirstLoad = $true
+
+# --- SYSTEM PATHS ---
+$Global:WinAutoLogDir = $null
+$Global:WinAutoLogPath = $null
+
+if ($LogPath) {
+    if (Test-Path $LogPath -PathType Container) {
+        $Global:WinAutoLogDir = $LogPath
+    }
+    else {
+        # Assume full file path or new directory
+        $Global:WinAutoLogDir = Split-Path $LogPath -Parent
+        if (-not $Global:WinAutoLogDir) { $Global:WinAutoLogDir = $PWD.Path }
+    }
+}
+
+if ($null -eq $Global:WinAutoLogDir) {
+    # Use local 'logs' folder relative to script
+    $root = if ($PSScriptRoot) { $PSScriptRoot } else { $PWD.Path }
+    $Global:WinAutoLogDir = Join-Path $root "logs"
+}
+
+if (-not (Test-Path $Global:WinAutoLogDir)) { New-Item -ItemType Directory -Force -Path $Global:WinAutoLogDir | Out-Null }
+$env:WinAutoLogDir = $Global:WinAutoLogDir
+
+if ($LogPath -and (Test-Path $LogPath -PathType Leaf)) {
+    # User provided an existing file
+    $Global:WinAutoLogPath = $LogPath
+}
+elseif ($LogPath -and -not (Test-Path $LogPath)) {
+    # User provided a new file path (folder logic handled earlier) or just a folder
+    if ($LogPath -match "\.\w+$") {
+        # Likely a file path
+        $Global:WinAutoLogPath = $LogPath
+    }
+    else {
+        # Likely a folder
+        $Global:WinAutoLogPath = Join-Path $Global:WinAutoLogDir "wa.log"
+    }
+}
+else {
+    # Default behavior
+    $Global:WinAutoLogPath = Join-Path $Global:WinAutoLogDir "wa.log"
+}
+
+# --- GLOBAL ERROR TRAP ---
+
 
 # --- GLOBAL RESOURCES ---
 # Centralized definition of ANSI colors and Unicode characters.
@@ -93,6 +164,30 @@ $Global:RegPath_WU_UX = "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings"
 $Global:RegPath_WU_POL = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
 $Global:RegPath_Winlogon_User = "HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" 
 $Global:RegPath_Winlogon_Machine = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
+
+# --- LOGGING & REGISTRY ---
+function Write-Log {
+    param([string]$Message, [string]$Level = 'INFO', [string]$Path = $Global:WinAutoLogPath)
+    if (-not $Path) { $Path = "C:\Windows\Temp\WinAuto.log" }
+    
+    # Verbose Output (CLI Support)
+    if ($VerbosePreference -eq 'Continue') {
+        Write-Host "[$Level] $Message" -ForegroundColor Gray
+    }
+
+    $logDir = Split-Path -Path $Path -Parent
+    if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory -Force | Out-Null }
+    $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+    Add-Content -Path $Path -Value "[$timestamp] [$Level] $Message" -ErrorAction SilentlyContinue
+}
+
+# --- GLOBAL ERROR TRAP ---
+trap {
+    $msg = "CRITICAL UNHANDLED ERROR: $($_.Exception.Message)`n$($_.ScriptStackTrace)"
+    try { Write-Log $msg -Level ERROR } catch { Write-Host "LOG FAIL: $msg" -ForegroundColor Red }
+    Write-Error $msg
+    exit 1
+}
 
 # --- MANIFEST CONTENT ---
 
@@ -481,14 +576,7 @@ function Write-BodyTitle {
 }
 
 # --- LOGGING & REGISTRY ---
-function Write-Log {
-    param([string]$Message, [string]$Level = 'INFO', [string]$Path = $Global:WinAutoLogPath)
-    if (-not $Path) { $Path = "C:\Windows\Temp\WinAuto.log" }
-    $logDir = Split-Path -Path $Path -Parent
-    if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory -Force | Out-Null }
-    $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
-    Add-Content -Path $Path -Value "[$timestamp] [$Level] $Message" -ErrorAction SilentlyContinue
-}
+# --- LOGGING & REGISTRY ---
 
 function Get-LogReport {
     param([string]$Path = $Global:WinAutoLogPath)
@@ -989,6 +1077,82 @@ function Invoke-WA_SetWindowsUpdateConfig {
     catch { Write-LeftAligned "$FGRed$Char_RedCross Error applying update settings: $($_.Exception.Message)$Reset" }
 }
 
+function Invoke-WA_SetSmartScreen {
+    Write-Header "SMARTSCREEN FILTER (UIA)"
+    
+    # UIA Preparation
+    if (-not ([System.Management.Automation.PSTypeName]"System.Windows.Automation.AutomationElement").Type) {
+        try {
+            Add-Type -AssemblyName UIAutomationClient
+            Add-Type -AssemblyName UIAutomationTypes
+        }
+        catch {
+            Write-LeftAligned "$FGRed$Char_RedCross Failed to load UI Automation assemblies.$Reset"
+            return
+        }
+    }
+
+    # 1. Launch Windows Security at App & Browser Control
+    Write-LeftAligned "Opening Windows Security..."
+    Start-Process "windowsdefender://appbrowser"
+    Start-Sleep -Seconds 2
+
+    # 2. Find Window
+    $timeout = 10
+    $startTime = Get-Date
+    $window = $null
+    
+    Write-LeftAligned "Searching for 'Windows Security' window..."
+    
+    do {
+        $desktop = [System.Windows.Automation.AutomationElement]::RootElement
+        $condition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, "Windows Security")
+        $window = $desktop.FindFirst([System.Windows.Automation.TreeScope]::Children, $condition)
+        if ($null -ne $window) { break }
+        Start-Sleep -Milliseconds 500
+    } while ((Get-Date) -lt $startTime.AddSeconds($timeout))
+
+    if ($window) {
+        Write-LeftAligned "$FGGreen$Char_HeavyCheck Window found.$Reset"
+        
+        # 3. Search for 'Turn on' button
+        $buttonCondition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, "Turn on")
+        
+        # Search Descendants (deep search)
+        $button = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $buttonCondition)
+        
+        if ($button) {
+            try {
+                $invokePattern = $button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
+                if ($invokePattern) {
+                    $invokePattern.Invoke()
+                    Write-LeftAligned "$FGGreen$Char_HeavyCheck Clicked 'Turn on'.$Reset"
+                    Start-Sleep -Seconds 1
+                }
+                else {
+                    Write-LeftAligned "$FGDarkYellow$Char_Warn 'Turn on' button found but not clickable.$Reset"
+                }
+            }
+            catch {
+                Write-LeftAligned "$FGRed$Char_RedCross Failed to click button: $($_.Exception.Message)$Reset"
+            }
+        }
+        else {
+            Write-LeftAligned "$FGGray No 'Turn on' button found (Already enabled?).$Reset"
+        }
+        
+        # Close Window
+        try {
+            $windowPattern = $window.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern)
+            if ($windowPattern) { $windowPattern.Close() }
+        }
+        catch {}
+    }
+    else {
+        Write-LeftAligned "$FGRed$Char_RedCross Timeout waiting for Windows Security window.$Reset"
+    }
+}
+
 function Invoke-WA_SetContextMenu {
     param([switch]$Undo)
     Write-Header "CLASSIC CONTEXT MENU"
@@ -1366,6 +1530,7 @@ function Test-WA_MaintenanceRecentlyComplete {
 }
 
 function Invoke-WA_InstallApps {
+    param([switch]$SmartRun)
     Write-Header "APPLICATION INSTALLER"
     
     $AppList = Get-WA_InstallAppList
@@ -1443,10 +1608,17 @@ function Invoke-WA_InstallApps {
     if ($AppsToInstall.Count -gt 0) {
         Write-Host ""
         Write-LeftAligned "$FGYellow$Char_Warn $($AppsToInstall.Count) applications are missing or outdated.$Reset"
-        Write-LeftAligned "Proceed with installation? [Y]es (Default) / [S]kip"
-        $k = Wait-KeyPressWithTimeout -Seconds 30
         
-        if ($k.Character -eq 's' -or $k.Character -eq 'S' -or $k.VirtualKeyCode -eq 27) {
+        $Confirmed = $true
+        if (-not $Global:Silent -and -not $SmartRun) {
+            Write-LeftAligned "Proceed with installation? [Y]es (Default) / [S]kip"
+            $k = Wait-KeyPressWithTimeout -Seconds 30
+            if ($k.Character -eq 's' -or $k.Character -eq 'S' -or $k.VirtualKeyCode -eq 27) {
+                $Confirmed = $false
+            }
+        }
+
+        if (-not $Confirmed) {
             Write-LeftAligned "Skipping installation as requested."
             return
         }
@@ -1543,6 +1715,7 @@ function Invoke-WinAutoConfiguration {
     Invoke-WA_SetPUA
     Invoke-WA_SetLSA
     Invoke-WA_SetFirewall
+    Invoke-WA_SetSmartScreen
     Invoke-WA_SetKernelStack
     
     # UI & Performance
@@ -1632,6 +1805,8 @@ $MenuSelection = 0  # 0=Smart, 1=Config, 2=Maintenance
 # Per-section expansion flags
 
 
+
+$Global:WinAutoFirstLoad = $true
 
 while ($true) {
     # Arrows (Updated Indices)
@@ -1931,7 +2106,10 @@ while ($true) {
     # Timeout logic: Only on first load
     $ActionText = "DASHBOARD" # Unused variable but kept for readability if referenced elsewhere
     $TimeoutSecs = 0
-    $Global:WinAutoFirstLoad = $false
+    if ($Global:WinAutoFirstLoad) {
+        $TimeoutSecs = 5
+        $Global:WinAutoFirstLoad = $false
+    }
 
     $res = Invoke-AnimatedPause -ActionText $Act -Timeout $TimeoutSecs -SelectionChar $Sel -PreActionWord $Pre -OverrideCursorTop $PromptRow
 
@@ -1981,7 +2159,7 @@ while ($true) {
         
         if ($Target -eq 0) {
             # [S]mart Run -> EXECUTE
-            if (-not $Global:AllAppsInstalled) { Invoke-WA_InstallApps }
+            if (-not $Global:AllAppsInstalled) { Invoke-WA_InstallApps -SmartRun }
             Invoke-WinAutoConfiguration -SmartRun
             Set-WinAutoLastRun -Module "Configuration"
             if (-not $Global:MaintenanceComplete) { Invoke-WinAutoMaintenance -SmartRun }
