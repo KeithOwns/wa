@@ -30,6 +30,7 @@ WinAuto follows a **single-file delivery model**.
 1.  **Air-Gap Ready**: Copy the script to a USB drive and run it on a machine with no internet access.
 2.  **Golden Image Sealing**: Perfect for "Sysprep" phases where you want to apply a consistent baseline before capturing an image.
 3.  **Field Engineering**: A single tool for technicians to carry on their toolkit USBs.
+4.  **Atomic Modularity**: Powered by individual `AtomicScripts` that can be run independently with standardized `-Reverse` support.
 
 ---
 
@@ -78,17 +79,31 @@ Technicians can use the **Maintenance** dashboard to:
 
 ### Execution
 
-**Option A: Web Wrapper (Easiest)**
+**Option A: Interactive Mode (TUI)**
+Run in Administrator PowerShell:
 ```powershell
-iex (irm "https://raw.githubusercontent.com/KeithOwns/wa/main/dev/wa.ps1")
+.\wa.ps1
 ```
 
-**Option B: Manual Download (Air-Gap / Secure)**
-1.  Download `wa.ps1`.
-2.  Run from Administrator PowerShell:
-    ```powershell
-    .\wa.ps1
-    ```
+**Option B: CLI / Unattended Mode**
+Run specific modules without user interaction (great for SCCM/Intune):
+```powershell
+# Run SmartRun logic silently
+.\wa.ps1 -Module SmartRun -Silent
+
+# Run only Configuration (Security/UI)
+.\wa.ps1 -Module Config -Silent
+
+# Run Application Installer only
+.\wa.ps1 -Module Install -Silent
+```
+
+**Parameters:**
+- `-Module <Name>`: Run a specific module (`SmartRun`, `Install`, `Config`, `Maintenance`).
+- `-Silent`: Suppress the interactive dashboard and prompts.
+- `-Verbose`: Show detailed logging output in the console.
+- `-LogPath <Path>`: Specify a custom folder or file for logs (e.g., `C:\Logs\WA.log`).
+- `-Config <Path>`: Load a custom JSON file for application installation, overriding the embedded list.
 
 ---
 
