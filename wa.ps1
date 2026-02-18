@@ -253,7 +253,11 @@ ${FGDarkCyan}============================================================${Reset
 ${FGDarkCyan}__________________________________________________________${Reset}
 ${FGCyan}ACTION${Reset}                   ${FGDarkGray}|${Reset} ${FGCyan}STAGE${Reset}    ${FGDarkGray}|${Reset} ${FGDarkCyan}SOURCE SCRIPT${Reset}
 ${FGDarkGray}----------------------------------------------------------${Reset}
-Install Applications     ${FGDarkGray}|${Reset} ${FGDarkCyan}Install${Reset}  ${FGDarkGray}|${Reset} ${FGGray}wa.ps1 (Embedded)${Reset}
+Adobe Creative Cloud     ${FGDarkGray}|${Reset} ${FGDarkCyan}Install${Reset}  ${FGDarkGray}|${Reset} ${FGGray}RUN_InstallAdobeCC.ps1${Reset}
+Box Drive                ${FGDarkGray}|${Reset} ${FGDarkCyan}Install${Reset}  ${FGDarkGray}|${Reset} ${FGGray}RUN_InstallBoxDrive.ps1${Reset}
+Box for Office           ${FGDarkGray}|${Reset} ${FGDarkCyan}Install${Reset}  ${FGDarkGray}|${Reset} ${FGGray}RUN_InstallBoxOffice.ps1${Reset}
+Box Tools                ${FGDarkGray}|${Reset} ${FGDarkCyan}Install${Reset}  ${FGDarkGray}|${Reset} ${FGGray}RUN_InstallBoxTools.ps1${Reset}
+Crestron AirMedia        ${FGDarkGray}|${Reset} ${FGDarkCyan}Install${Reset}  ${FGDarkGray}|${Reset} ${FGGray}RUN_InstallAirMedia.ps1${Reset}
 Real-Time Protection     ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_RealTimeProt.ps1${Reset}
 PUA Protection           ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_DefenderPUA.ps1${Reset}
 PUA Protection (Edge)    ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_EdgePUA.ps1${Reset}
@@ -282,7 +286,11 @@ Execution Policy / Admin Check,Pre-Run Setup,wa.ps1,Inline,Set-ExecutionPolicy R
 Auto-Unblock,Pre-Run Setup,wa.ps1,Inline,Unblock-File (Self),N/A,No,System,(Script Header)
 System Hardening Check,SmartRUN,CHECK_SystemHarden.ps1,Mixed,Checks Last Run date (30 days) to determine invalidation,N/A,No,Automation,Invoke-WinAutoConfiguration -SmartRun
 Maintenance Cycle,SmartRUN,SET_ScheduleMaintn.ps1,Mixed,Checks Last Run dates (SFC=30d; Disk=7d; Clean=7d) to trigger tasks,N/A,No,Automation,Invoke-WinAutoMaintenance -SmartRun
-Install Applications,Install,wa.ps1 (Embedded),Mixed,Iterates through embedded JSON list,No,No,System,Invoke-WA_InstallApps
+Adobe Creative Cloud,Install,RUN_InstallAdobeCC.ps1,ATOMIC_SCRIPT,Uses AtomicScript for WinGet install,No,No,System,Invoke-WA_InstallApps
+Box Drive,Install,RUN_InstallBoxDrive.ps1,ATOMIC_SCRIPT,Note: MSI has specific uninstall GUID issues,No,No,System,Invoke-WA_InstallApps
+Box for Office,Install,RUN_InstallBoxOffice.ps1,ATOMIC_SCRIPT,EXE installer with silent args,No,No,System,Invoke-WA_InstallApps
+Box Tools,Install,RUN_InstallBoxTools.ps1,ATOMIC_SCRIPT,EXE installer with silent args,No,No,System,Invoke-WA_InstallApps
+Crestron AirMedia,Install,RUN_InstallAirMedia.ps1,ATOMIC_SCRIPT,Uses AtomicScript for WinGet/Machine install,No,No,System,Invoke-WA_InstallApps
 Real-Time Protection,Configure,SET_RealTimeProtect.ps1,PS WMI,Set-MpPreference -DisableRealtimeMonitoring 0,Yes,No,Security,Invoke-WA_SetRealTimeProtection
 PUA Protection,Configure,SET_DefenderPUA.ps1,PS WMI,Set-MpPreference -PUAProtection 1,Yes,No,Security,Invoke-WA_SetPUA
 PUA Protection (Edge),Configure,SET_EdgePUA.ps1,Registry (HKCU),HKCU:\Software\Microsoft\Edge\SmartScreenPuaEnabled (1),Yes,No,Security,Invoke-WA_SetPUA
@@ -506,19 +514,7 @@ function Set-ConsoleSnapRight {
 
 
 
-function Disable-QuickEdit {
-    try {
-        $def = '[DllImport("kernel32.dll")] public static extern IntPtr GetStdHandle(int nStdHandle); [DllImport("kernel32.dll")] public static extern bool GetConsoleMode(IntPtr hConsoleHandle, out uint lpMode); [DllImport("kernel32.dll")] public static extern bool SetConsoleMode(IntPtr hConsoleHandle, uint dwMode);'
-        $kernel32 = Add-Type -MemberDefinition $def -Name "Kernel32" -Namespace Win32 -PassThru
-        $handle = $kernel32::GetStdHandle(-10)
-        $mode = 0
-        if ($kernel32::GetConsoleMode($handle, [ref]$mode)) {
-            $mode = $mode -band (-bnot 0x0040)
-            $null = $kernel32::SetConsoleMode($handle, $mode)
-        }
-    }
-    catch {}
-}
+
 
 # --- FORMATTING HELPERS ---
 function Get-VisualWidth {
@@ -1228,47 +1224,43 @@ function Get-WA_InstallAppList {
     { 
       "AppName": "Adobe Creative Cloud", 
       "MatchName": "*Adobe Creative Cloud*", 
-      "Type": "WINGET", 
+      "Type": "ATOMIC_SCRIPT", 
+      "Script": "RUN_InstallAdobeCC.ps1", 
       "CheckMethod": "Registry", 
-      "WingetId": "Adobe.CreativeCloud", 
       "InstallOrder": 50 
     },
     { 
       "AppName": "Box", 
       "MatchName": "Box", 
-      "Type": "MSI", 
+      "Type": "ATOMIC_SCRIPT", 
+      "Script": "RUN_InstallBoxDrive.ps1", 
       "CheckMethod": "Registry", 
-      "InstallOrder": 40, 
-      "Url": "https://e3.boxcdn.net/box-installers/desktop/releases/win/Box-x64.msi" 
+      "InstallOrder": 40 
     },
     { 
       "AppName": "Box for Office", 
       "MatchName": "*Box for Office*", 
-      "Type": "EXE", 
+      "Type": "ATOMIC_SCRIPT", 
+      "Script": "RUN_InstallBoxOffice.ps1", 
       "CheckMethod": "Registry", 
-      "InstallOrder": 41, 
-      "Url": "https://e3.boxcdn.net/box-installers/boxforoffice/currentrelease/BoxForOffice.exe", 
-      "SilentArgs": "/quiet /norestart", 
-      "PreInstallDelay": 10 
+      "InstallOrder": 41 
     },
     { 
       "AppName": "Box Tools", 
       "MatchName": "*Box Tools*", 
-      "Type": "EXE", 
+      "Type": "ATOMIC_SCRIPT", 
+      "Script": "RUN_InstallBoxTools.ps1", 
       "CheckMethod": "Registry", 
-      "InstallOrder": 42, 
-      "Url": "https://e3.boxcdn.net/box-installers/boxedit/win/currentrelease/BoxToolsInstaller.exe", 
-      "SilentArgs": "/quiet /norestart ALLUSERS=1" 
+      "InstallOrder": 42 
     }
   ],
   "LaptopApps": [
     {
       "AppName": "Crestron AirMedia",
       "MatchName": "*AirMedia*",
-      "Type": "WINGET",
-      "CheckMethod": "Registry",
-      "WingetScope": "Machine",
-      "WingetId": "Crestron.AirMedia",
+      "Type": "ATOMIC_SCRIPT", 
+      "Script": "RUN_InstallAirMedia.ps1", 
+      "CheckMethod": "Registry", 
       "InstallOrder": 100
     }
   ]
@@ -1424,7 +1416,7 @@ function Invoke-WA_InstallApps {
             try {
                 if ($app.Type -eq "WINGET") {
                     Write-LeftAligned "Installing via WinGet ($($app.WingetId))..."
-                    $installArgs = "install --id $($app.WingetId) --exact --source winget --accept-package-agreements --accept-source-agreements --silent"
+                    $installArgs = "install --id $($app.WingetId) --exact --accept-package-agreements --accept-source-agreements --silent"
                     if ($app.PSObject.Properties['WingetScope'] -and $app.WingetScope) { $installArgs += " --scope $($app.WingetScope)" }
                 
                     $p = Start-Process winget -ArgumentList $installArgs -NoNewWindow -PassThru -Wait
@@ -1434,6 +1426,42 @@ function Invoke-WA_InstallApps {
                     }
                     else {
                         throw "WinGet exited with code $($p.ExitCode)"
+                    }
+                }
+                elseif ($app.Type -eq "ATOMIC_SCRIPT") {
+                    Write-LeftAligned "Running Atomic Script: $($app.Script)..."
+
+                    $scriptName = $app.Script
+                    $scriptPath = $null
+                    
+                    # Check paths (Standard Dev / Deployment structure)
+                    $root = if ($PSScriptRoot) { $PSScriptRoot } else { $PWD.Path }
+                    # Check dev path (scripts\AtomicScripts) and potential flat path
+                    $pathsToCheck = @(
+                        "scripts\AtomicScripts\$scriptName",
+                        "AtomicScripts\$scriptName",
+                        "$scriptName"
+                    )
+                    
+                    foreach ($subPath in $pathsToCheck) {
+                        $p = Join-Path $root $subPath
+                        if (Test-Path $p) { $scriptPath = $p; break }
+                    }
+
+                    if (-not $scriptPath) {
+                        throw "Script not found: $scriptName (Root: $root)"
+                    }
+                    
+                    # Execute Atomic Script
+                    # Using powershell.exe to ensure clean execution context and handle any bitness issues
+                    $p = Start-Process "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass -File `"$scriptPath`"" -Wait -PassThru -NoNewWindow
+                    
+                    if ($p.ExitCode -eq 0) {
+                        Write-LeftAligned "$FGGreen$Global:Char_CheckMark Installation Successful.$Reset"
+                        Write-Log "Installed $($app.AppName) via AtomicScript." -Level INFO
+                    }
+                    else {
+                        throw "Script exited with code $($p.ExitCode)"
                     }
                 }
                 elseif ($app.PSObject.Properties['Url'] -and $app.Url) {
@@ -1630,6 +1658,24 @@ function Invoke-WA_SetRealTimeProt {
         [switch]$Reverse
     )
     Write-Header "REAL-TIME PROTECTION"
+    
+    # --- PRE-CHECK: 3RD PARTY AV ---
+    try {
+        $avList = Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntivirusProduct -ErrorAction SilentlyContinue
+        foreach ($av in $avList) {
+            # 397568 is typical implementation for Defender, but name check is robust
+            if ($av.displayName -and $av.displayName -notmatch "Windows Defender" -and $av.displayName -notmatch "Microsoft Defender Antivirus") {
+                Write-LeftAligned "$FGDarkYellow$Char_Warn Third-party Antivirus Detected: $($av.displayName)$Reset"
+                Write-LeftAligned "   Skipping Real-Time Protection toggle to avoid conflicts."
+                
+                # Footer
+                Write-Host ""
+                $copyright = "Copyright (c) 2026 WinAuto"; $cPad = [Math]::Floor((60 - $copyright.Length) / 2); Write-Host (" " * $cPad + "$FGCyan$copyright$Reset"); Write-Host ""
+                return
+            }
+        }
+    }
+    catch {}
 
     # --- MAIN ---
 
@@ -2519,7 +2565,7 @@ if ($Silent -or $Module) {
 }
 
 Set-ConsoleSnapRight -Columns 60
-# Disable-QuickEdit
+
 
 $MenuSelection = 0  # 0=Smart, 1=Config, 2=Maintenance
 # Per-section expansion flags
