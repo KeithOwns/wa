@@ -1,21 +1,19 @@
 #Requires -RunAsAdministrator
 <#
 .SYNOPSIS
-    Enables or Disables Windows Defender PUA Protection.
+    Sets Taskbar Search to "Search icon only".
 .DESCRIPTION
-    Standardized for WinAuto. Configures System-wide Windows Defender PUA Protection.
-    Standalone version: Can be copy-pasted directly into PowerShell.
-    Includes Reverse Mode (-r) to undo changes.
+    Value 1 = Search icon only.
+    Standalone version. Includes Reverse Mode (-r).
 .PARAMETER Reverse
-    (Alias: -r) Reverses the setting (Disables PUA blocking).
+    (Alias: -r) Reverses setting to Hidden (Value 0).
 #>
 
 & {
     param(
         [Parameter(Mandatory = $false)]
         [Alias('r')]
-        [switch]$Reverse,
-        [switch]$Force
+        [switch]$Reverse
     )
 
     # --- STANDALONE HELPERS ---
@@ -24,13 +22,11 @@
     $Bold = "$Esc[1m"
     $FGGreen = "$Esc[92m"
     $FGRed = "$Esc[91m"
-    $FGDarkYellow = "$Esc[33m"
     $FGCyan = "$Esc[96m"
     $FGDarkBlue = "$Esc[34m"
-
+    
     $Char_HeavyCheck = "[v]"
     $Char_RedCross = "[x]"
-    $Char_Warn = "!"
 
     if (-not (Get-Command Write-Boundary -ErrorAction SilentlyContinue)) {
         function Write-Boundary {
@@ -56,34 +52,37 @@
             Write-Boundary
         }
     }
-
+    
     if (-not (Get-Command Write-LeftAligned -ErrorAction SilentlyContinue)) {
-        function Write-LeftAligned {
-            param([string]$Text, [int]$Indent = 2)
-            Write-Host (" " * $Indent + $Text)
-        }
+        function Write-LeftAligned { param($Text) Write-Host "  $Text" }
     }
 
-    # --- MAIN LOGIC ---
-    Write-Header "DEFENDER PUA PROTECTION"
+    Write-Header "TASKBAR SEARCH ICON"
+
+    $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search"
+    $regName = "SearchboxTaskbarMode"
+    
+    $desiredValue = if ($Reverse) { 0 } else { 1 }
+    $statusText = if ($Reverse) { "HIDDEN (0)" } else { "ICON ONLY (1)" }
 
     try {
-        $targetMp = if ($Reverse) { 0 } else { 1 }
-        $statusText = if ($Reverse) { "DISABLED" } else { "ENABLED" }
-
-        # System-wide Defender PUA
-        Set-MpPreference -PUAProtection $targetMp -ErrorAction Stop
-        Write-LeftAligned "$FGGreen$Char_HeavyCheck  Defender PUA Blocking is $statusText.$Reset"
-
-        # Verification
-        $currentMp = (Get-MpPreference).PUAProtection
-        if ($currentMp -ne $targetMp) {
-            Write-LeftAligned "$FGDarkYellow$Char_Warn Verification failed for Defender PUA. Status: $currentMp$Reset"
+        # Verify path exists
+        if (-not (Test-Path $regPath)) {
+            New-Item -Path $regPath -Force | Out-Null
         }
 
+        # Set the registry value
+        Set-ItemProperty -Path $regPath -Name $regName -Value $desiredValue -Type DWord -Force
+
+        Write-LeftAligned "$FGGreen$Char_HeavyCheck Search mode set to $statusText.$Reset"
+        Write-LeftAligned "Restarting Windows Explorer to apply changes..."
+        
+        # Restart Explorer to refresh the taskbar
+        Stop-Process -Name explorer -Force
+        
     }
     catch {
-        Write-LeftAligned "$FGRed$Char_RedCross  Failed: $($_.Exception.Message)$Reset"
+        Write-LeftAligned "$FGRed$Char_RedCross Error: $($_.Exception.Message)$Reset"
     }
 
     # --- FOOTER ---

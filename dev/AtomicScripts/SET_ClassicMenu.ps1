@@ -1,13 +1,13 @@
-﻿#Requires -RunAsAdministrator
+#Requires -RunAsAdministrator
 <#
 .SYNOPSIS
-    Enables or Disables Windows Firewall for all network profiles.
+    Enables 'Classic' Context Menu (Windows 10 Style) on Windows 11.
 .DESCRIPTION
-    Standardized for WinAuto. Scans and configures Domain, Private, and Public profiles.
-    Standalone version: Can be copy-pasted directly into PowerShell.
-    Includes Reverse Mode (-r) to undo changes.
+    Restores the classic right-click context menu by modifying the CLSID registry key.
+    Standalone version.
+    Includes Reverse Mode (-r) to revert to Windows 11 default.
 .PARAMETER Reverse
-    (Alias: -r) Reverses the setting (Disables Firewalls).
+    (Alias: -r) Reverses the setting (Restores Windows 11 Default Menu).
 #>
 
 & {
@@ -25,8 +25,8 @@
     $FGRed = "$Esc[91m"
     $FGCyan = "$Esc[96m"
     $FGDarkBlue = "$Esc[34m"
+    $FGGray = "$Esc[90m"
     
-    $Char_BallotCheck = "[v]"
     $Char_HeavyCheck = "[v]"
     $Char_RedCross = "x"
     
@@ -60,32 +60,39 @@
     }
 
     # --- MAIN ---
-    Write-Header "WINDOWS FIREWALL"
-
+    Write-Header "CLASSIC CONTEXT MENU"
+    
+    $Path = "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32"
+    
     try {
-        $target = if ($Reverse) { 'False' } else { 'True' }
-        $status = if ($Reverse) { "DISABLED" } else { "ENABLED" }
-
-        $profiles = Get-NetFirewallProfile
-
-        foreach ($profile in $profiles) {
-            if ($profile.Enabled -eq $target) {
-                Write-LeftAligned "$FGGreen$Char_BallotCheck  $($profile.Name) Firewall is $status.$Reset"
+        if ($Reverse) {
+            # Revert to Windows 11 Default (Delete Key)
+            if (Test-Path "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}") {
+                Remove-Item -Path "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}" -Recurse -Force -ErrorAction SilentlyContinue
+                Write-LeftAligned "$FGGreen$Char_HeavyCheck Reverted to Windows 11 Default Menu.$Reset"
             }
             else {
-                try {
-                    Set-NetFirewallProfile -Name $profile.Name -Enabled $target -ErrorAction Stop
-                    Write-LeftAligned "$FGGreen$Char_HeavyCheck  $($profile.Name) Firewall is $status.$Reset"
-                }
-                catch {
-                    Write-LeftAligned "$FGRed$Char_RedCross  Failed to modify $($profile.Name) firewall: $($_.Exception.Message)$Reset"
-                }
+                Write-LeftAligned "$FGGray Already using default menu.$Reset"
             }
         }
-
+        else {
+            # Enable Classic Menu (Create Key with Default Empty Value)
+            if (-not (Test-Path $Path)) {
+                New-Item -Path $Path -Force | Out-Null
+            }
+            # Set Default property to empty string (Required for this hack)
+            Set-ItemProperty -Path $Path -Name "(default)" -Value "" -Force
+            
+            Write-LeftAligned "$FGGreen$Char_HeavyCheck Classic Context Menu Enabled.$Reset"
+        }
+        
+        Write-LeftAligned "$FGCyan Restarting Explorer to apply...$Reset"
+        Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 1
+        Start-Process explorer
     }
     catch {
-        Write-LeftAligned "$FGRed$Char_RedCross  Critical Error: $($_.Exception.Message)$Reset"
+        Write-LeftAligned "$FGRed$Char_RedCross Failed: $($_.Exception.Message)$Reset"
     }
 
     # --- FOOTER ---

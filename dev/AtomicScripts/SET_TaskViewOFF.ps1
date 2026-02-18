@@ -1,21 +1,22 @@
 #Requires -RunAsAdministrator
 <#
 .SYNOPSIS
-    Enables or Disables Windows Defender PUA Protection.
+    Disables or Enables the Task View button on the Taskbar.
 .DESCRIPTION
-    Standardized for WinAuto. Configures System-wide Windows Defender PUA Protection.
+    Standardized for WinAuto.
+    0 = Hidden (Default)
+    1 = Show
     Standalone version: Can be copy-pasted directly into PowerShell.
     Includes Reverse Mode (-r) to undo changes.
 .PARAMETER Reverse
-    (Alias: -r) Reverses the setting (Disables PUA blocking).
+    (Alias: -r) Reverses the setting (Shows Task View button).
 #>
 
 & {
     param(
         [Parameter(Mandatory = $false)]
         [Alias('r')]
-        [switch]$Reverse,
-        [switch]$Force
+        [switch]$Reverse
     )
 
     # --- STANDALONE HELPERS ---
@@ -24,13 +25,11 @@
     $Bold = "$Esc[1m"
     $FGGreen = "$Esc[92m"
     $FGRed = "$Esc[91m"
-    $FGDarkYellow = "$Esc[33m"
     $FGCyan = "$Esc[96m"
     $FGDarkBlue = "$Esc[34m"
-
+    
     $Char_HeavyCheck = "[v]"
     $Char_RedCross = "[x]"
-    $Char_Warn = "!"
 
     if (-not (Get-Command Write-Boundary -ErrorAction SilentlyContinue)) {
         function Write-Boundary {
@@ -65,21 +64,28 @@
     }
 
     # --- MAIN LOGIC ---
-    Write-Header "DEFENDER PUA PROTECTION"
+    Write-Header "TASK VIEW BUTTON"
 
     try {
-        $targetMp = if ($Reverse) { 0 } else { 1 }
-        $statusText = if ($Reverse) { "DISABLED" } else { "ENABLED" }
+        $registryPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
+        $name = "ShowTaskViewButton"
+        
+        $targetValue = if ($Reverse) { 1 } else { 0 }
+        $statusText = if ($Reverse) { "VISIBLE" } else { "HIDDEN" }
 
-        # System-wide Defender PUA
-        Set-MpPreference -PUAProtection $targetMp -ErrorAction Stop
-        Write-LeftAligned "$FGGreen$Char_HeavyCheck  Defender PUA Blocking is $statusText.$Reset"
-
-        # Verification
-        $currentMp = (Get-MpPreference).PUAProtection
-        if ($currentMp -ne $targetMp) {
-            Write-LeftAligned "$FGDarkYellow$Char_Warn Verification failed for Defender PUA. Status: $currentMp$Reset"
+        # Check / Create Path
+        if (-not (Test-Path $registryPath)) {
+            New-Item -Path $registryPath -Force | Out-Null
         }
+
+        # Set Value
+        Set-ItemProperty -Path $registryPath -Name $name -Value $targetValue -Type DWord -Force
+
+        Write-LeftAligned "$FGGreen$Char_HeavyCheck  Task View Button is now $statusText.$Reset"
+        Write-LeftAligned "Restarting Explorer to apply..."
+
+        # Restart Explorer
+        Stop-Process -Name explorer -Force
 
     }
     catch {

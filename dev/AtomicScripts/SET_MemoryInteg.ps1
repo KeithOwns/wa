@@ -1,21 +1,21 @@
 #Requires -RunAsAdministrator
 <#
 .SYNOPSIS
-    Enables or Disables Windows Defender PUA Protection.
+    Enables Memory Integrity (Core Isolation) via Registry.
 .DESCRIPTION
-    Standardized for WinAuto. Configures System-wide Windows Defender PUA Protection.
-    Standalone version: Can be copy-pasted directly into PowerShell.
-    Includes Reverse Mode (-r) to undo changes.
+    Standardized for WinAuto.
+    Sets HypervisorEnforcedCodeIntegrity 'Enabled' value to 1 (On) or 0 (Off).
+    Requires System Restart.
+    Standalone version. Includes Reverse Mode (-r).
 .PARAMETER Reverse
-    (Alias: -r) Reverses the setting (Disables PUA blocking).
+    (Alias: -r) Reverses the setting (Disables Memory Integrity).
 #>
 
 & {
     param(
         [Parameter(Mandatory = $false)]
         [Alias('r')]
-        [switch]$Reverse,
-        [switch]$Force
+        [switch]$Reverse
     )
 
     # --- STANDALONE HELPERS ---
@@ -24,14 +24,14 @@
     $Bold = "$Esc[1m"
     $FGGreen = "$Esc[92m"
     $FGRed = "$Esc[91m"
-    $FGDarkYellow = "$Esc[33m"
     $FGCyan = "$Esc[96m"
     $FGDarkBlue = "$Esc[34m"
+    $FGDarkYellow = "$Esc[33m"
 
     $Char_HeavyCheck = "[v]"
     $Char_RedCross = "[x]"
     $Char_Warn = "!"
-
+    
     if (-not (Get-Command Write-Boundary -ErrorAction SilentlyContinue)) {
         function Write-Boundary {
             param([string]$Color = $FGDarkBlue)
@@ -56,34 +56,38 @@
             Write-Boundary
         }
     }
-
+    
     if (-not (Get-Command Write-LeftAligned -ErrorAction SilentlyContinue)) {
-        function Write-LeftAligned {
-            param([string]$Text, [int]$Indent = 2)
-            Write-Host (" " * $Indent + $Text)
-        }
+        function Write-LeftAligned { param($Text) Write-Host "  $Text" }
     }
 
-    # --- MAIN LOGIC ---
-    Write-Header "DEFENDER PUA PROTECTION"
+    Write-Header "MEMORY INTEGRITY REG"
+
+    $Path = "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity"
+    $Name = "Enabled"
+    $Value = if ($Reverse) { 0 } else { 1 }
+    $ActionStr = if ($Reverse) { "DISABLED" } else { "ENABLED" }
 
     try {
-        $targetMp = if ($Reverse) { 0 } else { 1 }
-        $statusText = if ($Reverse) { "DISABLED" } else { "ENABLED" }
-
-        # System-wide Defender PUA
-        Set-MpPreference -PUAProtection $targetMp -ErrorAction Stop
-        Write-LeftAligned "$FGGreen$Char_HeavyCheck  Defender PUA Blocking is $statusText.$Reset"
-
-        # Verification
-        $currentMp = (Get-MpPreference).PUAProtection
-        if ($currentMp -ne $targetMp) {
-            Write-LeftAligned "$FGDarkYellow$Char_Warn Verification failed for Defender PUA. Status: $currentMp$Reset"
+        # Create Path if missing
+        if (-not (Test-Path $Path)) {
+            New-Item -Path $Path -Force | Out-Null
         }
 
+        # Set Value
+        Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type DWord -Force -ErrorAction Stop
+        
+        # Add Tracking Keys (if enabling)
+        if (-not $Reverse) {
+            Set-ItemProperty -Path $Path -Name "WasEnabledBy" -Value 2 -Type DWord -Force -ErrorAction SilentlyContinue
+        }
+        
+        Write-LeftAligned "$FGGreen$Char_HeavyCheck  Memory Integrity Registry Key set to $ActionStr.$Reset"
+        Write-LeftAligned "$FGDarkYellow$Char_Warn  A system restart is required to take effect.$Reset"
     }
     catch {
         Write-LeftAligned "$FGRed$Char_RedCross  Failed: $($_.Exception.Message)$Reset"
+        Write-LeftAligned "$FGCyan  Hint: Tamper Protection might be blocking this.$Reset"
     }
 
     # --- FOOTER ---
