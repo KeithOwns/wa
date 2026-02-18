@@ -762,7 +762,8 @@ function Invoke-WA_SetSmartScreen {
 
     # 1. Launch Windows Security at App & Browser Control
     Write-LeftAligned "Opening Windows Security..."
-    Start-Process "windowsdefender://appbrowser"
+    try { Start-Process "windowsdefender://appbrowser" -ErrorAction Stop }
+    catch { try { Start-Process "explorer.exe" -ArgumentList "windowsdefender://appbrowser" } catch { Write-LeftAligned "$FGRed$Char_RedCross Failed to launch Windows Security.$Reset"; return } }
     Start-Sleep -Seconds 2
 
     # 2. Find Window
@@ -838,7 +839,8 @@ function Invoke-WA_SetFirewallUIA {
 
     # 1. Launch Windows Security
     Write-LeftAligned "Opening Windows Security..."
-    Start-Process "windowsdefender://network"
+    try { Start-Process "windowsdefender://network" -ErrorAction Stop }
+    catch { try { Start-Process "explorer.exe" -ArgumentList "windowsdefender://network" } catch { Write-LeftAligned "$FGRed$Char_RedCross Failed to launch Windows Security.$Reset"; return } }
     Start-Sleep -Seconds 2
 
     # 2. Find Window
@@ -921,7 +923,8 @@ function Invoke-WA_SetVirusThreatProtect {
 
     # 1. Launch Windows Security
     Write-LeftAligned "Opening Windows Security..."
-    Start-Process "windowsdefender://threat"
+    try { Start-Process "windowsdefender://threat" -ErrorAction Stop }
+    catch { try { Start-Process "explorer.exe" -ArgumentList "windowsdefender://threat" } catch { Write-LeftAligned "$FGRed$Char_RedCross Failed to launch Windows Security.$Reset"; return } }
     Start-Sleep -Seconds 2
 
     # 2. Find Window
@@ -1824,7 +1827,8 @@ function Invoke-WA_SetKernelMode {
         }
 
         # Launch Windows Security
-        Start-Process "windowsdefender://coreisolation"
+        try { Start-Process "windowsdefender://coreisolation" -ErrorAction Stop }
+        catch { try { Start-Process "explorer.exe" -ArgumentList "windowsdefender://coreisolation" } catch { Write-LeftAligned "$FGRed$Char_RedCross Failed to launch Windows Security.$Reset"; return } }
     
         # Find Window
         $Desktop = [System.Windows.Automation.AutomationElement]::RootElement
