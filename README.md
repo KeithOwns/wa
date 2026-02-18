@@ -77,10 +77,16 @@ Technicians can use the **Maintenance** dashboard to:
 - **Privileges**: **Administrator** rights are required.
 - **Execution Policy**: Script will attempt to set `Process` scope to `RemoteSigned`.
 
-### Execution
+### Run It Now
+Open an **Administrator PowerShell** window and paste:
+```powershell
+iex (irm https://raw.githubusercontent.com/KeithOwns/wa/main/wa.ps1)
+```
+
+### Alternative Execution
 
 **Option A: Interactive Mode (TUI)**
-Run in Administrator PowerShell:
+If you have the file locally, run in Administrator PowerShell:
 ```powershell
 .\wa.ps1
 ```
