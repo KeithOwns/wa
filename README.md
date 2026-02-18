@@ -74,7 +74,7 @@ Technicians can use the **Maintenance** dashboard to:
 
 ### Prerequisites
 - **OS**: Windows 11 (Build 22000+) recommended.
-- **Privileges**: **Administrator** rights are required.
+- **Privileges**: **Administrator** rights are required (auto-checked on launch).
 - **Execution Policy**: Script will attempt to set `Process` scope to `RemoteSigned`.
 
 ### Run It Now
