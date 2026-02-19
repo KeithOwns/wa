@@ -818,89 +818,7 @@ function Invoke-WA_SetSmartScreen {
     }
 }
 
-function Invoke-WA_SetFirewallUIA {
-    Write-Header "FIREWALL PROTECTION (UIA)"
-    
-    # UIA Preparation
-    if (-not ([System.Management.Automation.PSTypeName]"System.Windows.Automation.AutomationElement").Type) {
-        try {
-            Add-Type -AssemblyName UIAutomationClient
-            Add-Type -AssemblyName UIAutomationTypes
-        }
-        catch {
-            Write-LeftAligned "$FGRed$Global:Char_RedCross Failed to load UI Automation assemblies.$Reset"
-            return
-        }
-    }
 
-    # 1. Launch Windows Security
-    Write-LeftAligned "Opening Windows Security..."
-    try { Start-Process "windowsdefender://network" -ErrorAction Stop }
-    catch { try { Start-Process "explorer.exe" -ArgumentList "windowsdefender://network" } catch { Write-LeftAligned "$FGRed$Char_RedCross Failed to launch Windows Security.$Reset"; return } }
-    Start-Sleep -Seconds 2
-
-    # 2. Find Window
-    $timeout = 10
-    $startTime = Get-Date
-    $window = $null
-
-    Write-LeftAligned "Searching for 'Windows Security' window..."
-
-    do {
-        $desktop = [System.Windows.Automation.AutomationElement]::RootElement
-        $condition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, "Windows Security")
-        $window = $desktop.FindFirst([System.Windows.Automation.TreeScope]::Children, $condition)
-        if ($null -ne $window) { break }
-        Start-Sleep -Milliseconds 500
-    } while ((Get-Date) -lt $startTime.AddSeconds($timeout))
-
-    if ($window) {
-        Write-LeftAligned "$FGGreen$Global:Char_HeavyCheck Window found.$Reset"
-        
-        # 3. Search for 'Turn on' (or 'Restore settings') button
-        $targets = @("Turn on", "Restore settings")
-        $button = $null
-        
-        foreach ($t in $targets) {
-            $cond = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, $t)
-            $button = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $cond)
-            if ($button) { 
-                Write-LeftAligned "$FGGreen$Global:Char_HeavyCheck Found '$t' button.$Reset"
-                break 
-            }
-        }
-        
-        if ($button) {
-            try {
-                $invokePattern = $button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
-                if ($invokePattern) {
-                    $invokePattern.Invoke()
-                    Write-LeftAligned "$FGGreen$Global:Char_HeavyCheck Clicked button.$Reset"
-                    Start-Sleep -Seconds 1
-                }
-                else {
-                    Write-LeftAligned "$FGDarkYellow$Global:Char_Warn Button found but not clickable.$Reset"
-                }
-            }
-            catch {
-                Write-LeftAligned "$FGRed$Global:Char_RedCross Failed to click button: $($_.Exception.Message)$Reset"
-            }
-        }
-        else {
-            Write-LeftAligned "$FGGray No 'Turn on' button found (Already enabled?).$Reset"
-        }
-        
-        # Close Window
-        try {
-            $windowPattern = $window.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern)
-            if ($windowPattern) { $windowPattern.Close() }
-        }
-        catch {}
-    }
-    else {
-        Write-LeftAligned "$FGRed$Global:Char_RedCross Timeout waiting for Windows Security window.$Reset"
-    }
-}
 
 function Invoke-WA_SetVirusThreatProtect {
     Write-Header "VIRUS & THREAT PROTECTION (UIA)"
@@ -975,11 +893,12 @@ function Invoke-WA_SetVirusThreatProtect {
         }
         
         # Close Window
-        try {
-            $windowPattern = $window.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern)
-            if ($windowPattern) { $windowPattern.Close() }
-        }
-        catch {}
+        # Commented out to match standalone behavior - closing might interrupt the click action
+        # try {
+        #    $windowPattern = $window.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern)
+        #    if ($windowPattern) { $windowPattern.Close() }
+        # }
+        # catch {}
     }
     else {
         Write-LeftAligned "$FGRed$Global:Char_RedCross Timeout waiting for Windows Security window.$Reset"
@@ -1549,7 +1468,7 @@ function Invoke-WinAutoConfiguration {
     # UIA Remediation Steps (Always run in SmartRUN to catch UI drift)
     # Keeping original UIA helpers if not replaced
     Invoke-WA_SetSmartScreen 
-    Invoke-WA_SetFirewallUIA
+
     Invoke-WA_SetVirusThreatProtect
     
     if (-not $SkipConfig) {
