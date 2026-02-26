@@ -1539,7 +1539,7 @@ function Invoke-WinAutoMaintenance {
             # Keep original Windows Update if needed?
             # Original was Invoke-WA_WindowsUpdate
             # Check if we should execute both? 
-            # Invoke-WA_WindowsUpdate
+            Invoke-WA_WindowsUpdate
             Set-WinAutoLastRun -Module "Maintenance_WinUpdate"
         }
 
