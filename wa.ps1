@@ -253,11 +253,11 @@ ${FGDarkCyan}============================================================${Reset
 ${FGDarkCyan}__________________________________________________________${Reset}
 ${FGCyan}ACTION${Reset}                   ${FGDarkGray}|${Reset} ${FGCyan}STAGE${Reset}    ${FGDarkGray}|${Reset} ${FGDarkCyan}SOURCE SCRIPT${Reset}
 ${FGDarkGray}----------------------------------------------------------${Reset}
-Adobe Creative Cloud     ${FGDarkGray}|${Reset} ${FGDarkCyan}Install${Reset}  ${FGDarkGray}|${Reset} ${FGGray}RUN_InstallAdobeCC.ps1${Reset}
-Box Drive                ${FGDarkGray}|${Reset} ${FGDarkCyan}Install${Reset}  ${FGDarkGray}|${Reset} ${FGGray}RUN_InstallBoxDrive.ps1${Reset}
-Box for Office           ${FGDarkGray}|${Reset} ${FGDarkCyan}Install${Reset}  ${FGDarkGray}|${Reset} ${FGGray}RUN_InstallBoxOffice.ps1${Reset}
-Box Tools                ${FGDarkGray}|${Reset} ${FGDarkCyan}Install${Reset}  ${FGDarkGray}|${Reset} ${FGGray}RUN_InstallBoxTools.ps1${Reset}
-Crestron AirMedia        ${FGDarkGray}|${Reset} ${FGDarkCyan}Install${Reset}  ${FGDarkGray}|${Reset} ${FGGray}RUN_InstallAirMedia.ps1${Reset}
+Adobe Creative Cloud     ${FGDarkGray}|${Reset} ${FGDarkCyan}Install${Reset}  ${FGDarkGray}|${Reset} ${FGGray}INSTALL_AdobeCC.ps1${Reset}
+Box Drive                ${FGDarkGray}|${Reset} ${FGDarkCyan}Install${Reset}  ${FGDarkGray}|${Reset} ${FGGray}INSTALL_BoxDrive.ps1${Reset}
+Box for Office           ${FGDarkGray}|${Reset} ${FGDarkCyan}Install${Reset}  ${FGDarkGray}|${Reset} ${FGGray}INSTALL_BoxOffice.ps1${Reset}
+Box Tools                ${FGDarkGray}|${Reset} ${FGDarkCyan}Install${Reset}  ${FGDarkGray}|${Reset} ${FGGray}INSTALL_BoxTools.ps1${Reset}
+Crestron AirMedia        ${FGDarkGray}|${Reset} ${FGDarkCyan}Install${Reset}  ${FGDarkGray}|${Reset} ${FGGray}INSTALL_AirMedia.ps1${Reset}
 Real-Time Protection     ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_RealTimeProt.ps1${Reset}
 PUA Block Apps           ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_PUABlockApps.ps1${Reset}
 PUA Downloads            ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_PUABlockDLs.ps1${Reset}
@@ -268,7 +268,6 @@ Windows Firewall         ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDa
 Classic Context Menu     ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_ClassicMenu.ps1${Reset}
 Taskbar Search Box       ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_TaskbarSearch.ps1${Reset}
 Task View Toggle         ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_TaskViewOFF.ps1${Reset}
-
 Microsoft Update         ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_MicrosoftUpd.ps1${Reset}
 Restart Notifications    ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_RestartIsReq.ps1${Reset}
 App Restart Persistence  ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_RestartApps.ps1${Reset}
@@ -286,24 +285,24 @@ Execution Policy / Admin Check,Pre-Run Setup,wa.ps1,Inline,Set-ExecutionPolicy R
 Auto-Unblock,Pre-Run Setup,wa.ps1,Inline,Unblock-File (Self),N/A,No,System,(Script Header)
 System Hardening Check,SmartRUN,CHECK_SystemHarden.ps1,Mixed,Checks Last Run date (30 days) to determine invalidation,N/A,No,Automation,Invoke-WinAutoConfiguration -SmartRun
 Maintenance Cycle,SmartRUN,SET_ScheduleMaintn.ps1,Mixed,Checks Last Run dates (SFC=30d; Disk=7d; Clean=7d) to trigger tasks,N/A,No,Automation,Invoke-WinAutoMaintenance -SmartRun
-Adobe Creative Cloud,Install,RUN_InstallAdobeCC.ps1,ATOMIC_SCRIPT,Uses AtomicScript for WinGet install,No,No,System,Invoke-WA_InstallApps
-Box Drive,Install,RUN_InstallBoxDrive.ps1,ATOMIC_SCRIPT,Note: MSI has specific uninstall GUID issues,No,No,System,Invoke-WA_InstallApps
-Box for Office,Install,RUN_InstallBoxOffice.ps1,ATOMIC_SCRIPT,EXE installer with silent args,No,No,System,Invoke-WA_InstallApps
-Box Tools,Install,RUN_InstallBoxTools.ps1,ATOMIC_SCRIPT,EXE installer with silent args,No,No,System,Invoke-WA_InstallApps
-Crestron AirMedia,Install,RUN_InstallAirMedia.ps1,ATOMIC_SCRIPT,Uses AtomicScript for WinGet/Machine install,No,No,System,Invoke-WA_InstallApps
-Real-Time Protection,Configure,SET_RealTimeProtect.ps1,PS WMI,Set-MpPreference -DisableRealtimeMonitoring 0,Yes,No,Security,Invoke-WA_SetRealTimeProtection
+Adobe Creative Cloud,Install,INSTALL_AdobeCC.ps1,ATOMIC_SCRIPT,Uses AtomicScript for WinGet install,No,No,System,Invoke-WA_InstallApps
+Box Drive,Install,INSTALL_BoxDrive.ps1,ATOMIC_SCRIPT,Note: MSI has specific uninstall GUID issues,No,No,System,Invoke-WA_InstallApps
+Box for Office,Install,INSTALL_BoxOffice.ps1,ATOMIC_SCRIPT,EXE installer with silent args,No,No,System,Invoke-WA_InstallApps
+Box Tools,Install,INSTALL_BoxTools.ps1,ATOMIC_SCRIPT,EXE installer with silent args,No,No,System,Invoke-WA_InstallApps
+Crestron AirMedia,Install,INSTALL_AirMedia.ps1,ATOMIC_SCRIPT,Uses AtomicScript for WinGet/Machine install,No,No,System,Invoke-WA_InstallApps
+Real-Time Protection,Configure,SET_RealTimeProt.ps1,PS WMI,Set-MpPreference -DisableRealtimeMonitoring 0,Yes,No,Security,Invoke-WA_SetRealTimeProtection
 PUA Block Apps,Configure,SET_PUABlockApps.ps1,PS WMI,Set-MpPreference -PUAProtection 1,Yes,No,Security,Invoke-WA_SetPUABlockApps
 PUA Downloads,Configure,SET_PUABlockDLs.ps1,Registry (HKCU),HKCU:\Software\Microsoft\Edge\SmartScreenPuaEnabled (1),Yes,No,Security,Invoke-WA_SetPUABlockDLs
-Memory Integrity,Configure,SET_MemoryIntegrity.ps1,Registry (HKLM),HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity (Enabled=1),Yes,Yes,Security,Invoke-WA_SetMemoryIntegrity
+Memory Integrity,Configure,SET_MemoryInteg.ps1,Registry (HKLM),HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity (Enabled=1),Yes,Yes,Security,Invoke-WA_SetMemoryIntegrity
 Kernel Stack Protection,Configure,SET_KernelMode.ps1,Registry (HKLM),HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\KernelShadowStacks (Enabled=1),Yes,Yes,Security,Invoke-WA_SetKernelStack
-LSA Protection,Configure,SET_LocalSecurityAuth.ps1,Registry (HKLM),HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\RunAsPPL (1),Yes,Yes,Security,Invoke-WA_SetLSA
+LSA Protection,Configure,SET_LocalSecurity.ps1,Registry (HKLM),HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\RunAsPPL (1),Yes,Yes,Security,Invoke-WA_SetLSA
 Windows Firewall,Configure,SET_FirewallON.ps1,PowerShell Cmdlt,Set-NetFirewallProfile -Enabled True,Yes,No,Security,Invoke-WA_SetFirewall
 Classic Context Menu,Configure,SET_ClassicMenu.ps1,Registry (HKCU),HKCU:\Software\Classes\CLSID\{86ca1aa0...}\InprocServer32,Yes,No,UI,Invoke-WA_SetContextMenu
-Taskbar Search Box,Configure,SET_TaskbarSearchIcon.ps1,Registry (HKCU),HKCU:\Software\Microsoft\Windows\CurrentVersion\Search\SearchboxTaskbarMode (3),Yes,No,UI,Invoke-WA_SetTaskbarDefaults
-Task View Toggle,Configure,SET_DisableTaskView.ps1,Registry (HKCU),HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced\ShowTaskViewButton (0),Yes,No,UI,Invoke-WA_SetTaskbarDefaults
+Taskbar Search Box,Configure,SET_TaskbarSearch.ps1,Registry (HKCU),HKCU:\Software\Microsoft\Windows\CurrentVersion\Search\SearchboxTaskbarMode (3),Yes,No,UI,Invoke-WA_SetTaskbarDefaults
+Task View Toggle,Configure,SET_TaskViewOFF.ps1,Registry (HKCU),HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced\ShowTaskViewButton (0),Yes,No,UI,Invoke-WA_SetTaskbarDefaults
 
-Microsoft Update Service,Configure,SET_MicrosoftUpdate.ps1,Registry (HKLM),HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings\AllowMUUpdateService (1),Yes,No,Config,Invoke-WA_SetWindowsUpdateConfig
-Restart Notifications,Configure,SET_RestartIsRequired.ps1,Registry (HKLM),HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings\RestartNotificationsAllowed2 (1),Yes,No,Config,Invoke-WA_SetWindowsUpdateConfig
+Microsoft Update Service,Configure,SET_MicrosoftUpd.ps1,Registry (HKLM),HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings\AllowMUUpdateService (1),Yes,No,Config,Invoke-WA_SetWindowsUpdateConfig
+Restart Notifications,Configure,SET_RestartIsReq.ps1,Registry (HKLM),HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings\RestartNotificationsAllowed2 (1),Yes,No,Config,Invoke-WA_SetWindowsUpdateConfig
 App Restart Persistence,Configure,SET_RestartApps.ps1,Registry (HKCU),HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\RestartApps (1),Yes,No,Config,Invoke-WA_SetWindowsUpdateConfig
 WinGet App Updates,Maintain,RUN_WingetUpgrade.ps1,Command Line,Checks for and updates all apps via WinGet,No,No,Maintenance,Invoke-WA_WindowsUpdate
 Drive Optimization,Maintain,RUN_OptimizeDisks.ps1,PowerShell Cmdlt,Optimize-Volume -DriveLetter C -NormalPriority,No,No,Maintenance,Invoke-WA_OptimizeDisks
@@ -1144,7 +1143,7 @@ function Get-WA_InstallAppList {
       "AppName": "Adobe Creative Cloud", 
       "MatchName": "*Adobe Creative Cloud*", 
       "Type": "ATOMIC_SCRIPT", 
-      "Script": "RUN_InstallAdobeCC.ps1", 
+      "Script": "INSTALL_AdobeCC.ps1", 
       "CheckMethod": "Registry", 
       "InstallOrder": 50 
     },
@@ -1152,7 +1151,7 @@ function Get-WA_InstallAppList {
       "AppName": "Box", 
       "MatchName": "Box", 
       "Type": "ATOMIC_SCRIPT", 
-      "Script": "RUN_InstallBoxDrive.ps1", 
+      "Script": "INSTALL_BoxDrive.ps1", 
       "CheckMethod": "Registry", 
       "InstallOrder": 40 
     },
@@ -1160,7 +1159,7 @@ function Get-WA_InstallAppList {
       "AppName": "Box for Office", 
       "MatchName": "*Box for Office*", 
       "Type": "ATOMIC_SCRIPT", 
-      "Script": "RUN_InstallBoxOffice.ps1", 
+      "Script": "INSTALL_BoxOffice.ps1", 
       "CheckMethod": "Registry", 
       "InstallOrder": 41 
     },
@@ -1168,7 +1167,7 @@ function Get-WA_InstallAppList {
       "AppName": "Box Tools", 
       "MatchName": "*Box Tools*", 
       "Type": "ATOMIC_SCRIPT", 
-      "Script": "RUN_InstallBoxTools.ps1", 
+      "Script": "INSTALL_BoxTools.ps1", 
       "CheckMethod": "Registry", 
       "InstallOrder": 42 
     }
@@ -1178,7 +1177,7 @@ function Get-WA_InstallAppList {
       "AppName": "Crestron AirMedia",
       "MatchName": "*AirMedia*",
       "Type": "ATOMIC_SCRIPT", 
-      "Script": "RUN_InstallAirMedia.ps1", 
+      "Script": "INSTALL_AirMedia.ps1", 
       "CheckMethod": "Registry", 
       "InstallOrder": 100
     }
@@ -1294,6 +1293,51 @@ function Invoke-WA_InstallApps {
     }
     
     
+    # --- DEPENDENCY CHECK ---
+    $MissingScripts = @()
+    foreach ($app in $AppList) {
+        if ($app.Type -eq "ATOMIC_SCRIPT") {
+            $scriptName = $app.Script
+            $found = $false
+            
+            # Check paths (Standard Dev / Deployment structure)
+            $root = if ($PSScriptRoot) { $PSScriptRoot } else { $PWD.Path }
+            $pathsToCheck = @(
+                "scripts\AtomicScripts\Installers\$scriptName",
+                "AtomicScripts\Installers\$scriptName",
+                "scripts\AtomicScripts\$scriptName",
+                "AtomicScripts\$scriptName",
+                "$scriptName"
+            )
+            
+            foreach ($subPath in $pathsToCheck) {
+                if (Test-Path (Join-Path $root $subPath)) { $found = $true; break }
+            }
+            
+            if (-not $found) {
+                $MissingScripts += $scriptName
+            }
+        }
+    }
+
+    if ($MissingScripts.Count -gt 0) {
+        Write-Host ""
+        Write-LeftAligned "$FGRed$Char_Warn ERROR: Missing required script files:$Reset"
+        foreach ($s in $MissingScripts) {
+            Write-LeftAligned "   - $s"
+        }
+        Write-Host ""
+        Write-LeftAligned "$FGYellow$Char_Finger Please ensure the 'scripts' folder is in the same directory as wa.ps1.$Reset"
+        Write-LeftAligned "   (Or download them from the repository)"
+        
+        if (-not $Global:Silent) {
+            Write-Host ""
+            Write-LeftAligned "Press [Enter] to Continue (Skip missing) or [Esc] to Exit..."
+            $k = Wait-KeyPressWithTimeout -Seconds 30
+            if ($k.VirtualKeyCode -eq 27) { return }
+        }
+    }
+
     # --- CONFIRMATION PROMPT ---
     $AppsToInstall = @()
     foreach ($app in $AppList) {
@@ -1357,6 +1401,8 @@ function Invoke-WA_InstallApps {
                     $root = if ($PSScriptRoot) { $PSScriptRoot } else { $PWD.Path }
                     # Check dev path (scripts\AtomicScripts) and potential flat path
                     $pathsToCheck = @(
+                        "scripts\AtomicScripts\Installers\$scriptName",
+                        "AtomicScripts\Installers\$scriptName",
                         "scripts\AtomicScripts\$scriptName",
                         "AtomicScripts\$scriptName",
                         "$scriptName"
@@ -1539,7 +1585,7 @@ function Invoke-WinAutoMaintenance {
             # Keep original Windows Update if needed?
             # Original was Invoke-WA_WindowsUpdate
             # Check if we should execute both? 
-            Invoke-WA_WindowsUpdate
+            # Invoke-WA_WindowsUpdate
             Set-WinAutoLastRun -Module "Maintenance_WinUpdate"
         }
 
@@ -2564,22 +2610,24 @@ while ($true) {
         # Alternative: Write-Centered "${FGBlack}${BGDarkGray}  MANUAL-MODE-OFF  ${Reset}"
     }
     else {
-        Write-Centered "${FGYellow}${BGDarkCyan}__MANUAL-MODE-ON__${Reset}"
+        # extended highlight Bg DarkCyan on the _MANUAL-MODE-ON__to edges of the window
+        Write-Host "${Global:BGDarkCyan}${Global:FGBlack}=>                   __MANUAL-MODE-ON__                   <=${Global:Reset}"
     }
     Write-Boundary # Separator
 
     # [I]nstall Applications (Pos 1)
     if ($MenuSelection -eq 1) {
-        Write-LeftAligned "${FGYellow}->${Reset}${FGBlack}${BGYellow}|${Reset}${FGBlack}${BGYellow}I${Reset}${FGBlack}${BGYellow}nstall Applications${Reset}${FGBlack}${BGYellow}|${Reset}${FGYellow}<-${Reset}" -Indent 17
+        # Full Width Highlight (60 chars)
+        # "Install Applications" is 20 chars. Padding: 20 left, 20 right.
+        Write-Host "${FGYellow}->${Reset}${FGBlack}${BGYellow}                    Install Applications                  ${Reset}${FGYellow}<-${Reset}"
+        # Write-LeftAligned "${FGYellow}->${Reset}${FGBlack}${BGYellow}|${Reset}${FGBlack}${BGYellow}I${Reset}${FGBlack}${BGYellow}nstall Applications${Reset}${FGBlack}${BGYellow}|${Reset}${FGYellow}<-${Reset}" -Indent 17
     }
     else {
         Write-Centered "${FGDarkCyan}|${Reset} ${FGDarkCyan}I${Reset}${FGDarkCyan}nstall Applications${Reset} ${FGDarkCyan}|${Reset}"
-        # Write-Centered "$ArrI${FGYellow}I${FGDarkGray}nstall Applications${Reset}" # Keeping DarkGray for consistency with old? No, Maintain uses Cyan.
-        # Logic check: Maintain used Cyan. I will use Cyan.
     }
     Write-Host ""
     
-    Write-LeftAligned "${FGDarkGray}[${FGWhite}>${FGDarkGray}] ${FGWhite}INSTALL / ${FGDarkGray}[${FGWhite}v${FGDarkGray}] ${FGWhite}INSTALLED    ${FGDarkGray}|${FGWhite} INSTALLER$Reset" -Indent 2
+    Write-LeftAligned "${FGDarkGray}[${FGWhite}>${FGDarkGray}] ${FGWhite}INSTALL / ${FGDarkGray}[${FGWhite}v${FGDarkGray}] ${FGWhite}INSTALLED    ${FGDarkGray}|${FGWhite} ATOMIC_SCRIPT$Reset" -Indent 2
     Write-Centered "${FGDarkGray}--------------------------------------------------------$Reset"
 
     $iDetailColor = if ($MenuSelection -eq 1) { $FGGray } else { $FGDarkGray }
@@ -2597,9 +2645,12 @@ while ($true) {
             if ($dPadCount -lt 1) { $dPadCount = 1 }
             $dPad = " " * $dPadCount
             
-            # Right Column: Install Source (Filename, WinGet ID, or Type)
+            # Right Column: Install Source (Atomic Script Name)
             $source = "Unknown"
-            if ($app.PSObject.Properties['InstallerPath'] -and $app.InstallerPath) { 
+            if ($app.PSObject.Properties['Script'] -and $app.Script) {
+                $source = $app.Script
+            }
+            elseif ($app.PSObject.Properties['InstallerPath'] -and $app.InstallerPath) { 
                 $source = Split-Path $app.InstallerPath -Leaf 
             }
             elseif ($app.PSObject.Properties['WinGetId'] -and $app.WinGetId) { 
@@ -2616,7 +2667,10 @@ while ($true) {
                 $source = $app.Type 
             }
             
-            Write-LeftAligned "${dName}${Reset}$dPad${FGDarkGray}| ${iDetailColor}$source${Reset}" -Indent 3
+            # Conditional Coloring for Script Name
+            $sourceColor = if ($isInst) { $FGDarkGray } elseif ($MenuSelection -eq 1) { $FGYellow } else { $FGDarkGray }
+
+            Write-LeftAligned "${dName}${Reset}$dPad${FGDarkGray}| ${sourceColor}$source${Reset}" -Indent 3
         }
     }
     else {
@@ -2628,7 +2682,7 @@ while ($true) {
 
     # [C]onfigure Operating System (Pos 2)
     if ($MenuSelection -eq 2) {
-        Write-LeftAligned "${FGYellow}->${Reset}${FGBlack}${BGYellow}|${Reset}${FGBlack}${BGYellow}C${Reset}${FGBlack}${BGYellow}onfigure Operating System${Reset}${FGBlack}${BGYellow}|${Reset}${FGYellow}<-${Reset}" -Indent 14
+        Write-Host "${FGYellow}->${Reset}${FGBlack}${BGYellow}                 Configure Operating System               ${Reset}${FGYellow}<-${Reset}"
     }
     else {
         Write-Centered "${FGDarkCyan}|${Reset} ${FGDarkCyan}C${Reset}${FGDarkCyan}onfigure Operating System${Reset} ${FGDarkCyan}|${Reset}"
@@ -2732,7 +2786,7 @@ while ($true) {
     # [M]aintain Operating System (Pos 4)
 
     if ($MenuSelection -eq 3) {
-        Write-LeftAligned "${FGYellow}->${Reset}${FGBlack}${BGYellow}|${Reset}${FGBlack}${BGYellow}M${Reset}${FGBlack}${BGYellow}aintain Operating System${Reset}${FGBlack}${BGYellow}|${Reset}${FGYellow}<-${Reset}" -Indent 14
+        Write-Host "${FGYellow}->${Reset}${FGBlack}${BGYellow}                 Maintain Operating System                ${Reset}${FGYellow}<-${Reset}"
     }
     else {
         Write-Centered "${FGDarkCyan}|${Reset} ${FGDarkCyan}M${Reset}${FGDarkCyan}aintain Operating System${Reset} ${FGDarkCyan}|${Reset} "
@@ -2883,7 +2937,7 @@ while ($true) {
         Write-Host ""
         Write-Centered "$Bold$FGCyan - WinAuto - $Reset"
         Write-Boundary -Color $FGCyan
-        Write-Centered "$Bold$FGCyan ICM - ReferenceMap $Reset"
+        Write-Centered "$Bold$FGCyan SmartRUN - Reference Map $Reset"
         Write-Host ""
         # Display manifest with body lines in DarkGray
         $Global:WinAutoManifestContent -split "`n" | ForEach-Object {
