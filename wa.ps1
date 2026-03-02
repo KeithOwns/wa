@@ -2618,8 +2618,8 @@ while ($true) {
     # [I]nstall Applications (Pos 1)
     if ($MenuSelection -eq 1) {
         # Full Width Highlight (60 chars)
-        # "Install Applications" is 20 chars. Padding: 20 left, 20 right.
-        Write-Host "${FGYellow}->${Reset}${FGBlack}${BGYellow}                    Install Applications                  ${Reset}${FGYellow}<-${Reset}"
+        Write-Host "${FGYellow}->${Reset}${FGBlack}${BGYellow}                    Install Applications                ${Reset}${FGYellow}<-${Reset}" -NoNewline
+        Write-Host ""
         # Write-LeftAligned "${FGYellow}->${Reset}${FGBlack}${BGYellow}|${Reset}${FGBlack}${BGYellow}I${Reset}${FGBlack}${BGYellow}nstall Applications${Reset}${FGBlack}${BGYellow}|${Reset}${FGYellow}<-${Reset}" -Indent 17
     }
     else {
