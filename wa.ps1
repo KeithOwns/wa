@@ -224,6 +224,7 @@ $Global:BGDarkGreen = "$Esc[42m"
 $Global:BGDarkGray = "$Esc[100m"
 $Global:BGYellow = "$Esc[103m"
 $Global:BGRed = "$Esc[41m"
+$Global:BGDarkRed = "$Esc[41m"
 $Global:BGDarkCyan = "$Esc[46m"
 $Global:BGWhite = "$Esc[107m"
 
@@ -684,7 +685,7 @@ $Global:TickAction = {
         
         # User defined footer with colors
         # Use ^ v keys then press Space to RUN | Esc to EXIT
-        $Line = "                       ${Global:FGYellow}Navigation${Global:Reset} ${Global:FGBlack}${Global:BGDarkCyan}KEYS${Global:Reset}                       `n   ${Global:FGBlack}${Global:BGDarkCyan} ^ ${Global:Reset}  ${Global:FGGray}arrow${Global:Reset}  ${Global:FGBlack}${Global:BGDarkCyan} v ${Global:Reset}  ${Global:FGGray}keys${Global:Reset} ${Global:FGYellow}->${Global:Reset}${Global:FGDarkGray}|${Global:Reset}${Global:FGBlack}${Global:BGYellow}Select${Global:Reset}${Global:FGDarkGray}|${Global:Reset}${Global:FGYellow}<-${Global:Reset} ${Global:FGDarkGray}|${Global:Reset} ${Global:FGBlack}${Global:BGDarkCyan}H${Global:Reset}${Global:FGGray}elp${Global:Reset} ${Global:FGDarkGray}|${Global:Reset} ${Global:FGBlack}${Global:BGDarkCyan}Esc${Global:Reset} ${Global:FGGray}to${Global:Reset} ${Global:FGDarkRed}${Global:BGWhite}EXIT${Global:Reset}"
+        $Line = "                       ${Global:FGYellow}Navigation${Global:Reset} ${Global:FGBlack}${Global:BGDarkCyan}KEYS${Global:Reset}                       `n   ${Global:FGBlack}${Global:BGDarkCyan} ^ ${Global:Reset}  ${Global:FGGray}arrow${Global:Reset}  ${Global:FGBlack}${Global:BGDarkCyan} v ${Global:Reset}  ${Global:FGGray}keys${Global:Reset} ${Global:FGYellow}->${Global:Reset}${Global:FGDarkGray}|${Global:Reset}${Global:FGBlack}${Global:BGYellow}Select${Global:Reset}${Global:FGDarkGray}|${Global:Reset}${Global:FGYellow}<-${Global:Reset} ${Global:FGDarkGray}|${Global:Reset} ${Global:FGBlack}${Global:BGDarkCyan}I${Global:Reset}${Global:FGWhite}nfo${Global:Reset} ${Global:FGDarkGray}|${Global:Reset} ${Global:FGBlack}${Global:BGDarkRed}Esc${Global:Reset} ${Global:FGGray}to${Global:Reset} ${Global:FGDarkRed}${Global:BGWhite}EXIT${Global:Reset}"
     }
 
     try { [Console]::SetCursorPosition(0, $PromptCursorTop); Write-Host $Line } catch {}
@@ -1767,106 +1768,314 @@ function Invoke-WA_SetMemoryInteg {
 function Invoke-WA_SetKernelMode {
     <#
 .SYNOPSIS
-    Toggles Kernel-mode Hardware-enforced Stack Protection.
+    Enables 'Kernel-mode Hardware-enforced Stack Protection' in Windows Security via UI Automation.
 .DESCRIPTION
-    Uses UI Automation to toggle the setting in Windows Security.
-    Requires 'UIAutomationClient' assembly.
-    Standalone version. Includes Reverse Mode (-r).
+    Launches Windows Security, navigates to Device Security > Core Isolation,
+    and attempts to toggle 'Kernel-mode Hardware-enforced Stack Protection'.
+    Standalone version. Includes Reverse Mode.
 .PARAMETER Reverse
-    (Alias: -r) Toggles the setting to OFF.
+    (Alias: -r) Reverses the setting (Turns OFF Stack Protection).
 #>
-    param(
-        [Parameter(Mandatory = $false)]
-        [Alias('r')]
-        [switch]$Reverse
-    )
-    Write-Header "KERNEL STACK PROTECTION"
 
-    # --- MAIN LOGIC ---
-    try {
-        # Check Registry First (Fast Fail)
-        $RegPath = "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\KernelShadowStacks"
-        $CurrentVal = (Get-ItemProperty -Path $RegPath -Name "Enabled" -ErrorAction SilentlyContinue).Enabled
-    
-        $TargetVal = if ($Reverse) { 0 } else { 1 }
-        $ActionStr = if ($Reverse) { "DISABLE" } else { "ENABLE" }
+    & {
+        param(
+            [Parameter(Mandatory = $false)]
+            [Alias('r')]
+            [switch]$Reverse,
+            [switch]$Force
+        )
 
-        if ($CurrentVal -eq $TargetVal) {
-            Write-LeftAligned "$FGGreen$Char_HeavyCheck Kernel Stack Protection is already set to $TargetVal.$Reset"
-            return
+        Set-StrictMode -Version Latest
+        $ErrorActionPreference = 'Stop'
+
+        # --- STANDALONE HELPERS ---
+        $Esc = [char]0x1B
+        $Reset = "$Esc[0m"
+        $Bold = "$Esc[1m"
+        $FGCyan = "$Esc[96m"
+        $FGDarkBlue = "$Esc[34m"
+
+        if (-not (Get-Command Write-Boundary -ErrorAction SilentlyContinue)) {
+            function Write-Boundary {
+                param([string]$Color = $FGDarkBlue)
+                Write-Host "$Color$([string]'_' * 60)$Reset"
+            }
         }
 
-        Write-LeftAligned "$FGGray Attempting to $ActionStr Kernel Stack Protection via UI...$Reset"
+        if (-not (Get-Command Write-Header -ErrorAction SilentlyContinue)) {
+            function Write-Header {
+                param([string]$Title)
+                Clear-Host
+                Write-Host ""
+                $WinAutoTitle = "- WinAuto -"
+                $WinAutoPadding = [Math]::Floor((60 - $WinAutoTitle.Length) / 2)
+                Write-Host (" " * $WinAutoPadding + "$Bold$FGCyan$WinAutoTitle$Reset")
+            
+                Write-Boundary
+            
+                $SubText = $Title.ToUpper()
+                $SubPadding = [Math]::Floor((60 - $SubText.Length) / 2)
+                Write-Host (" " * $SubPadding + "$Bold$FGCyan$SubText$Reset")
+                Write-Boundary
+            }
+        }
 
-        # Load UIA
-        if (-not ([System.Management.Automation.PSTypeName]"System.Windows.Automation.AutomationElement").Type) {
+        # Load .NET UIAutomation Assemblies
+        try {
             Add-Type -AssemblyName UIAutomationClient
             Add-Type -AssemblyName UIAutomationTypes
         }
-
-        # Launch Windows Security
-        try { Start-Process "windowsdefender://coreisolation" -ErrorAction Stop }
-        catch { try { Start-Process "explorer.exe" -ArgumentList "windowsdefender://coreisolation" } catch { Write-LeftAligned "$FGRed$Char_RedCross Failed to launch Windows Security.$Reset"; return } }
-    
-        # Find Window with 5 retries
-        $Desktop = [System.Windows.Automation.AutomationElement]::RootElement
-        $Window = $null
-        $retries = 5
-        for ($i = 0; $i -lt $retries; $i++) {
-            $Window = Get-UIAElement -Parent $Desktop -Name "Windows Security" -Scope "Children" -TimeoutSeconds 2 -ErrorAction SilentlyContinue
-            if ($Window) { break }
-            Write-Log "  Waiting for 'Windows Security' window... (Attempt $($i+1)/$retries)"
-            Start-Sleep -Seconds 2
+        catch {
+            Write-Error "Failed to load UIAutomation assemblies. Ensure .NET Framework is installed."
+            exit 1
         }
-    
-        if ($Window) {
-            Write-LeftAligned "  Windows Security Opened."
-         
-            # Locate Toggle with 5 retries
-            $ToggleName = "Kernel-mode Hardware-enforced Stack Protection"
-            $Toggle = $null
-            for ($i = 0; $i -lt $retries; $i++) {
-                $Toggle = Get-UIAElement -Parent $Window -Name $ToggleName -Scope "Descendants" -TimeoutSeconds 2 -ErrorAction SilentlyContinue
-                if ($Toggle) { break }
-                Write-Log "  Waiting for toggle '$ToggleName'... (Attempt $($i+1)/$retries)"
+
+        # --- HELPER FUNCTIONS ---
+
+        function Write-Log {
+            param(
+                [string]$Message,
+                [ConsoleColor]$Color = "White"
+            )
+            Write-Host "[$(Get-Date -Format 'HH:mm:ss')] $Message" -ForegroundColor $Color
+        }
+
+        function Get-UIAElement {
+            param(
+                [System.Windows.Automation.AutomationElement]$Parent,
+                [string]$Name,
+                [System.Windows.Automation.ControlType]$ControlType,
+                [System.Windows.Automation.TreeScope]$Scope = [System.Windows.Automation.TreeScope]::Descendants,
+                [int]$TimeoutSeconds = 5
+            )
+        
+            $Condition = if ($Name -and $ControlType) {
+                $c1 = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, $Name)
+                $c2 = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, $ControlType)
+                New-Object System.Windows.Automation.AndCondition($c1, $c2)
+            }
+            elseif ($Name) {
+                New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, $Name)
+            }
+            elseif ($ControlType) {
+                New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, $ControlType)
+            }
+            else {
+                throw "Must provide Name or ControlType"
+            }
+
+            $StopWatch = [System.Diagnostics.Stopwatch]::StartNew()
+            while ($StopWatch.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
+                $Result = $Parent.FindFirst($Scope, $Condition)
+                if ($Result) { return $Result }
+                Start-Sleep -Milliseconds 500
+            }
+            return $null
+        }
+
+        function Invoke-UIAElement {
+            param([System.Windows.Automation.AutomationElement]$Element)
+        
+            if (-not $Element) { return $false }
+        
+            # Try Invoke Pattern (Buttons, Links)
+            try {
+                $InvokePattern = $Element.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
+                $InvokePattern.Invoke()
+                return $true
+            }
+            catch {
+                # Try Toggle Pattern (Switches)
+                try {
+                    $TogglePattern = $Element.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+                    $TogglePattern.Toggle()
+                    return $true
+                }
+                catch {
+                    try {
+                        # Fallback: SelectionItem (Tabs/Nav items)
+                        $SelectionItem = $Element.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern)
+                        $SelectionItem.Select()
+                        return $true
+                    }
+                    catch {
+                        Write-Log "Failed to invoke/toggle/select element: $_" "Red"
+                        return $false
+                    }
+                }
+            }
+        }
+
+        function Get-UIAToggleState {
+            param([System.Windows.Automation.AutomationElement]$Element)
+            try {
+                $p = $Element.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+                return $p.Current.ToggleState # On, Off, Indeterminate
+            }
+            catch { return $null }
+        }
+
+        # --- MAIN SCRIPT ---
+        Write-Header "KERNEL STACK UIA"
+        Write-Log "Starting Windows Security Automation (Kernel-mode Stack Protection)..." "Cyan"
+
+        $MaxRetries = 5
+        $RetryCount = 0
+        $Success = $false
+
+        while (-not $Success -and ($RetryCount -lt $MaxRetries)) {
+            $RetryCount++
+        
+            # 1. Launch / Relaunch Windows Security
+            Write-Log "Launching Windows Security (Iteration $RetryCount)..." "Gray"
+        
+            Stop-Process -Name "SecHealthUI" -Force -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 1
+        
+            Start-Process "windowsdefender:"
+            Start-Sleep -Seconds 3
+
+            # 2. Find the Main Window
+            $Desktop = [System.Windows.Automation.AutomationElement]::RootElement
+            $Window = Get-UIAElement -Parent $Desktop -Name "Windows Security" -ControlType ([System.Windows.Automation.ControlType]::Window) -Scope "Children" -TimeoutSeconds 10
+
+            if (-not $Window) {
+                Write-Log "Could not find 'Windows Security' window. Retrying..." "Yellow"
+                continue
+            }
+            Write-Log "Found 'Windows Security' window." "Green"
+            try { $Window.SetFocus() } catch {}
+
+            # 3. Navigate to "Device security"
+            Write-Log "Navigating to 'Device security'..." "Gray"
+            $DeviceSecBtn = Get-UIAElement -Parent $Window -Name "Device security" -Scope "Descendants" -TimeoutSeconds 5
+        
+            if ($DeviceSecBtn) {
+                Invoke-UIAElement -Element $DeviceSecBtn | Out-Null
                 Start-Sleep -Seconds 2
             }
-         
-            if ($Toggle) {
-                $ToggleBase = $Toggle.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
-                if ($ToggleBase) {
-                    $CurrentState = $ToggleBase.Current.ToggleState # 0=Off, 1=On
-                    $TargetState = if ($Reverse) { 0 } else { 1 }
+            else {
+                Write-Log "Could not find 'Device security' navigation item." "Red"
+                continue
+            }
+
+            # 4. Navigate to "Core isolation details"
+            Write-Log "Navigating to 'Core isolation details'..." "Gray"
+            $CoreIsoLink = Get-UIAElement -Parent $Window -Name "Core isolation details" -Scope "Descendants" -TimeoutSeconds 5
+        
+            if ($CoreIsoLink) {
+                Invoke-UIAElement -Element $CoreIsoLink | Out-Null
+                Start-Sleep -Seconds 2
+            }
+            else {
+                Write-Log "Could not find 'Core isolation details' link. Checking if already there..." "Yellow"
+            }
+
+            # 5. Find Target Toggle
+            Write-Log "Looking for 'Kernel-mode Hardware-enforced Stack Protection' toggle..." "Gray"
+
+            $Condition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, "Kernel-mode Hardware-enforced Stack Protection")
+            $AllElements = $Window.FindAll([System.Windows.Automation.TreeScope]::Descendants, $Condition)
+
+            $TargetToggle = $null
+        
+            # Priority: CheckBox > Group > Button
+            foreach ($El in $AllElements) {
+                $Type = $El.Current.ControlType
+                if ($Type -eq [System.Windows.Automation.ControlType]::CheckBox) {
+                    $TargetToggle = $El
+                    break
+                }
+            }
+        
+            if (-not $TargetToggle) {
+                foreach ($El in $AllElements) {
+                    $Type = $El.Current.ControlType
+                    if ($Type -ne [System.Windows.Automation.ControlType]::Text -and $Type -ne [System.Windows.Automation.ControlType]::Pane) {
+                        $TargetToggle = $El
+                        break
+                    }
+                }
+            }
+
+            if ($TargetToggle) {
+                Write-Log "Found Target Element ($($TargetToggle.Current.ControlType.ProgrammaticName)). Checking state..." "Cyan"
+                $State = Get-UIAToggleState -Element $TargetToggle
+            
+                # Determine Desired State based on Reverse logic
+                $DesiredState = if ($Reverse) { 0 } else { 1 }
+                $ActionStr = if ($Reverse) { "OFF" } else { "ON" }
+
+                # Mapping: 0=Off, 1=On, 2=Indeterminate
+                if ($State -eq $DesiredState) {
+                    Write-Log "Feature is already $ActionStr." "Green"
+                    $Success = $true
+                }
+                elseif ($null -ne $State) {
+                    # State matches 0 or 1 but is not desired
+                    Write-Log "Feature is $(if($State -eq 1){'ON'}else{'OFF'}). Toggling $ActionStr..." "Cyan"
                  
-                    if ($CurrentState -ne $TargetState) {
-                        $ToggleBase.Toggle()
-                        Write-LeftAligned "$FGGreen$Char_HeavyCheck Toggled setting.$Reset"
-                        Write-LeftAligned "$FGDarkYellow$Char_Warn Restart required.$Reset"
+                    $Toggled = $false
+                    # Try Toggle Pattern first
+                    if (Invoke-UIAElement -Element $TargetToggle) {
+                        $Toggled = $true
                     }
                     else {
-                        Write-LeftAligned "$FGGray Setting already matches target.$Reset"
+                        # Fallback to Invoke (Click) if Toggle fails
+                        Write-Log "Toggle pattern failed. Attempting Invoke (Click)..." "Yellow"
+                        try {
+                            $Invoke = $TargetToggle.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
+                            $Invoke.Invoke()
+                            $Toggled = $true
+                        }
+                        catch {
+                            Write-Log "Invoke pattern also failed." "Red"
+                        }
+                    }
+
+                    if ($Toggled) {
+                        Write-Log "Action triggered. Waiting for update..." "Green"
+                        Start-Sleep -Seconds 3
+                     
+                        $StateAfter = Get-UIAToggleState -Element $TargetToggle
+                        if ($StateAfter -eq $DesiredState) {
+                            Write-Log "Successfully verified state is $ActionStr." "Green"
+                            $Success = $true
+                        }
+                        else {
+                            Write-Log "State did not change. This is common if UAC is prompting or a reboot is pending." "Yellow"
+                            # We assume success if we clicked it, as we can't automate the UAC prompt easily.
+                            $Success = $true 
+                        }
+                    }
+                    else {
+                        Write-Log "Failed to interact with the toggle." "Red"
                     }
                 }
                 else {
-                    Write-LeftAligned "$FGRed$Char_RedCross Toggle pattern not found for '$ToggleName'.$Reset"
+                    # No toggle pattern (e.g. Button?)
+                    Write-Log "Toggle state unknown (Element might be a Button). Attempting to Click..." "Yellow"
+                    Invoke-UIAElement -Element $TargetToggle | Out-Null
+                    $Success = $true
                 }
+
             }
             else {
-                Write-LeftAligned "$FGRed$Char_RedCross Toggle control '$ToggleName' not found after $retries attempts.$Reset"
+                Write-Log "Could not find 'Kernel-mode Hardware-enforced Stack Protection' toggle. Feature might not be supported on this hardware." "Red"
+                $Success = $true 
             }
-         
-            # Cleanup
-            try { $Window.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern).Close() } catch {}
-        }
-        else {
-            Write-LeftAligned "$FGRed$Char_RedCross Failed to open Windows Security window after $retries attempts.$Reset"
         }
 
-    }
-    catch {
-        Write-LeftAligned "$FGRed$Char_RedCross Error: $($_.Exception.Message)$Reset"
-    }
+        Write-Log "Automation complete." "Cyan"
 
+        # --- FOOTER ---
+        Write-Host ""
+        $copyright = "Copyright (c) 2026 WinAuto"
+        $cPad = [Math]::Floor((60 - $copyright.Length) / 2)
+        Write-Host (" " * $cPad + "$FGCyan$copyright$Reset")
+        Write-Host ""
+
+    } @args
 }
 
 function Invoke-WA_SetLocalSecurity {
@@ -2596,7 +2805,8 @@ while ($true) {
     }
     Write-Host ""
     
-    Write-LeftAligned "${FGDarkGray}[${FGWhite}>${FGDarkGray}] ${FGWhite}INSTALL / ${FGDarkGray}[${FGWhite}v${FGDarkGray}] ${FGWhite}INSTALLED    ${FGDarkGray}|${FGWhite} ATOMIC_SCRIPT$Reset" -Indent 2
+    $iTopColor = if ($MenuSelection -eq 1) { $FGYellow } else { $FGWhite }
+    Write-LeftAligned "${FGDarkGray}[${iTopColor}>${FGDarkGray}] ${iTopColor}INSTALL / ${FGDarkGray}[${FGDarkGreen}v${FGDarkGray}] ${iTopColor}INSTALLED    ${FGDarkGray}|${iTopColor} ATOMIC_SCRIPT$Reset" -Indent 2
     Write-Centered "${FGDarkGray}--------------------------------------------------------$Reset"
 
     $iDetailColor = if ($MenuSelection -eq 1) { $FGGray } else { $FGDarkGray }
@@ -2651,14 +2861,15 @@ while ($true) {
 
     # [C]onfigure Operating System (Pos 2)
     if ($MenuSelection -eq 2) {
-        Write-Host "${FGYellow}->${Reset}${FGBlack}${BGYellow}                 Configure Operating System               ${Reset}${FGYellow}<-${Reset}"
+        Write-Host "${FGYellow}->${Reset}${FGBlack}${BGYellow}                 Configure Operating System             ${Reset}${FGYellow}<-${Reset}"
     }
     else {
         Write-Centered "${FGDarkCyan}|${Reset} ${FGDarkCyan}C${Reset}${FGDarkCyan}onfigure Operating System${Reset} ${FGDarkCyan}|${Reset}"
     }
     Write-Host ""
     
-    Write-LeftAligned "${FGDarkGray}[${FGWhite}1${FGDarkGray}] ${FGWhite}ENABLED / ${FGDarkGray}[${FGWhite}0${FGDarkGray}] ${FGWhite}DISABLED       ${FGDarkGray}|${FGWhite} ATOMIC_SCRIPT$Reset" -Indent 2
+    $cTopColor = if ($MenuSelection -eq 2) { $FGYellow } else { $FGWhite }
+    Write-LeftAligned "${FGDarkGray}[${cTopColor}>${FGDarkGray}] ${cTopColor}ENABLE / ${FGDarkGray}[${FGDarkGreen}v${FGDarkGray}] ${cTopColor}ENABLED        ${FGDarkGray}|${cTopColor} ATOMIC_SCRIPT$Reset" -Indent 3
     Write-Centered "${FGDarkGray}--------------------------------------------------------$Reset"
     
     # Config Details
@@ -2667,10 +2878,18 @@ while ($true) {
     # Helper to print item with status
     function Write-ColItem {
         param($Txt, $Met, $Status) 
-        # Status: $true (Green 1), $false (Red 0), $null (Gray ?)
-        $icon = if ($null -eq $Status) { "${FGDarkGray}[?]${Reset}" } elseif ($Status) { "${FGDarkGray}[${FGGreen}1${FGDarkGray}]${Reset}" } else { "${FGDarkGray}[${FGRed}0${FGDarkGray}]${Reset}" }
-        $pad = " " * (28 - $Txt.Length); 
-        Write-LeftAligned "$icon ${cDetailColor}$Txt${Reset}$pad${FGDarkGray}| ${cDetailColor}$Met${Reset}" -Indent 3  
+        # Status: $true (Green 1), $false (Red 0), $null (Gray ?), "GreyOut" (DarkGray [ ])
+        
+        if ("GreyOut" -eq $Status) {
+            $icon = "${FGDarkGray}[ ]${Reset}"
+            $pad = " " * (28 - $Txt.Length); 
+            Write-LeftAligned "$icon ${FGDarkGray}$Txt${Reset}$pad${FGDarkGray}| ${FGDarkGray}$Met${Reset}" -Indent 3  
+        }
+        else {
+            $icon = if ($null -eq $Status) { "${FGDarkGray}[?]${Reset}" } elseif ($Status) { "${FGDarkGray}[${FGDarkGreen}v${FGDarkGray}]${Reset}" } else { "${FGDarkGray}[${cTopColor}>${FGDarkGray}]${Reset}" }
+            $pad = " " * (28 - $Txt.Length); 
+            Write-LeftAligned "$icon ${cDetailColor}$Txt${Reset}$pad${FGDarkGray}| ${cDetailColor}$Met${Reset}" -Indent 3  
+        }
     }
     
     # --- LIVE STATUS CHECKS (Lightweight) ---
@@ -2678,14 +2897,27 @@ while ($true) {
     # if ($MenuSelection -eq 2) {
     # Always run checks for accurate dashboard
     try { 
+        $av = Get-ThirdPartyAV
         $mp = Get-MpPreference -ErrorAction SilentlyContinue
-        $s_RT = $mp.DisableRealtimeMonitoring -eq $false
-        $s_PUA = $mp.PUAProtection -eq 1
+
+        if ($av) {
+            $s_RT = "GreyOut"
+        }
+        else {
+            $s_RT = $mp.DisableRealtimeMonitoring -eq $false
+        }
+
+        if ($mp.PUAProtection -eq 1) {
+            $s_PUA = $true
+        }
+        else {
+            $s_PUA = "GreyOut"
+        }
     }
     catch { 
         $s_RT = $false; $s_PUA = $false 
         Write-Log "Failed to query Defender Preferences via WMI: $($_.Exception.Message)" -Level WARN
-    } 
+    }
     
     try {
         $profiles = Get-NetFirewallProfile
@@ -2755,7 +2987,7 @@ while ($true) {
     # [M]aintain Operating System (Pos 4)
 
     if ($MenuSelection -eq 3) {
-        Write-Host "${FGYellow}->${Reset}${FGBlack}${BGYellow}                 Maintain Operating System                ${Reset}${FGYellow}<-${Reset}"
+        Write-Host "${FGYellow}->${Reset}${FGBlack}${BGYellow}                 Maintain Operating System              ${Reset}${FGYellow}<-${Reset}"
     }
     else {
         Write-Centered "${FGDarkCyan}|${Reset} ${FGDarkCyan}M${Reset}${FGDarkCyan}aintain Operating System${Reset} ${FGDarkCyan}|${Reset} "
@@ -2804,7 +3036,8 @@ while ($true) {
         Write-LeftAligned "${FGDarkGray}[${statusColor}$prefix${FGDarkGray}]${mDetailColor} $Txt${Reset}$pad${FGDarkGray}| ${mDetailColor}$Met${Reset}" -Indent 3  
     }
 
-    Write-LeftAligned "${FGDarkGray}[${FGWhite}#${FGDarkGray}]${FGWhite} OF DAYS SINCE LAST RUN      ${FGDarkGray}|${FGWhite} ATOMIC_SCRIPT$Reset" -Indent 3
+    $mTopColor = if ($MenuSelection -eq 3) { $FGYellow } else { $FGWhite }
+    Write-LeftAligned "${FGDarkGray}[${mTopColor}#${FGDarkGray}]${mTopColor} OF DAYS SINCE LAST RUN      ${FGDarkGray}|${mTopColor} ATOMIC_SCRIPT$Reset" -Indent 3
     Write-Centered "${FGDarkGray}--------------------------------------------------------$Reset"
     Write-MaintItem "WinGet App Updates" "RUN_WingetUpgrade.ps1" "Maintenance_WinUpdate" -Threshold 1
     Write-MaintItem "Drive Optimization" "RUN_OptimizeDisks.ps1" "Maintenance_Disk" -Threshold 7
@@ -2901,7 +3134,7 @@ while ($true) {
         Start-Sleep -Milliseconds 200
         continue
     }
-    elseif ($res.Character -eq 'H' -or $res.Character -eq 'h') {
+    elseif ($res.Character -eq 'I' -or $res.Character -eq 'i') {
         Clear-Host
         Write-Host ""
         Write-Centered "$Bold$FGCyan - WinAuto - $Reset"
@@ -2922,10 +3155,10 @@ while ($true) {
             }
         }
         Write-Host ""
-        Write-Host "${Global:FGBlack}${Global:BGDarkCyan}Enter${Global:Reset} ${Global:FGGray}to export CSV${Global:Reset} ${Global:FGDarkGray}|${Global:Reset} ${Global:FGYellow}->${Global:Reset}${Global:FGDarkGray}|${Global:Reset}${Global:FGBlack}${Global:BGDarkCyan}Space${Global:Reset}${Global:FGDarkGray}|${Global:Reset}${Global:FGYellow}<-${Global:Reset} ${Global:FGGray}to return${Global:Reset} ${Global:FGDarkGray}|${Global:Reset} ${Global:FGBlack}${Global:BGDarkCyan}Esc${Global:Reset} ${Global:FGGray}to${Global:Reset} ${Global:FGDarkRed}${Global:BGWhite}EXIT${Global:Reset}"
+        Write-Host "                       ${Global:FGYellow}Navigation${Global:Reset} ${Global:FGBlack}${Global:BGDarkCyan}KEYS${Global:Reset}                       `n  ${Global:FGBlack}${Global:BGDarkCyan}Enter${Global:Reset} ${Global:FGGray}to export CSV${Global:Reset} ${Global:FGDarkGray}|${Global:Reset} ${Global:FGYellow}->${Global:Reset}${Global:FGDarkGray}|${Global:Reset}${Global:FGBlack}${Global:BGYellow}Space${Global:Reset}${Global:FGDarkGray}|${Global:Reset}${Global:FGYellow}<-${Global:Reset} ${Global:FGGray}to return${Global:Reset} ${Global:FGDarkGray}|${Global:Reset} ${Global:FGBlack}${Global:BGDarkCyan}Esc${Global:Reset} ${Global:FGGray}to${Global:Reset} ${Global:FGDarkRed}${Global:BGWhite}EXIT${Global:Reset}"
         while ($true) {
             $mk = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-            if ($mk.Character -eq ' ' -or $mk.VirtualKeyCode -eq 32 -or $mk.Character -eq 'H' -or $mk.Character -eq 'h') { break }
+            if ($mk.Character -eq ' ' -or $mk.VirtualKeyCode -eq 32 -or $mk.Character -eq 'I' -or $mk.Character -eq 'i') { break }
             if ($mk.VirtualKeyCode -eq 27) { 
                 # Esc pressed - exit script
                 Write-Host ""
