@@ -1293,50 +1293,6 @@ function Invoke-WA_InstallApps {
     }
     
     
-    # --- DEPENDENCY CHECK ---
-    $MissingScripts = @()
-    foreach ($app in $AppList) {
-        if ($app.Type -eq "ATOMIC_SCRIPT") {
-            $scriptName = $app.Script
-            $found = $false
-            
-            # Check paths (Standard Dev / Deployment structure)
-            $root = if ($PSScriptRoot) { $PSScriptRoot } else { $PWD.Path }
-            $pathsToCheck = @(
-                "scripts\AtomicScripts\Installers\$scriptName",
-                "AtomicScripts\Installers\$scriptName",
-                "scripts\AtomicScripts\$scriptName",
-                "AtomicScripts\$scriptName",
-                "$scriptName"
-            )
-            
-            foreach ($subPath in $pathsToCheck) {
-                if (Test-Path (Join-Path $root $subPath)) { $found = $true; break }
-            }
-            
-            if (-not $found) {
-                $MissingScripts += $scriptName
-            }
-        }
-    }
-
-    if ($MissingScripts.Count -gt 0) {
-        Write-Host ""
-        Write-LeftAligned "$FGRed$Char_Warn ERROR: Missing required script files:$Reset"
-        foreach ($s in $MissingScripts) {
-            Write-LeftAligned "   - $s"
-        }
-        Write-Host ""
-        Write-LeftAligned "$FGYellow$Char_Finger Please ensure the 'scripts' folder is in the same directory as wa.ps1.$Reset"
-        Write-LeftAligned "   (Or download them from the repository)"
-        
-        if (-not $Global:Silent) {
-            Write-Host ""
-            Write-LeftAligned "Press [Enter] to Continue (Skip missing) or [Esc] to Exit..."
-            $k = Wait-KeyPressWithTimeout -Seconds 30
-            if ($k.VirtualKeyCode -eq 27) { return }
-        }
-    }
 
     # --- CONFIRMATION PROMPT ---
     $AppsToInstall = @()
@@ -1414,7 +1370,9 @@ function Invoke-WA_InstallApps {
                     }
 
                     if (-not $scriptPath) {
-                        throw "Script not found: $scriptName (Root: $root)"
+                        Write-LeftAligned "$FGYellow$Global:Char_Warn Script not found: $scriptName - Skipping (place script alongside wa.ps1 to install).$Reset"
+                        Write-Log "Skipped $($app.AppName): script '$scriptName' not found." -Level WARN
+                        continue
                     }
                     
                     # Execute Atomic Script
