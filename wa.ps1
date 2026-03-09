@@ -508,18 +508,27 @@ function Get-VisualWidth {
     return $Width
 }
 
+function Add-DashLine {
+    param([string]$Text = "")
+    if ($Global:DashboardBufferMode) {
+        $Global:DashboardBuffer += ($Text + "$Esc[K")
+    } else {
+        Write-Host $Text
+    }
+}
+
 function Write-Centered {
     param([string]$Text, [int]$Width = 60, [string]$Color)
     $cleanText = $Text -replace "$Esc\[[0-9;]*m", ""
     $padLeft = [Math]::Floor(($Width - $cleanText.Length) / 2)
     if ($padLeft -lt 0) { $padLeft = 0 }
-    if ($Color) { Write-Host (" " * $padLeft + "$Color$Text$Reset") }
-    else { Write-Host (" " * $padLeft + $Text) }
+    if ($Color) { Add-DashLine (" " * $padLeft + "$Color$Text$Reset") }
+    else { Add-DashLine (" " * $padLeft + $Text) }
 }
 
 function Write-LeftAligned {
     param([string]$Text, [int]$Indent = 2)
-    Write-Host (" " * $Indent + $Text)
+    Add-DashLine (" " * $Indent + $Text)
 }
 
 function Write-Boundary {
@@ -2426,13 +2435,21 @@ while ($true) {
 
     $manualHeaderColor = if ($MenuSelection -eq 0) { $FGDarkGray } else { $FGDarkCyan }
 
-    Clear-Host
-    Write-Host ""
+    $Global:DashboardBufferMode = $true
+    $Global:DashboardBuffer = @()
+
+    if ($Global:WinAutoFirstLoad) {
+        Clear-Host
+    } else {
+        [Console]::SetCursorPosition(0,0)
+    }
+    
+    Add-DashLine ""
     Write-Centered "$Bold${FGCyan} - WinAuto - $Reset"
     Write-Boundary -Color $FGCyan
     if ($MenuSelection -eq 0) {
         # Align with 56-char boundary lines (2 space indent + 56 char block)
-        Write-Host "  ${FGBlack}${BGYellow}                        SmartRUN                        ${Reset}"
+        Add-DashLine "  ${FGBlack}${BGYellow}                        SmartRUN                        ${Reset}"
     }
     else {
         Write-Centered "${FGDarkGray}SmartRUN${Reset}"
@@ -2445,10 +2462,10 @@ while ($true) {
 
 
 
-    Write-Host ""
+    Add-DashLine ""
 
-    Write-Host ""
-    Write-Host ""
+    Add-DashLine ""
+    Add-DashLine ""
 
 
     
@@ -2467,19 +2484,19 @@ while ($true) {
     }
     else {
         # extended highlight Bg DarkCyan on the _MANUAL-MODE-ON__to edges of the window
-        Write-Host "  ${Global:BGDarkCyan}${Global:FGBlack}                   __MANUAL-MODE-ON__                   ${Global:Reset}"
+        Add-DashLine "  ${Global:BGDarkCyan}${Global:FGBlack}                   __MANUAL-MODE-ON__                   ${Global:Reset}"
     }
     Write-Boundary # Separator
 
     # [C]onfigure Operating System (Pos 1)
     if ($MenuSelection -eq 1) {
         # Align with 56-char boundary lines (2 space indent + 56 char block)
-        Write-Host "  ${FGBlack}${BGYellow}               Configure Operating System               ${Reset}"
+        Add-DashLine "  ${FGBlack}${BGYellow}               Configure Operating System               ${Reset}"
     }
     else {
         Write-Centered "${manualHeaderColor}|${Reset} ${manualHeaderColor}C${Reset}${manualHeaderColor}onfigure Operating System${Reset} ${manualHeaderColor}|${Reset}"
     }
-    Write-Host ""
+    Add-DashLine ""
     
     $cTopColor = if ($MenuSelection -eq 2) { $FGYellow } else { $FGWhite }
     Write-LeftAligned "${FGDarkGray}[${cTopColor}>${FGDarkGray}] ${cTopColor}ENABLE / ${FGDarkGray}[${FGDarkGreen}v${FGDarkGray}] ${cTopColor}ENABLED        ${FGDarkGray}|${cTopColor} ATOMIC_SCRIPT$Reset" -Indent 3
@@ -2590,7 +2607,7 @@ while ($true) {
     Write-ColItem "Restart Notifications" "SET_RestartIsReq.ps1" $s_Rest
     Write-ColItem "App Restart Persistence" "SET_RestartApps.ps1" $s_Pers
     
-    Write-Host ""
+    Add-DashLine ""
     
     
 
@@ -2600,12 +2617,12 @@ while ($true) {
     # [M]aintain Operating System (Pos 2)
     if ($MenuSelection -eq 2) {
         # Align with 56-char boundary lines (2 space indent + 56 char block)
-        Write-Host "  ${FGBlack}${BGYellow}               Maintain Operating System                ${Reset}"
+        Add-DashLine "  ${FGBlack}${BGYellow}               Maintain Operating System                ${Reset}"
     }
     else {
         Write-Centered "${manualHeaderColor}|${Reset} ${manualHeaderColor}M${Reset}${manualHeaderColor}aintain Operating System${Reset} ${manualHeaderColor}|${Reset} "
     }
-    Write-Host ""
+    Add-DashLine ""
     
     # Maintenance Details
     $mDetailColor = if ($MenuSelection -eq 2) { $FGGray } else { $FGDarkGray }
@@ -2639,9 +2656,14 @@ while ($true) {
     Write-MaintItem "Temp File Cleanup" "RUN_SystemCleanup.ps1" "Maintenance_Cleanup" -Threshold 7
     Write-MaintItem "SFC / DISM Repair" "RUN_WindowsRepair.ps1" "Maintenance_SFC" -Threshold 30
 
-    Write-Host ""
-    Write-Host ""
+    Add-DashLine ""
+    Add-DashLine ""
     Write-Boundary -Color $FGYellow
+
+    if ($Global:DashboardBufferMode) {
+        Write-Host ($Global:DashboardBuffer -join "`n")
+        $Global:DashboardBufferMode = $false
+    }
 
     $PromptRow = [Console]::CursorTop
     
