@@ -14,3 +14,23 @@
 [2026-03-09 14:30:23] [INFO] WinAuto Standalone Session Started
 [2026-03-09 14:30:49] [INFO] WinAuto Standalone Session Started
 [2026-03-09 15:08:19] [INFO] WinAuto Standalone Session Started
+[2026-03-11 09:40:39] [INFO] WinAuto Standalone Session Started
+[2026-03-11 09:41:27] [INFO] WinAuto Standalone Session Started
+[2026-03-11 09:44:35] [INFO] WinAuto Standalone Session Started
+[2026-03-11 09:44:57] [ERROR] CRITICAL UNHANDLED ERROR: Cannot convert value "[System.Windows.Automation.TreeScope]::Children" to type "System.Windows.Automation.TreeScope". Error: "Unable to match the identifier name [System.Windows.Automation.TreeScope]::Children to a valid enumerator name. Specify one of the following enumerator names and try again:
+Element, Children, Descendants, Subtree, Parent, Ancestors"
+at Invoke-WA_TurnOnAppBrowserControl, C:\Users\admin\src\github.com\KeithOwns\wa\wa.ps1: line 2405
+at Invoke-WinAutoConfiguration, C:\Users\admin\src\github.com\KeithOwns\wa\wa.ps1: line 1192
+at <ScriptBlock>, C:\Users\admin\src\github.com\KeithOwns\wa\wa.ps1: line 2796
+at <ScriptBlock>, <No file>: line 1
+[2026-03-11 09:45:59] [INFO] WinAuto Standalone Session Started
+[2026-03-11 09:46:18] [ERROR] CRITICAL UNHANDLED ERROR: Cannot convert value "[System.Windows.Automation.TreeScope]::Children" to type "System.Windows.Automation.TreeScope". Error: "Unable to match the identifier name [System.Windows.Automation.TreeScope]::Children to a valid enumerator name. Specify one of the following enumerator names and try again:
+Element, Children, Descendants, Subtree, Parent, Ancestors"
+at Invoke-WA_TurnOnAppBrowserControl, C:\Users\admin\src\github.com\KeithOwns\wa\wa.ps1: line 2405
+at Invoke-WinAutoConfiguration, C:\Users\admin\src\github.com\KeithOwns\wa\wa.ps1: line 1192
+at <ScriptBlock>, C:\Users\admin\src\github.com\KeithOwns\wa\wa.ps1: line 2796
+at <ScriptBlock>, <No file>: line 1
+[2026-03-11 09:46:22] [INFO] WinAuto Standalone Session Started
+[2026-03-11 09:46:32] [INFO] WinAuto Standalone Session Started
+[2026-03-11 09:51:04] [INFO] WinAuto Standalone Session Started
+[2026-03-11 09:52:33] [INFO] WinAuto Standalone Session Started
