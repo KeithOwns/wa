@@ -897,6 +897,28 @@ function Invoke-WA_SetVirusThreatProtect {
 
 
 
+# --- MAINTENANCE STATE HELPERS ---
+
+function Test-WA_MaintenanceRecentlyComplete {
+    # Check if all maintenance tasks were run within their thresholds
+    $tasks = @(
+        @{ Key = "Maintenance_SFC"; Days = 30 },
+        @{ Key = "Maintenance_Disk"; Days = 7 },
+        @{ Key = "Maintenance_Cleanup"; Days = 7 },
+        @{ Key = "Maintenance_WinUpdate"; Days = 1 }
+    )
+    foreach ($task in $tasks) {
+        $last = Get-WinAutoLastRun -Module $task.Key
+        if ($last -eq "Never") { return $false }
+        try {
+            $date = Get-Date $last
+            if ((Get-Date) -gt $date.AddDays($task.Days)) { return $false }
+        }
+        catch { return $false }
+    }
+    return $true
+}
+
 # --- ATTESTATION HELPERS (Global Access) ---
 function Test-Reg { param($P, $N, $V) try { (Get-ItemProperty $P $N -EA 0).$N -eq $V } catch { $false } }
 
