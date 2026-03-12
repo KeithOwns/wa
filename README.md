@@ -24,7 +24,7 @@ WA is the core, standalone delivery of the full [WinAuto](https://github.com/Kei
     ```
 3.  **Navigate:** Use the `^` and `v` arrow keys to select sections.
 4.  **Execute:** Press `Space` to run the selected section or `SmartRUN`.
-5.  **Info:** Press `I` to view the functional outline.
+5.  **Info:** Press `I` to view the functional outline. From the Info page, press `Enter` to export a technical CSV map or `Esc` to return to the dashboard.
 
 ## 📁 Repository Structure
 
