@@ -2169,7 +2169,6 @@ if ($Silent -or $Module) {
         "Install" { Invoke-WA_InstallApps }
         "Config" { Invoke-WinAutoConfiguration }
         "Maintenance" { Invoke-WinAutoMaintenance }
-        "Help" { Write-Host $Global:WinAutoManifestContent; exit 0 }
     }
     
     Write-Log "CLI Execution Complete."
@@ -2257,22 +2256,38 @@ while ($true) {
     else {
         Write-Centered "${manualHeaderColor}| Manual Mode |${Reset}"
     }
-    Add-DashLine "  ${manualHeaderColor}$('_' * 56)${Reset}"
-    Write-Centered "${manualHeaderColor}Configure Operating System${Reset}"
-    Add-DashLine ""
+    # Determine if sections are active (have pending steps) for SmartRUN mode
+    $configActive = $false
+    if ($MenuSelection -eq 0) {
+        if ($s_RT -eq $false -or $s_PUA -eq $false -or $s_Edge -eq $false -or $s_FW -eq $false -or $s_Ctx -eq $false -or $s_Task -eq $false -or $s_View -eq $false -or $s_MU -eq $false -or $s_Rest -eq $false -or $s_Pers -eq $false) {
+            $configActive = $true
+        }
+    }
     
-    $cTopColor = if ($MenuSelection -eq 1) { $FGYellow } else { $FGWhite }
-    $cLabelColor = if ($MenuSelection -eq 1) { $FGWhite } else { $FGDarkGray }
+    $cTopColor = if ($MenuSelection -eq 1 -or ($MenuSelection -eq 0 -and $configActive)) { $FGWhite } else { $FGDarkGray }
+    $cLabelColor = if ($MenuSelection -eq 1 -or ($MenuSelection -eq 0 -and $configActive)) { $FGWhite } else { $FGDarkGray }
+    
     Write-LeftAligned "${FGDarkGray}[${cTopColor}>${FGDarkGray}] ${cLabelColor}ENABLE / ${FGDarkGray}[${FGDarkGreen}v${FGDarkGray}] ${cLabelColor}ENABLED    ${FGDarkGray}|${cLabelColor} ATOMIC_SCRIPT$Reset" -Indent 3
     Write-Centered "${FGDarkGray}------------------------------------------------$Reset"
     
     # Config Details
-    $cDetailColor = if ($MenuSelection -eq 1) { $FGGray } else { $FGDarkGray }
+    # In SmartRUN (0), we want specific items to be Yellow only if they are pending
+    # In Manual (1), all items are Gray
+    $cDetailColorGlobal = if ($MenuSelection -eq 1) { $FGGray } else { $FGDarkGray }
     
     # Helper to print item with status
     function Write-ColItem {
         param($Txt, $Met, $Status) 
-        # Status: $true (Green 1), $false (Red 0), $null (Gray ?), "GreyOut" (DarkGray [ ])
+        
+        $pending = $false
+        if ($null -eq $Status) { $pending = $true }
+        elseif ($Status -eq $false) { $pending = $true }
+        elseif ($Status -eq "ForceRun") { $pending = $true }
+        
+        $itemColor = $cDetailColorGlobal
+        if ($MenuSelection -eq 0 -and $pending) {
+            $itemColor = $FGYellow
+        }
         
         if ("GreyOut" -eq $Status) {
             $icon = "${FGDarkGray}[ ]${Reset}"
@@ -2280,14 +2295,16 @@ while ($true) {
             Write-LeftAligned "$icon ${FGDarkGray}$Txt${Reset}$pad${FGDarkGray}| ${FGDarkGray}$Met${Reset}" -Indent 3  
         }
         elseif ("ForceRun" -eq $Status) {
-            $icon = "${FGDarkGray}[${FGWhite}>${FGDarkGray}]${Reset}"
+            $iconColor = if ($MenuSelection -eq 0) { $FGYellow } else { $FGWhite }
+            $icon = "${FGDarkGray}[${iconColor}>${FGDarkGray}]${Reset}"
             $pad = " " * (24 - $Txt.Length); 
-            Write-LeftAligned "$icon ${cDetailColor}$Txt${Reset}$pad${FGDarkGray}| ${cDetailColor}$Met${Reset}" -Indent 3  
+            Write-LeftAligned "$icon ${itemColor}$Txt${Reset}$pad${FGDarkGray}| ${itemColor}$Met${Reset}" -Indent 3  
         }
         else {
-            $icon = if ($null -eq $Status) { "${FGDarkGray}[?]${Reset}" } elseif ($Status) { "${FGDarkGray}[${FGDarkGreen}v${FGDarkGray}]${Reset}" } else { "${FGDarkGray}[${cTopColor}>${FGDarkGray}]${Reset}" }
+            $iconColor = if ($MenuSelection -eq 0 -and $pending) { $FGYellow } else { $FGWhite }
+            $icon = if ($Status -eq $true) { "${FGDarkGray}[${FGDarkGreen}v${FGDarkGray}]${Reset}" } else { "${FGDarkGray}[${iconColor}>${FGDarkGray}]${Reset}" }
             $pad = " " * (24 - $Txt.Length); 
-            Write-LeftAligned "$icon ${cDetailColor}$Txt${Reset}$pad${FGDarkGray}| ${cDetailColor}$Met${Reset}" -Indent 3  
+            Write-LeftAligned "$icon ${itemColor}$Txt${Reset}$pad${FGDarkGray}| ${itemColor}$Met${Reset}" -Indent 3  
         }
     }
     
@@ -2383,36 +2400,63 @@ while ($true) {
     
 
     
+    # Determine if maintenance section is active for SmartRUN
+    $maintActive = $false
+    if ($MenuSelection -eq 0) {
+        $keys = "Maintenance_WinUpdate", "Maintenance_Disk", "Maintenance_Cleanup", "Maintenance_SFC"
+        foreach ($k in $keys) {
+            $lr = Get-WinAutoLastRun -Module $k
+            if ($lr -eq "Never") { $maintActive = $true; break }
+            try {
+                $th = 7; if ($k -eq "Maintenance_WinUpdate") { $th = 1 } elseif ($k -eq "Maintenance_SFC") { $th = 30 }
+                if (((Get-Date) - (Get-Date $lr)).Days -gt $th) { $maintActive = $true; break }
+            } catch {}
+        }
+    }
+
     # Maintenance sub-section (inline under MANUAL-MODE)
-    Add-DashLine "  ${manualHeaderColor}$('_' * 56)${Reset}"
-    Write-Centered "${manualHeaderColor}Maintain Operating System${Reset}"
+    Add-DashLine "  ${manualHeaderColor}$('_' * 52)${Reset}"
+    $mHeaderColor = if ($MenuSelection -eq 1 -or ($MenuSelection -eq 0 -and $maintActive)) { $FGWhite } else { $FGDarkGray }
+    Write-Centered "${mHeaderColor}Maintain Operating System${Reset}"
     Add-DashLine ""
     
     # Maintenance Details
-    $mDetailColor = if ($MenuSelection -eq 1) { $FGGray } else { $FGDarkGray }
+    $mDetailColorGlobal = if ($MenuSelection -eq 1) { $FGGray } else { $FGDarkGray }
     
     function Write-MaintItem {
         param($Txt, $Met, $Key, [int]$Threshold = 7) 
+        
+        $pending = $false
         $prefix = "-"
-        $statusColor = $mDetailColor
         if ($Key) {
             $last = Get-WinAutoLastRun -Module $Key
-            if ($last -eq "Never") { $prefix = "!"; $statusColor = $FGDarkRed }
+            if ($last -eq "Never") { $pending = $true; $prefix = "!" }
             else {
                 try {
                     $days = ((Get-Date) - (Get-Date $last)).Days
                     $prefix = $days
-                    if ($days -eq 0 -or $days -le $Threshold) { $statusColor = $FGDarkGreen } else { $statusColor = $FGDarkRed }
-                }
-                catch { $prefix = "!"; $statusColor = $FGDarkRed }
+                    if ($days -gt $Threshold) { $pending = $true }
+                } catch { $pending = $true; $prefix = "!" }
             }
         }
+        
+        $statusColor = $mDetailColorGlobal
+        if ($MenuSelection -eq 0 -and $pending) {
+            $statusColor = $FGYellow
+        }
+        elseif ($Key) {
+            if ($prefix -eq "!") { $statusColor = $FGDarkRed }
+            elseif ($prefix -le $Threshold) { $statusColor = $FGDarkGreen }
+            else { $statusColor = $FGDarkRed }
+        }
+
+        $itemColor = if ($MenuSelection -eq 0 -and $pending) { $FGYellow } else { $mDetailColorGlobal }
         $pad = " " * (24 - $Txt.Length); 
-        Write-LeftAligned "${FGDarkGray}[${statusColor}$prefix${FGDarkGray}]${mDetailColor} $Txt${Reset}$pad${FGDarkGray}| ${mDetailColor}$Met${Reset}" -Indent 3  
+        Write-LeftAligned "${FGDarkGray}[${statusColor}$prefix${FGDarkGray}]${itemColor} $Txt${Reset}$pad${FGDarkGray}| ${itemColor}$Met${Reset}" -Indent 3  
     }
 
-    $mTopColor = if ($MenuSelection -eq 1) { $FGYellow } else { $FGWhite }
-    $mLabelColor = if ($MenuSelection -eq 1) { $FGWhite } else { $FGDarkGray }
+    $mTopColor = if ($MenuSelection -eq 1 -or ($MenuSelection -eq 0 -and $maintActive)) { $FGWhite } else { $FGDarkGray }
+    $mLabelColor = if ($MenuSelection -eq 1 -or ($MenuSelection -eq 0 -and $maintActive)) { $FGWhite } else { $FGDarkGray }
     Write-LeftAligned "${FGDarkGray}[${mTopColor}#${FGDarkGray}]${mLabelColor} OF DAYS SINCE LAST RUN  ${FGDarkGray}|${mLabelColor} ATOMIC_SCRIPT$Reset" -Indent 3
     Write-Centered "${FGDarkGray}------------------------------------------------$Reset"
     Write-MaintItem "Get Updates" "RUN_UpdateSuite" "Maintenance_WinUpdate" -Threshold 1
@@ -2420,8 +2464,18 @@ while ($true) {
     Write-MaintItem "Temp File Cleanup" "RUN_SystemCleanup" "Maintenance_Cleanup" -Threshold 7
     Write-MaintItem "SFC / DISM Repair" "RUN_WindowsRepair" "Maintenance_SFC" -Threshold 30
 
-    Add-DashLine ""
-    Add-DashLine ""
+    # Master Plan Metadata Info
+    Write-Centered "${FGDarkGray}Technical Metadata Columns: The CSV contains six columns of${Reset}"
+    Write-Centered "${FGDarkGray}technical detail (METHOD, TECHNICAL DETAILS, REVERTIBLE,${Reset}"
+    Write-Centered "${FGDarkGray}RESTART REQUIRED, IMPACT, and FUNCTION) used for reporting${Reset}"
+    Write-Centered "${FGDarkGray}and automation background, but omitted from the UI.${Reset}"
+    Write-Centered ""
+    Write-Centered "${FGDarkGray}Infrastructure Setup Rows: The CSV includes four internal${Reset}"
+    Write-Centered "${FGDarkGray}setup/phase tracking rows (Execution Policy Check,"
+    Write-Centered "${FGDarkGray}Auto-Unblock, System Hardening Check, and Maintenance${Reset}"
+    Write-Centered "${FGDarkGray}Cycle) that happen automatically behind the scenes.${Reset}"
+    
+    Add-DashLine "  ${manualHeaderColor}$('_' * 52)${Reset}"
     Write-Boundary -Color $FGYellow
 
     if ($Global:DashboardBufferMode) {
@@ -2506,46 +2560,6 @@ while ($true) {
         # Pause slightly if we toggled, or if we ran (though ran usually has its own pauses)
         Start-Sleep -Milliseconds 200
         continue
-    }
-    elseif ($res.Character -eq 'I' -or $res.Character -eq 'i') {
-        Clear-Host
-        Write-Host ""
-        Write-Centered "$Bold$FGCyan - WinAuto - $Reset"
-        Write-Boundary -Color $FGCyan
-        Write-Centered "$Bold$FGCyan SmartRUN - Reference Map $Reset"
-        Write-Host ""
-        # Display manifest with body lines in DarkGray
-        $Global:WinAutoManifestContent -split "`n" | ForEach-Object {
-            $line = $_.TrimEnd()
-            if ($line -match "wa\.ps1: Functional Outline") {
-                Write-Centered $line
-            }
-            elseif ($line.Trim() -match "^-") {
-                Write-Host $line
-            }
-            else {
-                Write-Host $line
-            }
-        }
-        Write-Host ""
-        Write-Host "                       ${Global:FGYellow}Navigation${Global:Reset} ${Global:FGBlack}${Global:BGDarkCyan}KEYS${Global:Reset}                       `n  ${Global:FGBlack}${Global:BGDarkCyan}Enter${Global:Reset} ${Global:FGGray}to export CSV${Global:Reset} ${Global:FGDarkGray}|${Global:Reset} ${Global:FGYellow}->${Global:Reset}${Global:FGDarkGray}|${Global:Reset}${Global:FGBlack}${Global:BGYellow}Space${Global:Reset}${Global:FGDarkGray}|${Global:Reset}${Global:FGYellow}<-${Global:Reset} ${Global:FGGray}to return${Global:Reset} ${Global:FGDarkGray}|${Global:Reset} ${Global:FGBlack}${Global:BGDarkCyan}Esc${Global:Reset} ${Global:FGGray}to${Global:Reset} ${Global:FGDarkRed}${Global:BGWhite}EXIT${Global:Reset}"
-        while ($true) {
-            $mk = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-            if ($mk.Character -eq ' ' -or $mk.VirtualKeyCode -eq 32 -or $mk.Character -eq 'I' -or $mk.Character -eq 'i') { break }
-            if ($mk.VirtualKeyCode -eq 27) { 
-                # Esc pressed - exit script
-                Write-Host ""
-                Write-Centered "Copyright (c) 2026 WinAuto"
-                Write-Host ""
-                return
-            }
-            if ($mk.VirtualKeyCode -eq 13) {
-                # Enter pressed - export CSV
-                Export-WinAutoCSV
-                Write-Centered "$FGGreen Exported CSV to Script Directory! $Reset"
-                Start-Sleep -Seconds 2
-            }
-        }
     }
     else {
         # Any other key loop back
