@@ -118,9 +118,6 @@ else {
     $Global:WinAutoLogPath = Join-Path $Global:WinAutoLogDir "wa.log"
 }
 
-# --- GLOBAL ERROR TRAP ---
-
-
 # --- GLOBAL RESOURCES ---
 # Centralized definition of ANSI colors and Unicode characters.
 
@@ -146,6 +143,34 @@ $Global:FGMagenta = "$Esc[95m"
 $Global:FGWhite = "$Esc[97m"
 $Global:FGGray = "$Esc[37m"
 $Global:FGDarkYellow = "$Esc[33m"
+$Global:FGBlack = "$Esc[30m"
+
+# Script Palette (Background)
+$Global:BGDarkGreen = "$Esc[42m"
+$Global:BGDarkGray = "$Esc[100m"
+$Global:BGYellow = "$Esc[103m"
+$Global:BGRed = "$Esc[41m"
+$Global:BGDarkRed = "$Esc[41m"
+$Global:BGDarkCyan = "$Esc[46m"
+$Global:BGWhite = "$Esc[107m"
+
+# --- Unicode Icons & Characters ---
+$Global:Char_HeavyCheck = "[v]" 
+$Global:Char_Warn = "!" 
+$Global:Char_BallotCheck = "[v]" 
+$Global:Char_Copyright = "(c)" 
+$Global:Char_Finger = "->" 
+$Global:Char_CheckMark = "v" 
+$Global:Char_FailureX = "x" 
+$Global:Char_RedCross = "x"
+$Global:Char_HeavyMinus = "-" 
+$Global:Char_EnDash = "-"
+
+# --- Registry Paths ---
+$Global:RegPath_WU_UX = "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings"
+$Global:RegPath_WU_POL = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
+$Global:RegPath_Winlogon_User = "HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" 
+$Global:RegPath_Winlogon_Machine = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
 
 # --- LOGGING & REGISTRY ---
 function Write-Log {
@@ -168,82 +193,9 @@ trap {
     $msg = "CRITICAL UNHANDLED ERROR: $($_.Exception.Message)`n$($_.ScriptStackTrace)"
     try { Write-Log $msg -Level ERROR } catch { Write-Host "LOG FAIL: $msg" -ForegroundColor Red }
     Write-Error $msg
-    return
 }
 
 # --- MANIFEST CONTENT ---
-$Global:WinAutoManifestContent = @'
-- wa.ps1: Functional Outline -
-________________________________________________________
-Pre-Run Setup
-- Execution Policy check    | (Inline)
-- Administrator check       | (Inline)
-- Environment Setup         | (Inline: Variables, Logging, UI Types)
-________________________________________________________
-[S]martRUN
-Method: Orchestration Loop
-Actions:
-- Install Apps Check        | Invoke-WA_InstallApps
-- Configuration Check       | Invoke-WinAutoConfiguration -SmartRun
-- Maintenance Check         | Invoke-WinAutoMaintenance -SmartRun
-________________________________________________________
-[C]onfiguration
-Security Actions:
-- Real-Time Protection      | Invoke-WA_SetRealTimeProtection (Set-MpPreference)
-- PUA Protection            | Invoke-WA_SetPUA (Set-MpPreference)
-- Memory Integrity          | Invoke-WA_SetMemoryIntegrity (Registry)
-- Kernel Stack Protection   | Invoke-WA_SetKernelStack (Registry)
-- LSA Protection            | Invoke-WA_SetLSA (Reg: Control\Lsa)
-- Windows Firewall          | Invoke-WA_SetFirewall (Set-NetFirewallProfile)
-- SmartScreen (UIA)         | Invoke-WA_SetSmartScreen (UI Automation)
-- Defender Remediation (UIA)| Invoke-WA_SetVirusThreatProtect (UI Automation)
-UI & UX Actions:
-- Taskbar/Search/Widgets    | Invoke-WA_SetTaskbarDefaults (Reg: HKCU/HKLM)
-- Windows Update Config     | Invoke-WA_SetWindowsUpdateConfig (Reg: UX/Settings)
-________________________________________________________
-
-[M]aintenance
-Orchestrated Maintenance:
-- System Pre-Flight Check   | Invoke-WA_SystemPreCheck
-- Windows Update (API/UI)   | Invoke-WA_WindowsUpdate
-- SFC System Scan           | Invoke-WA_SFCRepair (Conditional: 30 days)
-- DISM Repair               | Invoke-WA_SFCRepair (Triggered on corruption)
-- WinGet/Store Updates      | Invoke-WA_WindowsUpdate
-- Drive Opt (Trim/Defrag)   | Invoke-WA_OptimizeDisks (Conditional: 7 days)
-- System Cleanup            | Invoke-WA_SystemCleanup (Conditional: 7 days)
-'@
-$Global:FGBlack = "$Esc[30m"
-
-# Script Palette (Background)
-$Global:BGDarkGreen = "$Esc[42m"
-$Global:BGDarkGray = "$Esc[100m"
-$Global:BGYellow = "$Esc[103m"
-$Global:BGRed = "$Esc[41m"
-$Global:BGDarkRed = "$Esc[41m"
-$Global:BGDarkCyan = "$Esc[46m"
-$Global:BGWhite = "$Esc[107m"
-
-# --- Unicode Icons & Characters ---
-$Global:Char_HeavyCheck = "[v]" 
-
-$Global:Char_Warn = "!" 
-$Global:Char_BallotCheck = "[v]" 
-
-$Global:Char_Copyright = "(c)" 
-$Global:Char_Finger = "->" 
-$Global:Char_CheckMark = "v" 
-$Global:Char_FailureX = "x" 
-$Global:Char_RedCross = "x"
-$Global:Char_HeavyMinus = "-" 
-$Global:Char_EnDash = "-"
-
-$Global:RegPath_WU_UX = "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings"
-$Global:RegPath_WU_POL = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
-$Global:RegPath_Winlogon_User = "HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" 
-$Global:RegPath_Winlogon_Machine = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
-
-# --- MANIFEST CONTENT ---
-
 $Global:WinAutoManifestContent = @"
 ${FGDarkCyan}============================================================${Reset}
 ${FGDarkCyan}__________________________________________________________${Reset}
@@ -290,6 +242,7 @@ Microsoft Update Service,Configure,SET_MicrosoftUpd.ps1,Registry (HKLM),HKLM:\SO
 Restart Notifications,Configure,SET_RestartIsReq.ps1,Registry (HKLM),HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings\RestartNotificationsAllowed2 (1),Yes,No,Config,Invoke-WA_SetRestartIsReq
 App Restart Persistence,Configure,SET_RestartApps.ps1,Registry (HKCU),HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\RestartApps (1),Yes,No,Config,Invoke-WA_SetRestartApps
 Get Updates,Maintain,RUN_UpdateSuite.ps1,UI Automation,Automates Windows Update Settings and MS Store updates,No,No,Maintenance,Invoke-WA_WindowsUpdate
+WinGet App Updates,Maintain,RUN_WingetUpgrade.ps1,Command Line,Checks for and updates all apps via WinGet,No,No,Maintenance,Invoke-WA_WingetUpgrade
 Drive Optimization,Maintain,RUN_OptimizeDisks.ps1,PowerShell Cmdlt,Optimize-Volume -DriveLetter C -NormalPriority,No,No,Maintenance,Invoke-WA_OptimizeDisks
 Temp File Cleanup,Maintain,RUN_SystemCleanup.ps1,File System,Clears Windows Temp and User Temp,No,No,Maintenance,Invoke-WA_SystemCleanup
 SFC / DISM Repair,Maintain,RUN_WindowsRepair.ps1,Command Line,Runs SFC scan; if corruption found runs DISM,No,No,Maintenance,Invoke-WA_WindowsRepair
@@ -608,31 +561,11 @@ function Write-BodyTitle {
     Write-LeftAligned "$FGWhite$Char_HeavyMinus $Bold$Title$Reset"
 }
 
-# --- LOGGING & REGISTRY ---
-# --- LOGGING & REGISTRY ---
+# --- REGISTRY HELPERS ---
 
 
 
 
-function Get-LogReport {
-    param([string]$Path = $Global:WinAutoLogPath)
-    if (-not $Path -or -not (Test-Path $Path)) { return }
-    $Content = @(Get-Content -Path $Path)
-    # Count visual indicators and text tags
-    $Errors = @($Content | Select-String -Pattern "\[ERROR\]").Count
-    $Warnings = @($Content | Select-String -Pattern "\[WARNING\]").Count
-    $Successes = @($Content | Select-String -Pattern "\[SUCCESS\]").Count
-    Write-Host ""
-    Write-Boundary
-    Write-Centered "SESSION REPORT"
-    Write-Boundary
-    Write-LeftAligned "Log File: $Path"
-    Write-Host ""
-    Write-LeftAligned "Successes     : $Successes"
-    Write-LeftAligned "Warnings      : $Warnings"
-    Write-LeftAligned "Errors        : $Errors"
-    Write-Boundary
-}
 
 
 
@@ -1512,132 +1445,6 @@ function Invoke-WA_SetKernelMode {
         Set-StrictMode -Version Latest
         $ErrorActionPreference = 'Stop'
 
-        # --- STANDALONE HELPERS ---
-        $Esc = [char]0x1B
-        $Reset = "$Esc[0m"
-        $Bold = "$Esc[1m"
-        $FGCyan = "$Esc[96m"
-        $FGDarkBlue = "$Esc[34m"
-
-        if (-not (Get-Command Write-Boundary -ErrorAction SilentlyContinue)) {
-            function Write-Boundary {
-                param([string]$Color = $FGDarkBlue)
-                Write-Host "$Color$([string]'_' * 60)$Reset"
-            }
-        }
-
-        if (-not (Get-Command Write-Header -ErrorAction SilentlyContinue)) {
-            function Write-Header {
-                param([string]$Title)
-                Clear-Host
-                Write-Host ""
-                $WinAutoTitle = "- WinAuto -"
-                $WinAutoPadding = [Math]::Floor((60 - $WinAutoTitle.Length) / 2)
-                Write-Host (" " * $WinAutoPadding + "$Bold$FGCyan$WinAutoTitle$Reset")
-            
-                Write-Boundary
-            
-                $SubText = $Title.ToUpper()
-                $SubPadding = [Math]::Floor((60 - $SubText.Length) / 2)
-                Write-Host (" " * $SubPadding + "$Bold$FGCyan$SubText$Reset")
-                Write-Boundary
-            }
-        }
-
-        # Load .NET UIAutomation Assemblies
-        try {
-            Add-Type -AssemblyName UIAutomationClient
-            Add-Type -AssemblyName UIAutomationTypes
-        }
-        catch {
-            Write-Error "Failed to load UIAutomation assemblies. Ensure .NET Framework is installed."
-            exit 1
-        }
-
-        # --- HELPER FUNCTIONS ---
-
-        function Write-Log {
-            param(
-                [string]$Message,
-                [ConsoleColor]$Color = "White"
-            )
-            Write-Host "[$(Get-Date -Format 'HH:mm:ss')] $Message" -ForegroundColor $Color
-        }
-
-        function Get-UIAElement {
-            param(
-                [System.Windows.Automation.AutomationElement]$Parent,
-                [string]$Name,
-                [System.Windows.Automation.ControlType]$ControlType,
-                [System.Windows.Automation.TreeScope]$Scope = [System.Windows.Automation.TreeScope]::Descendants,
-                [int]$TimeoutSeconds = 5
-            )
-        
-            $Condition = if ($Name -and $ControlType) {
-                $c1 = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, $Name)
-                $c2 = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, $ControlType)
-                New-Object System.Windows.Automation.AndCondition($c1, $c2)
-            }
-            elseif ($Name) {
-                New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, $Name)
-            }
-            elseif ($ControlType) {
-                New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, $ControlType)
-            }
-            else {
-                throw "Must provide Name or ControlType"
-            }
-
-            $StopWatch = [System.Diagnostics.Stopwatch]::StartNew()
-            while ($StopWatch.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
-                $Result = $Parent.FindFirst($Scope, $Condition)
-                if ($Result) { return $Result }
-                Start-Sleep -Milliseconds 500
-            }
-            return $null
-        }
-
-        function Invoke-UIAElement {
-            param([System.Windows.Automation.AutomationElement]$Element)
-        
-            if (-not $Element) { return $false }
-        
-            # Try Invoke Pattern (Buttons, Links)
-            try {
-                $InvokePattern = $Element.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
-                $InvokePattern.Invoke()
-                return $true
-            }
-            catch {
-                # Try Toggle Pattern (Switches)
-                try {
-                    $TogglePattern = $Element.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
-                    $TogglePattern.Toggle()
-                    return $true
-                }
-                catch {
-                    try {
-                        # Fallback: SelectionItem (Tabs/Nav items)
-                        $SelectionItem = $Element.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern)
-                        $SelectionItem.Select()
-                        return $true
-                    }
-                    catch {
-                        Write-Log "Failed to invoke/toggle/select element: $_" "Red"
-                        return $false
-                    }
-                }
-            }
-        }
-
-        function Get-UIAToggleState {
-            param([System.Windows.Automation.AutomationElement]$Element)
-            try {
-                $p = $Element.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
-                return $p.Current.ToggleState # On, Off, Indeterminate
-            }
-            catch { return $null }
-        }
 
         # --- MAIN SCRIPT ---
         Write-Header "KERNEL STACK UIA"
@@ -2453,7 +2260,7 @@ while ($true) {
         # Alternative: Write-Centered "${FGBlack}${BGDarkGray}  MANUAL-MODE-OFF  ${Reset}"
     }
     else {
-        # extended highlight Bg DarkCyan on the _MANUAL-MODE-ON__to edges of the window
+        # extended highlight Bg DarkCyan on the __MANUAL-MODE-ON__ to edges of the window
         Add-DashLine "  ${Global:BGDarkCyan}${Global:FGBlack}                   __MANUAL-MODE-ON__                   ${Global:Reset}"
     }
     Write-Boundary # Separator
@@ -2759,7 +2566,6 @@ while ($true) {
     }
 }
 
-# Get-LogReport
 Write-Host ""
 Write-Footer
 # Invoke-AnimatedPause -ActionText "EXIT" -Timeout 0 | Out-Null
