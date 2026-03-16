@@ -2273,7 +2273,7 @@ while ($true) {
     else {
         Write-Centered "${manualHeaderColor}|${Reset} ${manualHeaderColor}MANUAL-MODE${Reset} ${manualHeaderColor}|${Reset}"
     }
-    Add-DashLine "____________________________________________________________"
+    Add-DashLine "${FGDarkCyan}____________________________________________________________${Reset}"
     Write-Centered "${manualHeaderColor}Configure Operating System${Reset}"
     Add-DashLine ""
     
