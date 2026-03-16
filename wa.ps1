@@ -2255,30 +2255,23 @@ while ($true) {
 
 
 
-    if ($MenuSelection -eq 0) {
-        Write-Centered "${FGBlack}${BGDarkGray}__MANUAL-MODE-OFF__${Reset}"
-        # Alternative: Write-Centered "${FGBlack}${BGDarkGray}  MANUAL-MODE-OFF  ${Reset}"
-    }
-    else {
-        # extended highlight Bg DarkCyan on the __MANUAL-MODE-ON__ to edges of the window
-        Add-DashLine "  ${Global:BGDarkCyan}${Global:FGBlack}                   __MANUAL-MODE-ON__                   ${Global:Reset}"
-    }
-    Write-Boundary # Separator
+    # MANUAL-MODE Section
 
     # MANUAL-MODE (Pos 1) - Runs Configure + Maintain, all steps forced
     if ($MenuSelection -eq 1) {
-        # Align with 56-char boundary lines (2 space indent + 56 char block)
-        Add-DashLine "  ${FGBlack}${BGYellow}                      MANUAL-MODE                      ${Reset}"
+        # Align with 56-char block (2 space indent + 56 char block)
+        Add-DashLine "  ${FGBlack}${BGYellow}$(' ' * 22)MANUAL-MODE$(' ' * 23)${Reset}"
     }
     else {
-        Write-Centered "${manualHeaderColor}|${Reset} ${manualHeaderColor}MANUAL-MODE${Reset} ${manualHeaderColor}|${Reset}"
+        Write-Centered "${manualHeaderColor}| MANUAL-MODE |${Reset}"
     }
-    Add-DashLine "  ${FGDarkCyan}$('_' * 56)${Reset}"
+    Add-DashLine "  ${manualHeaderColor}$('_' * 56)${Reset}"
     Write-Centered "${manualHeaderColor}Configure Operating System${Reset}"
     Add-DashLine ""
     
     $cTopColor = if ($MenuSelection -eq 1) { $FGYellow } else { $FGWhite }
-    Write-LeftAligned "${FGDarkGray}[${cTopColor}>${FGDarkGray}] ${cTopColor}ENABLE / ${FGDarkGray}[${FGDarkGreen}v${FGDarkGray}] ${cTopColor}ENABLED        ${FGDarkGray}|${cTopColor} ATOMIC_SCRIPT$Reset" -Indent 3
+    $cLabelColor = if ($MenuSelection -eq 1) { $FGWhite } else { $FGDarkGray }
+    Write-LeftAligned "${FGDarkGray}[${cTopColor}>${FGDarkGray}] ${cLabelColor}ENABLE / ${FGDarkGray}[${FGDarkGreen}v${FGDarkGray}] ${cLabelColor}ENABLED        ${FGDarkGray}|${cLabelColor} ATOMIC_SCRIPT$Reset" -Indent 3
     Write-Centered "${FGDarkGray}--------------------------------------------------------$Reset"
     
     # Config Details
@@ -2401,7 +2394,6 @@ while ($true) {
     Write-Boundary # Separator
 
     # Maintenance sub-section (inline under MANUAL-MODE)
-    Write-Boundary # Separator between Config and Maintain items
     Write-Centered "${manualHeaderColor}Maintain Operating System${Reset}"
     Add-DashLine ""
     
@@ -2429,7 +2421,8 @@ while ($true) {
     }
 
     $mTopColor = if ($MenuSelection -eq 1) { $FGYellow } else { $FGWhite }
-    Write-LeftAligned "${FGDarkGray}[${mTopColor}#${FGDarkGray}]${mTopColor} OF DAYS SINCE LAST RUN      ${FGDarkGray}|${mTopColor} ATOMIC_SCRIPT$Reset" -Indent 3
+    $mLabelColor = if ($MenuSelection -eq 1) { $FGWhite } else { $FGDarkGray }
+    Write-LeftAligned "${FGDarkGray}[${mTopColor}#${FGDarkGray}]${mLabelColor} OF DAYS SINCE LAST RUN      ${FGDarkGray}|${mLabelColor} ATOMIC_SCRIPT$Reset" -Indent 3
     Write-Centered "${FGDarkGray}--------------------------------------------------------$Reset"
     Write-MaintItem "Get Updates" "RUN_UpdateSuite.ps1" "Maintenance_WinUpdate" -Threshold 1
     Write-MaintItem "Drive Optimization" "RUN_OptimizeDisks.ps1" "Maintenance_Disk" -Threshold 7
