@@ -2265,7 +2265,6 @@ while ($true) {
     }
     Write-Boundary # Separator
 
-    Add-DashLine "____________________________________________________________"
     # MANUAL-MODE (Pos 1) - Runs Configure + Maintain, all steps forced
     if ($MenuSelection -eq 1) {
         # Align with 56-char boundary lines (2 space indent + 56 char block)
@@ -2274,6 +2273,7 @@ while ($true) {
     else {
         Write-Centered "${manualHeaderColor}|${Reset} ${manualHeaderColor}MANUAL-MODE${Reset} ${manualHeaderColor}|${Reset}"
     }
+    Add-DashLine "____________________________________________________________"
     Write-Centered "${manualHeaderColor}| Configure Operating System |${Reset}"
     Add-DashLine ""
     
