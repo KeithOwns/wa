@@ -2391,8 +2391,6 @@ while ($true) {
     
 
     
-    Write-Boundary # Separator
-
     # Maintenance sub-section (inline under MANUAL-MODE)
     Add-DashLine "  ${manualHeaderColor}$('_' * 56)${Reset}"
     Write-Centered "${manualHeaderColor}Maintain Operating System${Reset}"
