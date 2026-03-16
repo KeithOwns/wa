@@ -2225,11 +2225,11 @@ while ($true) {
     Write-Centered "$Bold${FGCyan} - WinAuto - $Reset"
     Write-Boundary -Color $FGCyan
     if ($MenuSelection -eq 0) {
-        # Align with 56-char boundary lines (2 space indent + 56 char block)
-        Add-DashLine "  ${FGBlack}${BGYellow}                        SmartRUN                        ${Reset}"
+        # Align with 56-char block (2 space indent + 56 char block)
+        Add-DashLine "  ${FGBlack}${BGYellow}$(' ' * 23)SmartRUN$(' ' * 23)${Reset}"
     }
     else {
-        Write-Centered "${FGDarkGray}SmartRUN${Reset}"
+        Write-Centered "${FGDarkGray}| SmartRUN |${Reset}"
     }
     
     # SmartRUN Indicators
