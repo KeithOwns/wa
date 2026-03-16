@@ -955,13 +955,6 @@ function Invoke-WA_SystemPreCheck {
 function Invoke-WA_WindowsUpdate {
     Write-Header "WINDOWS UPDATE SCAN"
 
-    # 1. WinGet Update (Command Line)
-    Write-Centered "$Global:Char_EnDash WINGET UPDATE $Global:Char_EnDash" -Color "$Bold$FGCyan"
-    if (Get-Command winget.exe -ErrorAction SilentlyContinue) {
-        Write-LeftAligned "Running winget upgrade..."
-        Start-Process "winget.exe" -ArgumentList "upgrade --all --include-unknown --accept-package-agreements --accept-source-agreements --silent" -Wait -NoNewWindow
-    }
-
     Write-Host ""
     Write-Centered "$Global:Char_EnDash STORE & SETTINGS $Global:Char_EnDash" -Color "$Bold$FGCyan"
 
@@ -1201,6 +1194,12 @@ function Invoke-WinAutoMaintenance {
             Set-WinAutoLastRun -Module "Maintenance_Cleanup"
         }
     
+        # Run WinGet Updates
+        if (Test-RunNeeded -Key "Maintenance_WinGet" -Days 1) {
+            Invoke-WA_WingetUpgrade
+            Set-WinAutoLastRun -Module "Maintenance_WinGet"
+        }
+
         # Run Windows Update (Skip if run in last 24 hours)
         if (Test-RunNeeded -Key "Maintenance_WinUpdate" -Days 1) {
             Invoke-WA_WindowsUpdate
@@ -1289,6 +1288,17 @@ function Invoke-WA_SetRealTimeProt {
         Write-LeftAligned "$FGRed$Char_RedCross  Failed: $($_.Exception.Message)$Reset"
     }
 
+}
+
+function Invoke-WA_WingetUpgrade {
+    Write-Header "WINGET APP UPDATES"
+    if (Get-Command winget.exe -ErrorAction SilentlyContinue) {
+        Write-LeftAligned "Running winget upgrade --all..."
+        Start-Process "winget.exe" -ArgumentList "upgrade --all --include-unknown --accept-package-agreements --accept-source-agreements --silent" -Wait -NoNewWindow
+    }
+    else {
+        Write-LeftAligned "$FGRed$Char_RedCross WinGet not found on this system.$Reset"
+    }
 }
 
 function Invoke-WA_SetPUABlockApps {
@@ -2372,8 +2382,8 @@ while ($true) {
 
 
     Write-ColItem "Real-Time Protection" "SET_RealTimeProt.ps1" $s_RT
-    Write-ColItem "PUA Protection" "SET_DefenderPUA.ps1" $s_PUA
-    Write-ColItem "PUA Protection (Edge)" "SET_EdgePUA.ps1" $s_Edge
+    Write-ColItem "PUA Protection" "SET_PUABlockApps.ps1" $s_PUA
+    Write-ColItem "PUA Protection (Edge)" "SET_PUABlockDLs.ps1" $s_Edge
     Write-ColItem "Memory Integrity" "SET_MemoryInteg.ps1" $s_Mem
     Write-ColItem "Kernel Stack Protection" "SET_KernelMode.ps1" $s_Kern
     Write-ColItem "LSA Protection" "SET_LocalSecurity.ps1" $s_LSA
@@ -2424,6 +2434,7 @@ while ($true) {
     Write-LeftAligned "${FGDarkGray}[${mTopColor}#${FGDarkGray}]${mLabelColor} OF DAYS SINCE LAST RUN      ${FGDarkGray}|${mLabelColor} ATOMIC_SCRIPT$Reset" -Indent 3
     Write-Centered "${FGDarkGray}--------------------------------------------------------$Reset"
     Write-MaintItem "Get Updates" "RUN_UpdateSuite.ps1" "Maintenance_WinUpdate" -Threshold 1
+    Write-MaintItem "WinGet App Updates" "RUN_WingetUpgrade.ps1" "Maintenance_WinGet" -Threshold 1
     Write-MaintItem "Drive Optimization" "RUN_OptimizeDisks.ps1" "Maintenance_Disk" -Threshold 7
     Write-MaintItem "Temp File Cleanup" "RUN_SystemCleanup.ps1" "Maintenance_Cleanup" -Threshold 7
     Write-MaintItem "SFC / DISM Repair" "RUN_WindowsRepair.ps1" "Maintenance_SFC" -Threshold 30
