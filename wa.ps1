@@ -2226,7 +2226,7 @@ while ($true) {
     Write-Boundary -Color $FGCyan
     if ($MenuSelection -eq 0) {
         # Align with 56-char block (2 space indent + 56 char block)
-        Add-DashLine "  ${FGBlack}${BGYellow}$(' ' * 23)SmartRUN$(' ' * 23)${Reset}"
+        Add-DashLine "  ${FGBlack}${BGYellow}$(' ' * 22)| SmartRUN |$(' ' * 22)${Reset}"
     }
     else {
         Write-Centered "${FGDarkGray}| SmartRUN |${Reset}"
@@ -2260,10 +2260,10 @@ while ($true) {
     # MANUAL-MODE (Pos 1) - Runs Configure + Maintain, all steps forced
     if ($MenuSelection -eq 1) {
         # Align with 56-char block (2 space indent + 56 char block)
-        Add-DashLine "  ${FGBlack}${BGYellow}$(' ' * 22)MANUAL-MODE$(' ' * 23)${Reset}"
+        Add-DashLine "  ${FGBlack}${BGYellow}$(' ' * 22)Manual Mode$(' ' * 23)${Reset}"
     }
     else {
-        Write-Centered "${manualHeaderColor}| MANUAL-MODE |${Reset}"
+        Write-Centered "${manualHeaderColor}Manual Mode${Reset}"
     }
     Add-DashLine "  ${manualHeaderColor}$('_' * 56)${Reset}"
     Write-Centered "${manualHeaderColor}Configure Operating System${Reset}"
