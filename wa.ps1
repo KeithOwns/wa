@@ -215,6 +215,7 @@ Microsoft Update Service ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDa
 Restart Notifications    ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_RestartIsReq.ps1${Reset}
 App Restart Persistence  ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_RestartApps.ps1${Reset}
 Get Updates              ${FGDarkGray}|${Reset} ${FGDarkBlue}Maintain${Reset} ${FGDarkGray}|${Reset} ${FGGray}RUN_UpdateSuite.ps1${Reset}
+WinGet App Updates       ${FGDarkGray}|${Reset} ${FGDarkBlue}Maintain${Reset} ${FGDarkGray}|${Reset} ${FGGray}RUN_WingetUpgrade.ps1${Reset}
 Drive Optimization       ${FGDarkGray}|${Reset} ${FGDarkBlue}Maintain${Reset} ${FGDarkGray}|${Reset} ${FGGray}RUN_OptimizeDisks.ps1${Reset}
 Temp File Cleanup        ${FGDarkGray}|${Reset} ${FGDarkBlue}Maintain${Reset} ${FGDarkGray}|${Reset} ${FGGray}RUN_SystemCleanup.ps1${Reset}
 SFC / DISM Repair        ${FGDarkGray}|${Reset} ${FGDarkBlue}Maintain${Reset} ${FGDarkGray}|${Reset} ${FGGray}RUN_WindowsRepair.ps1${Reset}
