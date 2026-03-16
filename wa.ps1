@@ -215,7 +215,6 @@ Microsoft Update Service ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDa
 Restart Notifications    ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_RestartIsReq.ps1${Reset}
 App Restart Persistence  ${FGDarkGray}|${Reset} ${FGBlue}Configure${Reset}${FGDarkGray}|${Reset} ${FGGray}SET_RestartApps.ps1${Reset}
 Get Updates              ${FGDarkGray}|${Reset} ${FGDarkBlue}Maintain${Reset} ${FGDarkGray}|${Reset} ${FGGray}RUN_UpdateSuite.ps1${Reset}
-WinGet App Updates       ${FGDarkGray}|${Reset} ${FGDarkBlue}Maintain${Reset} ${FGDarkGray}|${Reset} ${FGGray}RUN_WingetUpgrade.ps1${Reset}
 Drive Optimization       ${FGDarkGray}|${Reset} ${FGDarkBlue}Maintain${Reset} ${FGDarkGray}|${Reset} ${FGGray}RUN_OptimizeDisks.ps1${Reset}
 Temp File Cleanup        ${FGDarkGray}|${Reset} ${FGDarkBlue}Maintain${Reset} ${FGDarkGray}|${Reset} ${FGGray}RUN_SystemCleanup.ps1${Reset}
 SFC / DISM Repair        ${FGDarkGray}|${Reset} ${FGDarkBlue}Maintain${Reset} ${FGDarkGray}|${Reset} ${FGGray}RUN_WindowsRepair.ps1${Reset}
@@ -243,7 +242,6 @@ Microsoft Update Service,Configure,SET_MicrosoftUpd.ps1,Registry (HKLM),HKLM:\SO
 Restart Notifications,Configure,SET_RestartIsReq.ps1,Registry (HKLM),HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings\RestartNotificationsAllowed2 (1),Yes,No,Config,Invoke-WA_SetRestartIsReq
 App Restart Persistence,Configure,SET_RestartApps.ps1,Registry (HKCU),HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\RestartApps (1),Yes,No,Config,Invoke-WA_SetRestartApps
 Get Updates,Maintain,RUN_UpdateSuite.ps1,UI Automation,Automates Windows Update Settings and MS Store updates,No,No,Maintenance,Invoke-WA_WindowsUpdate
-WinGet App Updates,Maintain,RUN_WingetUpgrade.ps1,Command Line,Checks for and updates all apps via WinGet,No,No,Maintenance,Invoke-WA_WingetUpgrade
 Drive Optimization,Maintain,RUN_OptimizeDisks.ps1,PowerShell Cmdlt,Optimize-Volume -DriveLetter C -NormalPriority,No,No,Maintenance,Invoke-WA_OptimizeDisks
 Temp File Cleanup,Maintain,RUN_SystemCleanup.ps1,File System,Clears Windows Temp and User Temp,No,No,Maintenance,Invoke-WA_SystemCleanup
 SFC / DISM Repair,Maintain,RUN_WindowsRepair.ps1,Command Line,Runs SFC scan; if corruption found runs DISM,No,No,Maintenance,Invoke-WA_WindowsRepair
@@ -485,7 +483,7 @@ function Write-LeftAligned {
 
 function Write-Boundary {
     param([string]$Color = $FGDarkCyan)
-    Write-Centered "$Color$([string]'_' * 56)$Reset"
+    Write-Centered "$Color$([string]'_' * 52)$Reset"
 }
 
 function Export-WinAutoCSV {
@@ -1195,12 +1193,6 @@ function Invoke-WinAutoMaintenance {
             Set-WinAutoLastRun -Module "Maintenance_Cleanup"
         }
     
-        # Run WinGet Updates
-        if (Test-RunNeeded -Key "Maintenance_WinGet" -Days 1) {
-            Invoke-WA_WingetUpgrade
-            Set-WinAutoLastRun -Module "Maintenance_WinGet"
-        }
-
         # Run Windows Update (Skip if run in last 24 hours)
         if (Test-RunNeeded -Key "Maintenance_WinUpdate" -Days 1) {
             Invoke-WA_WindowsUpdate
@@ -1289,17 +1281,6 @@ function Invoke-WA_SetRealTimeProt {
         Write-LeftAligned "$FGRed$Char_RedCross  Failed: $($_.Exception.Message)$Reset"
     }
 
-}
-
-function Invoke-WA_WingetUpgrade {
-    Write-Header "WINGET APP UPDATES"
-    if (Get-Command winget.exe -ErrorAction SilentlyContinue) {
-        Write-LeftAligned "Running winget upgrade --all..."
-        Start-Process "winget.exe" -ArgumentList "upgrade --all --include-unknown --accept-package-agreements --accept-source-agreements --silent" -Wait -NoNewWindow
-    }
-    else {
-        Write-LeftAligned "$FGRed$Char_RedCross WinGet not found on this system.$Reset"
-    }
 }
 
 function Invoke-WA_SetPUABlockApps {
@@ -2236,8 +2217,8 @@ while ($true) {
     Write-Centered "$Bold${FGCyan} - WinAuto - $Reset"
     Write-Boundary -Color $FGCyan
     if ($MenuSelection -eq 0) {
-        # Align with 56-char block (2 space indent + 56 char block)
-        Add-DashLine "  ${FGBlack}${BGYellow}$(' ' * 22)| SmartRUN |$(' ' * 22)${Reset}"
+        # Align with 52-char block (2 space indent + 52 char block)
+        Add-DashLine "  ${FGBlack}${BGYellow}$(' ' * 20)| SmartRUN |$(' ' * 20)${Reset}"
     }
     else {
         Write-Centered "${FGDarkGray}| SmartRUN |${Reset}"
@@ -2270,8 +2251,8 @@ while ($true) {
 
     # MANUAL-MODE (Pos 1) - Runs Configure + Maintain, all steps forced
     if ($MenuSelection -eq 1) {
-        # Align with 56-char block (2 space indent + 56 char block)
-        Add-DashLine "  ${FGBlack}${BGYellow}$(' ' * 20)| Manual Mode |$(' ' * 21)${Reset}"
+        # Align with 52-char block (2 space indent + 52 char block)
+        Add-DashLine "  ${FGBlack}${BGYellow}$(' ' * 18)| Manual Mode |$(' ' * 19)${Reset}"
     }
     else {
         Write-Centered "${manualHeaderColor}| Manual Mode |${Reset}"
@@ -2282,8 +2263,8 @@ while ($true) {
     
     $cTopColor = if ($MenuSelection -eq 1) { $FGYellow } else { $FGWhite }
     $cLabelColor = if ($MenuSelection -eq 1) { $FGWhite } else { $FGDarkGray }
-    Write-LeftAligned "${FGDarkGray}[${cTopColor}>${FGDarkGray}] ${cLabelColor}ENABLE / ${FGDarkGray}[${FGDarkGreen}v${FGDarkGray}] ${cLabelColor}ENABLED        ${FGDarkGray}|${cLabelColor} ATOMIC_SCRIPT$Reset" -Indent 3
-    Write-Centered "${FGDarkGray}--------------------------------------------------------$Reset"
+    Write-LeftAligned "${FGDarkGray}[${cTopColor}>${FGDarkGray}] ${cLabelColor}ENABLE / ${FGDarkGray}[${FGDarkGreen}v${FGDarkGray}] ${cLabelColor}ENABLED    ${FGDarkGray}|${cLabelColor} ATOMIC_SCRIPT$Reset" -Indent 3
+    Write-Centered "${FGDarkGray}------------------------------------------------$Reset"
     
     # Config Details
     $cDetailColor = if ($MenuSelection -eq 1) { $FGGray } else { $FGDarkGray }
@@ -2295,17 +2276,17 @@ while ($true) {
         
         if ("GreyOut" -eq $Status) {
             $icon = "${FGDarkGray}[ ]${Reset}"
-            $pad = " " * (28 - $Txt.Length); 
+            $pad = " " * (24 - $Txt.Length); 
             Write-LeftAligned "$icon ${FGDarkGray}$Txt${Reset}$pad${FGDarkGray}| ${FGDarkGray}$Met${Reset}" -Indent 3  
         }
         elseif ("ForceRun" -eq $Status) {
             $icon = "${FGDarkGray}[${FGWhite}>${FGDarkGray}]${Reset}"
-            $pad = " " * (28 - $Txt.Length); 
+            $pad = " " * (24 - $Txt.Length); 
             Write-LeftAligned "$icon ${cDetailColor}$Txt${Reset}$pad${FGDarkGray}| ${cDetailColor}$Met${Reset}" -Indent 3  
         }
         else {
             $icon = if ($null -eq $Status) { "${FGDarkGray}[?]${Reset}" } elseif ($Status) { "${FGDarkGray}[${FGDarkGreen}v${FGDarkGray}]${Reset}" } else { "${FGDarkGray}[${cTopColor}>${FGDarkGray}]${Reset}" }
-            $pad = " " * (28 - $Txt.Length); 
+            $pad = " " * (24 - $Txt.Length); 
             Write-LeftAligned "$icon ${cDetailColor}$Txt${Reset}$pad${FGDarkGray}| ${cDetailColor}$Met${Reset}" -Indent 3  
         }
     }
@@ -2382,20 +2363,20 @@ while ($true) {
     # --- LIVE WMI CHECKS ---
 
 
-    Write-ColItem "Real-Time Protection" "SET_RealTimeProt.ps1" $s_RT
-    Write-ColItem "PUA Protection" "SET_PUABlockApps.ps1" $s_PUA
-    Write-ColItem "PUA Protection (Edge)" "SET_PUABlockDLs.ps1" $s_Edge
-    Write-ColItem "Memory Integrity" "SET_MemoryInteg.ps1" $s_Mem
-    Write-ColItem "Kernel Stack Protection" "SET_KernelMode.ps1" $s_Kern
-    Write-ColItem "LSA Protection" "SET_LocalSecurity.ps1" $s_LSA
-    Write-ColItem "Windows Firewall" "SET_FirewallON.ps1" $s_FW
-    Write-ColItem "Classic Context Menu" "SET_ClassicMenu.ps1" $s_Ctx
-    Write-ColItem "Taskbar Search Box" "SET_TaskbarSearch.ps1" $s_Task
-    Write-ColItem "Task View Toggle" "SET_TaskViewOFF.ps1" $s_View
+    Write-ColItem "Real-Time Protection" "SET_RealTimeProt" $s_RT
+    Write-ColItem "PUA Protection" "SET_PUABlockApps" $s_PUA
+    Write-ColItem "PUA Protection (Edge)" "SET_PUABlockDLs" $s_Edge
+    Write-ColItem "Memory Integrity" "SET_MemoryInteg" $s_Mem
+    Write-ColItem "Kernel Stack Protection" "SET_KernelMode" $s_Kern
+    Write-ColItem "LSA Protection" "SET_LocalSecurity" $s_LSA
+    Write-ColItem "Windows Firewall" "SET_FirewallON" $s_FW
+    Write-ColItem "Classic Context Menu" "SET_ClassicMenu" $s_Ctx
+    Write-ColItem "Taskbar Search Box" "SET_TaskbarSearch" $s_Task
+    Write-ColItem "Task View Toggle" "SET_TaskViewOFF" $s_View
 
-    Write-ColItem "Microsoft Update Service" "SET_MicrosoftUpd.ps1" $s_MU
-    Write-ColItem "Restart Notifications" "SET_RestartIsReq.ps1" $s_Rest
-    Write-ColItem "App Restart Persistence" "SET_RestartApps.ps1" $s_Pers
+    Write-ColItem "Microsoft Update Service" "SET_MicrosoftUpd" $s_MU
+    Write-ColItem "Restart Notifications" "SET_RestartIsReq" $s_Rest
+    Write-ColItem "App Restart Persistence" "SET_RestartApps" $s_Pers
     
     Add-DashLine ""
     
@@ -2426,19 +2407,18 @@ while ($true) {
                 catch { $prefix = "!"; $statusColor = $FGDarkRed }
             }
         }
-        $pad = " " * (28 - $Txt.Length); 
+        $pad = " " * (24 - $Txt.Length); 
         Write-LeftAligned "${FGDarkGray}[${statusColor}$prefix${FGDarkGray}]${mDetailColor} $Txt${Reset}$pad${FGDarkGray}| ${mDetailColor}$Met${Reset}" -Indent 3  
     }
 
     $mTopColor = if ($MenuSelection -eq 1) { $FGYellow } else { $FGWhite }
     $mLabelColor = if ($MenuSelection -eq 1) { $FGWhite } else { $FGDarkGray }
-    Write-LeftAligned "${FGDarkGray}[${mTopColor}#${FGDarkGray}]${mLabelColor} OF DAYS SINCE LAST RUN      ${FGDarkGray}|${mLabelColor} ATOMIC_SCRIPT$Reset" -Indent 3
-    Write-Centered "${FGDarkGray}--------------------------------------------------------$Reset"
-    Write-MaintItem "Get Updates" "RUN_UpdateSuite.ps1" "Maintenance_WinUpdate" -Threshold 1
-    Write-MaintItem "WinGet App Updates" "RUN_WingetUpgrade.ps1" "Maintenance_WinGet" -Threshold 1
-    Write-MaintItem "Drive Optimization" "RUN_OptimizeDisks.ps1" "Maintenance_Disk" -Threshold 7
-    Write-MaintItem "Temp File Cleanup" "RUN_SystemCleanup.ps1" "Maintenance_Cleanup" -Threshold 7
-    Write-MaintItem "SFC / DISM Repair" "RUN_WindowsRepair.ps1" "Maintenance_SFC" -Threshold 30
+    Write-LeftAligned "${FGDarkGray}[${mTopColor}#${FGDarkGray}]${mLabelColor} OF DAYS SINCE LAST RUN  ${FGDarkGray}|${mLabelColor} ATOMIC_SCRIPT$Reset" -Indent 3
+    Write-Centered "${FGDarkGray}------------------------------------------------$Reset"
+    Write-MaintItem "Get Updates" "RUN_UpdateSuite" "Maintenance_WinUpdate" -Threshold 1
+    Write-MaintItem "Drive Optimization" "RUN_OptimizeDisks" "Maintenance_Disk" -Threshold 7
+    Write-MaintItem "Temp File Cleanup" "RUN_SystemCleanup" "Maintenance_Cleanup" -Threshold 7
+    Write-MaintItem "SFC / DISM Repair" "RUN_WindowsRepair" "Maintenance_SFC" -Threshold 30
 
     Add-DashLine ""
     Add-DashLine ""
