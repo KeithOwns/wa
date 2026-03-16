@@ -2274,7 +2274,7 @@ while ($true) {
         Write-Centered "${manualHeaderColor}|${Reset} ${manualHeaderColor}MANUAL-MODE${Reset} ${manualHeaderColor}|${Reset}"
     }
     Add-DashLine "____________________________________________________________"
-    Write-Centered "${manualHeaderColor}| Configure Operating System |${Reset}"
+    Write-Centered "${manualHeaderColor}Configure Operating System${Reset}"
     Add-DashLine ""
     
     $cTopColor = if ($MenuSelection -eq 1) { $FGYellow } else { $FGWhite }
