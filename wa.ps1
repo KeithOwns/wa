@@ -2260,10 +2260,10 @@ while ($true) {
     # MANUAL-MODE (Pos 1) - Runs Configure + Maintain, all steps forced
     if ($MenuSelection -eq 1) {
         # Align with 56-char block (2 space indent + 56 char block)
-        Add-DashLine "  ${FGBlack}${BGYellow}$(' ' * 22)Manual Mode$(' ' * 23)${Reset}"
+        Add-DashLine "  ${FGBlack}${BGYellow}$(' ' * 20)| Manual Mode |$(' ' * 21)${Reset}"
     }
     else {
-        Write-Centered "${manualHeaderColor}Manual Mode${Reset}"
+        Write-Centered "${manualHeaderColor}| Manual Mode |${Reset}"
     }
     Add-DashLine "  ${manualHeaderColor}$('_' * 56)${Reset}"
     Write-Centered "${manualHeaderColor}Configure Operating System${Reset}"
