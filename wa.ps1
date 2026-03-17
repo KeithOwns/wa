@@ -1060,73 +1060,78 @@ function Invoke-WinAutoConfiguration {
     $lastRun = Get-WinAutoLastRun -Module "Configuration"
     Write-LeftAligned "$FGGray Last Run: $FGWhite$lastRun$Reset"
 
-    $SkipConfig = $false
+    # Status discovery before execution
+    $s_RT = $null; $s_PUA = $null; $s_FW = $null
+    try { 
+        $av = Get-ThirdPartyAV; $mp = Get-MpPreference -EA 0
+        if ($av) { $s_RT = "GreyOut" } else { $s_RT = $mp.DisableRealtimeMonitoring -eq $false }
+        if ($mp.PUAProtection -eq 1) { $s_PUA = $true } else { $s_PUA = "GreyOut" }
+    } catch { $s_RT = $false; $s_PUA = $false }
+    try { $s_FW = (Get-NetFirewallProfile | Where-Object { -not $_.Enabled }).Count -eq 0 } catch { $s_FW = $false }
+    $s_Mem = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity" "Enabled" 1
+    $s_Kern = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\KernelShadowStacks" "Enabled" 1
+    $s_LSA = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" "RunAsPPL" 1
+    $s_Task = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" "SearchboxTaskbarMode" 3
+    $s_View = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "ShowTaskViewButton" 0
+    $s_MU = Test-Reg "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" "AllowMUUpdateService" 1
+    $s_Rest = Test-Reg "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" "RestartNotificationsAllowed2" 1
+    $s_Pers = Test-Reg "HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" "RestartApps" 1
+    $ctxPath = "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32"
+    $s_Ctx = if (Test-Path $ctxPath) { (Get-ItemProperty $ctxPath)."(default)" -eq "" } else { $false }
 
-    if ($SmartRun -and $lastRun -ne "Never") {
-        # Check 30-day freshness
-        $lastDate = Get-Date $lastRun
-        if ((Get-Date) -lt $lastDate.AddDays(30)) {
-            # TIME SAYS SKIP, BUT WE MUST AUDIT COMPLIANCE
-            # If Attestation passes, we can safely skip REGISTRY items.
-            Write-LeftAligned "$FGGray History valid. verifying system compliance..."
-            if (Test-WinAutoAttestation) {
-                Write-LeftAligned "$FGGreen$Global:Char_CheckMark System Compliant. Skipping Core Configuration...$Reset"
-                $SkipConfig = $true
-            }
-            else {
-                Write-LeftAligned "$FGRed$Global:Char_Warn DRIFT DETECTED. Forcing Re-Configuration.$Reset"
-            }
-        }
-    }
     Write-Boundary
 
-    # Always attempt Edge PUA because state discovery is unreliable
-    Invoke-WA_SetPUABlockDLs
-
-    if (-not $SkipConfig) {
-        # Core Security (Embedded Standalone)
-        Invoke-WA_SetMemoryInteg
-        Invoke-WA_SetRealTimeProt
-        Invoke-WA_SetPUABlockApps
-        Invoke-WA_SetLocalSecurity
-        Invoke-WA_SetFirewallON
-        Invoke-WA_SetKernelMode
+    # Helper to only run if state is not enabled
+    function Invoke-Smart {
+        param($Script, $Status)
+        if (-not $SmartRun) { & $Script; return }
+        
+        $pending = $false
+        if ($null -eq $Status -or $Status -eq $false -or $Status -eq "ForceRun") { $pending = $true }
+        
+        if ($pending) { & $Script }
+        else { Write-LeftAligned "$FGGreen$Global:Char_CheckMark Skipping $($Script.ToString().Replace('Invoke-WA_','')) (Already Enabled).$Reset" }
     }
+
+    # 1. Core Security
+    Invoke-Smart { Invoke-WA_SetMemoryInteg } $s_Mem
+    Invoke-Smart { Invoke-WA_SetRealTimeProt } $s_RT
+    Invoke-Smart { Invoke-WA_SetPUABlockApps } $s_PUA
+    Invoke-Smart { Invoke-WA_SetLocalSecurity } $s_LSA
+    Invoke-Smart { Invoke-WA_SetFirewallON } $s_FW
+    Invoke-Smart { Invoke-WA_SetKernelMode } $s_Kern
     
-    # UIA Remediation Steps (Only run if detected as disabled to minimize window popping, unless in Manual Mode)
+    # 2. UIA Remediation (State-aware)
     $runRT = -not $SmartRun
     $runSS = -not $SmartRun
-
-    if ($SmartRun) {
-        try {
-            $mp = Get-MpPreference -ErrorAction SilentlyContinue
-            if ($mp.DisableRealtimeMonitoring -eq $true) { $runRT = $true }
-            if ($mp.EnableSmartScreen -eq $false) { $runSS = $true }
-        }
-        catch { $runRT = $true; $runSS = $true }
-    }
+    try {
+        $mp = Get-MpPreference -ErrorAction SilentlyContinue
+        if ($mp.DisableRealtimeMonitoring -eq $true) { $runRT = $true }
+        if ($mp.EnableSmartScreen -eq $false -or $mp.PUAProtection -eq 0) { $runSS = $true }
+    } catch { $runRT = $true; $runSS = $true }
 
     if ($runSS) { Invoke-WA_SetSmartScreen }
     if ($runRT) { Invoke-WA_SetVirusThreatProtect }
+
+    # Always attempt Edge PUA as discovery is unreliable
+    Invoke-WA_SetPUABlockDLs
+
+    # 3. UI & Performance
+    Invoke-Smart { Invoke-WA_SetClassicMenu } $s_Ctx
+    Invoke-Smart { Invoke-WA_SetTaskbarSearch } $s_Task
+    Invoke-Smart { Invoke-WA_SetTaskViewOFF } $s_View
     
-    if (-not $SkipConfig) {
-        # UI & Performance (Embedded Standalone)
-        Invoke-WA_SetClassicMenu
-        Invoke-WA_SetTaskbarSearch
-        Invoke-WA_SetTaskViewOFF
-        
-        # Updates & Persistence
-        Invoke-WA_SetMicrosoftUpd
-        Invoke-WA_SetRestartIsReq
-        Invoke-WA_SetRestartApps
-    
-        # Restart Explorer to force refresh of Taskbar/Start Menu registry settings (Standard UI changes)
-        Write-LeftAligned "Restarting Explorer to apply UI settings..."
+    # 4. Updates & Persistence
+    Invoke-Smart { Invoke-WA_SetMicrosoftUpd } $s_MU
+    Invoke-Smart { Invoke-WA_SetRestartIsReq } $s_Rest
+    Invoke-Smart { Invoke-WA_SetRestartApps } $s_Pers
+
+    # Explorer Refresh
+    if (-not $SmartRun -or $s_Ctx -eq $false -or $s_Task -eq $false -or $s_View -eq $false) {
+        Write-LeftAligned "Refreshing Explorer to apply UI settings..."
         Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
         Start-Sleep -Seconds 1
-        if (-not (Get-Process explorer -ErrorAction SilentlyContinue)) {
-            Start-Process explorer
-        }
+        if (-not (Get-Process explorer -ErrorAction SilentlyContinue)) { Start-Process explorer }
     }
 
     Write-Boundary
@@ -2164,20 +2169,59 @@ $MenuSelection = 0  # 0=Smart, 1=Config, 2=Maintenance
 $Global:WinAutoFirstLoad = $true
 
 while ($true) {
-    # Config
-    $lastConfigRun = Get-WinAutoLastRun -Module "Configuration"
-    $configSkipped = $false
-    if ($lastConfigRun -ne "Never") {
-        $lastConfigDate = Get-Date $lastConfigRun
-        if ((Get-Date) -lt $lastConfigDate.AddDays(30)) {
-            $configSkipped = $true
-            $Global:AnySkipped = $true 
-        }
-    }
-    
     # Maintain
     $Global:MaintenanceComplete = Test-WA_MaintenanceRecentlyComplete
     if ($Global:MaintenanceComplete) { $Global:AnySkipped = $true }
+
+    # --- LIVE STATUS CHECKS (Discovery for UI and SmartRUN Execution) ---
+    $s_RT = $null; $s_PUA = $null; $s_FW = $null
+    try { 
+        $av = Get-ThirdPartyAV
+        $mp = Get-MpPreference -ErrorAction SilentlyContinue
+        if ($av) { $s_RT = "GreyOut" } else { $s_RT = $mp.DisableRealtimeMonitoring -eq $false }
+        if ($mp.PUAProtection -eq 1) { $s_PUA = $true } else { $s_PUA = "GreyOut" }
+    }
+    catch { $s_RT = $false; $s_PUA = $false }
+    
+    try {
+        $profiles = Get-NetFirewallProfile
+        $allEnabled = $true
+        foreach ($fwProfile in $profiles) { if (-not $fwProfile.Enabled) { $allEnabled = $false } }
+        $s_FW = $allEnabled
+    } catch { $s_FW = $false }
+    
+    $edgeVal = (Get-ItemProperty "HKCU:\Software\Microsoft\Edge\SmartScreenPuaEnabled" -ErrorAction SilentlyContinue)."(default)"
+    $s_Edge = if ($edgeVal -eq 1) { $true } else { "GreyOut" }
+    $s_Mem = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity" "Enabled" 1
+    $s_Kern = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\KernelShadowStacks" "Enabled" 1
+    $s_LSA = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" "RunAsPPL" 1
+    $s_Task = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" "SearchboxTaskbarMode" 3
+    $s_View = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "ShowTaskViewButton" 0
+    $s_MU = Test-Reg "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" "AllowMUUpdateService" 1
+    $s_Rest = Test-Reg "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" "RestartNotificationsAllowed2" 1
+    $s_Pers = Test-Reg "HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" "RestartApps" 1
+
+    # Classic Context Menu Check
+    $ctxPath = "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32"
+    $s_Ctx = $false
+    if (Test-Path $ctxPath) {
+        $val = (Get-ItemProperty $ctxPath)."(default)"
+        if ($val -eq "") { $s_Ctx = $true }
+    }
+
+    # Sectional Pending State Detection
+    $configActive = if ($s_RT -eq $false -or $s_PUA -eq $false -or $s_Edge -eq $false -or $s_FW -eq $false -or $s_Ctx -eq $false -or $s_Task -eq $false -or $s_View -eq $false -or $s_MU -eq $false -or $s_Rest -eq $false -or $s_Pers -eq $false -or $s_Mem -eq $false -or $s_Kern -eq $false -or $s_LSA -eq $false) { $true } else { $false }
+    
+    $maintActive = $false
+    $mKeys = "Maintenance_WinUpdate", "Maintenance_Disk", "Maintenance_Cleanup", "Maintenance_SFC"
+    foreach ($k in $mKeys) {
+        $lr = Get-WinAutoLastRun -Module $k
+        if ($lr -eq "Never") { $maintActive = $true; break }
+        try {
+            $th = 7; if ($k -eq "Maintenance_WinUpdate") { $th = 1 } elseif ($k -eq "Maintenance_SFC") { $th = 30 }
+            if (((Get-Date) - (Get-Date $lr)).Days -gt $th) { $maintActive = $true; break }
+        } catch {}
+    }
 
     $manualHeaderColor = if ($MenuSelection -eq 0) { $FGDarkGray } else { $FGDarkCyan }
 
@@ -2202,9 +2246,9 @@ while ($true) {
     }
     
     # SmartRUN Indicators
-    $cConf = if (-not $configSkipped) { $FGCyan } else { $FGDarkGray }
-    $cMaint = if (-not $Global:MaintenanceComplete) { $FGCyan } else { $FGDarkGray }
-    Add-DashLine (" " * 18 + "${cConf}Configure${Reset} ${FGDarkGray}|${Reset} ${cMaint}Maintain${Reset}")
+    $cConfColor = if ($configActive) { $FGYellow } else { $FGDarkGray }
+    $cMaintColor = if ($maintActive) { $FGYellow } else { $FGDarkGray }
+    Add-DashLine (" " * 18 + "${cConfColor}Configure${Reset} ${FGDarkGray}|${Reset} ${cMaintColor}Maintain${Reset}")
 
 
 
@@ -2233,43 +2277,6 @@ while ($true) {
     }
     else {
         Add-DashLine (" " * 20 + "${manualHeaderColor}| Manual Mode |${Reset}")
-    }
-
-    # --- LIVE STATUS CHECKS (Lightweight) ---
-    $s_RT = $null; $s_PUA = $null; $s_FW = $null
-    try { 
-        $av = Get-ThirdPartyAV
-        $mp = Get-MpPreference -ErrorAction SilentlyContinue
-        if ($av) { $s_RT = "GreyOut" } else { $s_RT = $mp.DisableRealtimeMonitoring -eq $false }
-        if ($mp.PUAProtection -eq 1) { $s_PUA = $true } else { $s_PUA = "GreyOut" }
-    }
-    catch { $s_RT = $false; $s_PUA = $false }
-    
-    try {
-        $profiles = Get-NetFirewallProfile
-        $allEnabled = $true
-        foreach ($fwProfile in $profiles) { if (-not $fwProfile.Enabled) { $allEnabled = $false } }
-        $s_FW = $allEnabled
-    } catch { $s_FW = $false }
-    
-    function Test-Reg { param($P, $N, $V) try { (Get-ItemProperty $P $N -EA 0).$N -eq $V } catch { $false } }
-    $edgeVal = (Get-ItemProperty "HKCU:\Software\Microsoft\Edge\SmartScreenPuaEnabled" -ErrorAction SilentlyContinue)."(default)"
-    $s_Edge = if ($edgeVal -eq 1) { $true } else { "GreyOut" }
-    $s_Mem = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity" "Enabled" 1
-    $s_Kern = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\KernelShadowStacks" "Enabled" 1
-    $s_LSA = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" "RunAsPPL" 1
-    $s_Task = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" "SearchboxTaskbarMode" 3
-    $s_View = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "ShowTaskViewButton" 0
-    $s_MU = Test-Reg "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" "AllowMUUpdateService" 1
-    $s_Rest = Test-Reg "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" "RestartNotificationsAllowed2" 1
-    $s_Pers = Test-Reg "HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" "RestartApps" 1
-
-    # Determine if sections are active (have pending steps) for SmartRUN mode
-    $configActive = $false
-    if ($MenuSelection -eq 0) {
-        if ($s_RT -eq $false -or $s_PUA -eq $false -or $s_Edge -eq $false -or $s_FW -eq $false -or $s_Ctx -eq $false -or $s_Task -eq $false -or $s_View -eq $false -or $s_MU -eq $false -or $s_Rest -eq $false -or $s_Pers -eq $false -or $s_Mem -eq $false -or $s_Kern -eq $false -or $s_LSA -eq $false) {
-            $configActive = $true
-        }
     }
 
     $cHeaderColor = if ($MenuSelection -eq 1 -or ($MenuSelection -eq 0 -and $configActive)) { $FGWhite } else { $FGDarkGray }
@@ -2323,13 +2330,6 @@ while ($true) {
     
     
 
-    # Classic Context Menu Check (InprocServer32 Default Value must be empty string)
-    $ctxPath = "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32"
-    $s_Ctx = $false
-    if (Test-Path $ctxPath) {
-        $val = (Get-ItemProperty $ctxPath)."(default)"
-        if ($val -eq "") { $s_Ctx = $true }
-    }
     
     # --- LIVE WMI CHECKS ---
 
@@ -2354,19 +2354,6 @@ while ($true) {
     
 
     
-    # Determine if maintenance section is active for SmartRUN
-    $maintActive = $false
-    if ($MenuSelection -eq 0) {
-        $keys = "Maintenance_WinUpdate", "Maintenance_Disk", "Maintenance_Cleanup", "Maintenance_SFC"
-        foreach ($k in $keys) {
-            $lr = Get-WinAutoLastRun -Module $k
-            if ($lr -eq "Never") { $maintActive = $true; break }
-            try {
-                $th = 7; if ($k -eq "Maintenance_WinUpdate") { $th = 1 } elseif ($k -eq "Maintenance_SFC") { $th = 30 }
-                if (((Get-Date) - (Get-Date $lr)).Days -gt $th) { $maintActive = $true; break }
-            } catch {}
-        }
-    }
 
     # Maintenance sub-section (inline under MANUAL-MODE)
     Add-DashLine "  ${manualHeaderColor}$('_' * 52)${Reset}"
