@@ -1087,7 +1087,7 @@ function Invoke-WinAutoConfiguration {
         if (-not $SmartRun) { & $Script; return }
         
         $pending = $false
-        if ($null -eq $Status -or $Status -eq $false -or $Status -eq "ForceRun") { $pending = $true }
+        if ($null -eq $Status -or $false -eq $Status -or "ForceRun" -eq $Status) { $pending = $true }
         
         if ($pending) { & $Script }
         else { Write-LeftAligned "$FGGreen$Global:Char_CheckMark Skipping $($Script.ToString().Replace('Invoke-WA_','')) (Already Enabled).$Reset" }
