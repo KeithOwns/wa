@@ -1079,6 +1079,18 @@ function Invoke-WinAutoConfiguration {
     $ctxPath = "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32"
     $s_Ctx = if (Test-Path $ctxPath) { (Get-ItemProperty $ctxPath)."(default)" -eq "" } else { $false }
 
+    $configActive = if ($false -eq $s_RT -or $false -eq $s_PUA -or $false -eq $s_Edge -or $false -eq $s_FW -or $false -eq $s_Ctx -or $false -eq $s_Task -or $false -eq $s_View -or $false -eq $s_MU -or $false -eq $s_Rest -or $false -eq $s_Pers -or $false -eq $s_Mem -or $false -eq $s_Kern -or $false -eq $s_LSA) { $true } else { $false }
+
+    if ($SmartRun -and -not $configActive) {
+        Write-Boundary
+        Write-LeftAligned "$FGGreen$Global:Char_CheckMark All Configuration states are ENABLED. Skipping execution phase.$Reset"
+        Write-Boundary
+        Write-Centered "$FGGreen CONFIGURATION COMPLETE $Reset"
+        Set-WinAutoLastRun -Module "Configuration"
+        Start-Sleep -Seconds 2
+        return
+    }
+
     Write-Boundary
 
     # Helper to only run if state is not enabled
@@ -1113,8 +1125,8 @@ function Invoke-WinAutoConfiguration {
     if ($runSS) { Invoke-WA_SetSmartScreen }
     if ($runRT) { Invoke-WA_SetVirusThreatProtect }
 
-    # Always attempt Edge PUA as discovery is unreliable
-    Invoke-WA_SetPUABlockDLs
+    # Edge PUA (Invoke-Smart wrapper handles logic)
+    Invoke-Smart { Invoke-WA_SetPUABlockDLs } $s_Edge
 
     # 3. UI & Performance
     Invoke-Smart { Invoke-WA_SetClassicMenu } $s_Ctx
