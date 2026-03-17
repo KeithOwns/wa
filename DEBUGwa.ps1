@@ -583,7 +583,7 @@ $Global:TickAction = {
         
         # User defined footer with colors
         # Use ^ v keys then press Space to RUN | Esc to EXIT
-        $Line = "                ${Global:FGYellow}Navigation${Global:Reset} ${Global:FGBlack}${Global:BGDarkCyan}KEYS${Global:Reset}                `n  ${Global:FGBlack}${Global:BGDarkCyan} ^ ${Global:Reset} ${Global:FGGray}arrow${Global:Reset} ${Global:FGBlack}${Global:BGDarkCyan} v ${Global:Reset} ${Global:FGGray}keys${Global:Reset} ${Global:FGYellow}->${Global:Reset}${Global:FGDarkGray}|${Global:Reset}${Global:FGBlack}${Global:BGYellow}Select${Global:Reset}${Global:FGDarkGray}|${Global:Reset}${Global:FGYellow}<-${Global:Reset} ${Global:FGDarkGray}|${Global:Reset}${Global:FGBlack}${Global:BGDarkRed}Esc${Global:Reset} ${Global:FGGray}to${Global:Reset}${Global:FGDarkRed}${Global:BGWhite}EXIT${Global:Reset}"
+        $Line = "                     ${Global:FGYellow}Navigation${Global:Reset} ${Global:FGBlack}${Global:BGDarkCyan}KEYS${Global:Reset}`n      ${Global:FGBlack}${Global:BGDarkCyan} ^ ${Global:Reset} ${Global:FGGray}arrow${Global:Reset} ${Global:FGBlack}${Global:BGDarkCyan} v ${Global:Reset} ${Global:FGGray}keys${Global:Reset} ${Global:FGYellow}->${Global:Reset}${Global:FGDarkGray}|${Global:Reset}${Global:FGBlack}${Global:BGYellow}Select${Global:Reset}${Global:FGDarkGray}|${Global:Reset}${Global:FGYellow}<-${Global:Reset} ${Global:FGDarkGray}|${Global:Reset}${Global:FGBlack}${Global:BGDarkRed}Esc${Global:Reset} ${Global:FGGray}to${Global:Reset}${Global:FGDarkRed}${Global:BGWhite}EXIT${Global:Reset}"
     }
 
     try { [Console]::SetCursorPosition(0, $PromptCursorTop); Write-Host $Line } catch {}
@@ -2415,17 +2415,19 @@ while ($true) {
 
     # Master Plan Metadata Info
     $mI = "   " # Indent 3
-    Add-DashLine ("${mI}${FGDarkGray}Technical Metadata: The CSV contains six columns of${Reset}")
-    Add-DashLine ("${mI}${FGDarkGray}technical detail (METHOD, TECHNICAL DETAILS, REVERTIBLE,${Reset}")
-    Add-DashLine ("${mI}${FGDarkGray}RESTART REQUIRED, IMPACT, and FUNCTION) used for${Reset}")
-    Add-DashLine ("${mI}${FGDarkGray}background automation, but omitted from the UI.${Reset}")
+    Add-DashLine ("${mI}${FGDarkGray}Technical Metadata: The CSV contains six columns${Reset}")
+    Add-DashLine ("${mI}${FGDarkGray}of technical detail (METHOD, DETAILS, RESTART,${Reset}")
+    Add-DashLine ("${mI}${FGDarkGray}IMPACT, etc.) used for background automation,${Reset}")
+    Add-DashLine ("${mI}${FGDarkGray}but omitted from the UI to keep it clean.${Reset}")
     Add-DashLine ""
-    Add-DashLine ("${mI}${FGDarkGray}Infrastructure: The CSV includes internal setup rows${Reset}")
-    Add-DashLine ("${mI}${FGDarkGray}(Execution Policy Check, Auto-Unblock, Hardening${Reset}")
-    Add-DashLine ("${mI}${FGDarkGray}Check, and Maintenance Cycle) that happen${Reset}")
-    Add-DashLine ("${mI}${FGDarkGray}automatically behind the scenes.${Reset}")
+    Add-DashLine ("${mI}${FGDarkGray}Infrastructure: The CSV includes internal setup${Reset}")
+    Add-DashLine ("${mI}${FGDarkGray}rows (Policy Check, Auto-Unblock, Hardening,${Reset}")
+    Add-DashLine ("${mI}${FGDarkGray}and Maintenance Cycle) that happen automatically${Reset}")
+    Add-DashLine ("${mI}${FGDarkGray}behind the scenes.${Reset}")
     
+    Add-DashLine ""
     Add-DashLine "  ${manualHeaderColor}$('_' * 52)${Reset}"
+    Add-DashLine ""
     Write-Boundary -Color $FGYellow
 
     if ($Global:DashboardBufferMode) {
