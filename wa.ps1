@@ -222,14 +222,69 @@ SFC / DISM Repair,Maintain,RUN_WindowsRepair.ps1,Command Line,Runs SFC scan; if 
 '@
 
 
-# UI Automation Preparation
-if (-not ([System.Management.Automation.PSTypeName]"System.Windows.Automation.AutomationElement").Type) {
-    try {
-        Add-Type -AssemblyName UIAutomationClient
-        Add-Type -AssemblyName UIAutomationTypes
+# --- UI HELPERS ---
+function Write-ColItem {
+    param($Txt, $Met, $Status) 
+    
+    $pending = $false
+    if ($null -eq $Status -or $false -eq $Status -or "ForceRun" -eq $Status) { $pending = $true }
+    
+    $itemColor = $Global:cDetailColorGlobal
+    if ($Global:MenuSelection -eq 0 -and $pending) {
+        $itemColor = $Global:FGYellow
     }
-    catch {}
+    
+    if ("GreyOut" -eq $Status) {
+        $icon = "${FGDarkGray}[ ]${Reset}"
+        $pad = " " * (24 - $Txt.Length); 
+        Write-LeftAligned "$icon ${FGDarkGray}$Txt${Reset}$pad${FGDarkGray}| ${FGDarkGray}$Met${Reset}" -Indent 3  
+    }
+    elseif ("ForceRun" -eq $Status) {
+        $iconColor = if ($Global:MenuSelection -eq 0) { $Global:FGYellow } else { $Global:FGWhite }
+        $icon = "${FGDarkGray}[${iconColor}>${FGDarkGray}]${Reset}"
+        $pad = " " * (24 - $Txt.Length); 
+        Write-LeftAligned "$icon ${itemColor}$Txt${Reset}$pad${FGDarkGray}| ${itemColor}$Met${Reset}" -Indent 3  
+    }
+    else {
+        $iconColor = if ($Global:MenuSelection -eq 0 -and $pending) { $Global:FGYellow } else { $Global:FGWhite }
+        $icon = if ($Status -eq $true) { "${FGDarkGray}[${FGDarkGreen}v${FGDarkGray}]${Reset}" } else { "${FGDarkGray}[${iconColor}>${FGDarkGray}]${Reset}" }
+        $pad = " " * (24 - $Txt.Length); 
+        Write-LeftAligned "$icon ${itemColor}$Txt${Reset}$pad${FGDarkGray}| ${itemColor}$Met${Reset}" -Indent 3  
+    }
 }
+
+function Write-MaintItem {
+    param($Txt, $Met, $Key, [int]$Threshold = 7) 
+    
+    $pending = $false
+    $prefix = "-"
+    if ($Key) {
+        $last = Get-WinAutoLastRun -Module $Key
+        if ($last -eq "Never") { $pending = $true; $prefix = "!" }
+        else {
+            try {
+                $days = ((Get-Date) - (Get-Date $last)).Days
+                $prefix = $days
+                if ($days -gt $Threshold) { $pending = $true }
+            } catch { $pending = $true; $prefix = "!" }
+        }
+    }
+    
+    $statusColor = $Global:mDetailColorGlobal
+    if ($Global:MenuSelection -eq 0 -and $pending) {
+        $statusColor = $Global:FGYellow
+    }
+    elseif ($Key) {
+        if ($prefix -eq "!") { $statusColor = $Global:FGDarkRed }
+        elseif ($prefix -le $Threshold) { $statusColor = $Global:FGDarkGreen }
+        else { $statusColor = $Global:FGDarkRed }
+    }
+
+    $itemColor = if ($Global:MenuSelection -eq 0 -and $pending) { $Global:FGYellow } else { $Global:mDetailColorGlobal }
+    $pad = " " * (24 - $Txt.Length); 
+    Write-LeftAligned "${FGDarkGray}[${statusColor}$prefix${FGDarkGray}]${itemColor} $Txt${Reset}$pad${FGDarkGray}| ${itemColor}$Met${Reset}" -Indent 3  
+}
+
 
 function Get-UIAElement {
     param(
@@ -627,17 +682,6 @@ function Invoke-AnimatedPause {
 
 # --- CONFIGURATION FUNCTIONS ---
 
-function Get-ThirdPartyAV {
-    if ($Host.Name -match "ConsoleHost" -and [Environment]::OSVersion.Platform -eq "Win32NT") {
-        try {
-            $av = Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntivirusProduct -ErrorAction SilentlyContinue | Where-Object { $_.displayName -notlike "*Windows Defender*" -and $_.displayName -notlike "*Microsoft Defender*" }
-            return $av
-        }
-        catch {}
-    }
-    return $null
-}
-
 
 function Invoke-WA_SetSmartScreen {
     Write-Header "SMARTSCREEN FILTER (UIA)"
@@ -843,80 +887,6 @@ function Get-ThirdPartyAV {
 
 function Test-Reg { param($P, $N, $V) try { (Get-ItemProperty $P $N -EA 0).$N -eq $V } catch { $false } }
 
-function Test-WinAutoAttestation {
-    # Returns $true if ALL critical configuration items are currently compliant.
-    # Used by SmartRUN to force specific repairs even if "Last Run" was recent.
-    
-    # 1. Registry Checks (Fast)
-    # Edge PUA discovery is unreliable; ignoring in attestation
-    $s_Mem = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity" "Enabled" 1
-    $s_Kern = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\KernelShadowStacks" "Enabled" 1
-    $s_LSA = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" "RunAsPPL" 1
-    $s_Task = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" "SearchboxTaskbarMode" 3
-    $s_View = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "ShowTaskViewButton" 0
-    $s_MU = Test-Reg "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" "AllowMUUpdateService" 1
-    $s_Rest = Test-Reg "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" "RestartNotificationsAllowed2" 1
-    $s_Pers = Test-Reg "HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" "RestartApps" 1
-    
-    # 2. Context Menu
-    $ctxPath = "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32"
-    $s_Ctx = $false
-    if (Test-Path $ctxPath) {
-        $val = (Get-ItemProperty $ctxPath)."(default)"
-        if ($val -eq "") { $s_Ctx = $true }
-    }
-    
-    # 3. Widgets Check (TaskbarDa: 0=Hidden/Compliant, 1=Visible)
-    $s_Wid = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "TaskbarDa" 0
-
-    # 4. WMI Checks (Real-Time & Firewall) - Critical Security
-    $s_RT = $false; $s_PUA = $false; $s_FW = $false
-    try { 
-        $mp = Get-MpPreference -ErrorAction SilentlyContinue
-        $s_RT = $mp.DisableRealtimeMonitoring -eq $false
-        $s_PUA = $mp.PUAProtection -eq 1
-    }
-    catch { $s_RT = $true; $s_PUA = $true } 
-    
-    try {
-        $profiles = Get-NetFirewallProfile
-        $allEnabled = $true
-
-        foreach ($fwProfile in $profiles) {
-            $isEnabled = $fwProfile.Enabled -eq $true
-            if (-not $isEnabled) { $allEnabled = $false }
-
-            if ($isEnabled) {
-                Write-LeftAligned "$FGGreen$Char_BallotCheck  $($fwProfile.Name) Firewall: ENABLED$Reset"
-            }
-            else {
-                Write-LeftAligned "$FGRed$Char_RedCross  $($fwProfile.Name) Firewall: DISABLED$Reset"
-            }
-        }
-
-        Write-Host ""
-
-        # Summary status
-        if ($allEnabled) {
-            Write-LeftAligned "$FGGreen$Char_HeavyCheck All firewall profiles are ENABLED.$Reset"
-        }
-        else {
-            Write-LeftAligned "$FGDarkYellow$Char_Warn One or more firewall profiles are DISABLED.$Reset"
-        }
-        $s_FW = $allEnabled
-
-    }
-    catch {
-        Write-LeftAligned "$FGRed$Char_RedCross  Error detecting firewall state: $($_.Exception.Message)$Reset"
-        $s_FW = $false
-    }
-    
-    # Check Aggregate
-    if (-not ($s_Mem -and $s_Kern -and $s_LSA -and $s_Task -and $s_View -and $s_MU -and $s_Rest -and $s_Pers -and $s_Ctx -and $s_Wid -and $s_RT -and $s_PUA -and $s_FW)) {
-        return $false
-    }
-    return $true
-}
 
 # --- MAINTENANCE FUNCTIONS ---
 
@@ -2166,15 +2136,12 @@ if ($Silent -or $Module) {
     else { Write-Log "Starting CLI Mode (Silent Default)" }
 
     if (-not $Module -and $Silent) { $Module = "SmartRun" }
-
     switch ($Module) {
         "SmartRun" { 
             Invoke-WinAutoConfiguration -SmartRun
             Invoke-WinAutoMaintenance -SmartRun
-            if (-not $Global:AllAppsInstalled) { Invoke-WA_InstallApps -SmartRun }
         }
-        "Install" { Invoke-WA_InstallApps }
-        "Config" { Invoke-WinAutoConfiguration }
+        "Config"      { Invoke-WinAutoConfiguration }
         "Maintenance" { Invoke-WinAutoMaintenance }
     }
     
@@ -2320,43 +2287,9 @@ while ($true) {
     Write-LeftAligned "${FGDarkGray}[${cTopColor}>${FGDarkGray}] ${cLabelColor}ENABLE / ${FGDarkGray}[${FGDarkGreen}v${FGDarkGray}] ${cLabelColor}ENABLED    ${FGDarkGray}|${cLabelColor} ATOMIC_SCRIPT$Reset" -Indent 3
     Add-DashLine ("  ${FGDarkGray}$('-' * 52)${Reset}")
     
-    # Config Details
-    # In SmartRUN (0), we want specific items to be Yellow only if they are pending
-    # In Manual (1), all items are Gray
-    $cDetailColorGlobal = if ($MenuSelection -eq 1) { $FGGray } else { $FGDarkGray }
+    $Global:cDetailColorGlobal = if ($MenuSelection -eq 1) { $FGGray } else { $FGDarkGray }
     
-    # Helper to print item with status
-    function Write-ColItem {
-        param($Txt, $Met, $Status) 
-        
-        $pending = $false
-        if ($null -eq $Status) { $pending = $true }
-        elseif ($false -eq $Status) { $pending = $true }
-        elseif ("ForceRun" -eq $Status) { $pending = $true }
-        
-        $itemColor = $cDetailColorGlobal
-        if ($MenuSelection -eq 0 -and $pending) {
-            $itemColor = $FGYellow
-        }
-        
-        if ("GreyOut" -eq $Status) {
-            $icon = "${FGDarkGray}[ ]${Reset}"
-            $pad = " " * (24 - $Txt.Length); 
-            Write-LeftAligned "$icon ${FGDarkGray}$Txt${Reset}$pad${FGDarkGray}| ${FGDarkGray}$Met${Reset}" -Indent 3  
-        }
-        elseif ("ForceRun" -eq $Status) {
-            $iconColor = if ($MenuSelection -eq 0) { $FGYellow } else { $FGWhite }
-            $icon = "${FGDarkGray}[${iconColor}>${FGDarkGray}]${Reset}"
-            $pad = " " * (24 - $Txt.Length); 
-            Write-LeftAligned "$icon ${itemColor}$Txt${Reset}$pad${FGDarkGray}| ${itemColor}$Met${Reset}" -Indent 3  
-        }
-        else {
-            $iconColor = if ($MenuSelection -eq 0 -and $pending) { $FGYellow } else { $FGWhite }
-            $icon = if ($Status -eq $true) { "${FGDarkGray}[${FGDarkGreen}v${FGDarkGray}]${Reset}" } else { "${FGDarkGray}[${iconColor}>${FGDarkGray}]${Reset}" }
-            $pad = " " * (24 - $Txt.Length); 
-            Write-LeftAligned "$icon ${itemColor}$Txt${Reset}$pad${FGDarkGray}| ${itemColor}$Met${Reset}" -Indent 3  
-        }
-    }
+    Write-ColItem "Real-Time Protection" "SET_RealTimeProt" $s_RT
     
     
 
@@ -2392,39 +2325,8 @@ while ($true) {
     Add-DashLine ""
     
     # Maintenance Details
-    $mDetailColorGlobal = if ($MenuSelection -eq 1) { $FGGray } else { $FGDarkGray }
+    $Global:mDetailColorGlobal = if ($MenuSelection -eq 1) { $FGGray } else { $FGDarkGray }
     
-    function Write-MaintItem {
-        param($Txt, $Met, $Key, [int]$Threshold = 7) 
-        
-        $pending = $false
-        $prefix = "-"
-        if ($Key) {
-            $last = Get-WinAutoLastRun -Module $Key
-            if ($last -eq "Never") { $pending = $true; $prefix = "!" }
-            else {
-                try {
-                    $days = ((Get-Date) - (Get-Date $last)).Days
-                    $prefix = $days
-                    if ($days -gt $Threshold) { $pending = $true }
-                } catch { $pending = $true; $prefix = "!" }
-            }
-        }
-        
-        $statusColor = $mDetailColorGlobal
-        if ($MenuSelection -eq 0 -and $pending) {
-            $statusColor = $FGYellow
-        }
-        elseif ($Key) {
-            if ($prefix -eq "!") { $statusColor = $FGDarkRed }
-            elseif ($prefix -le $Threshold) { $statusColor = $FGDarkGreen }
-            else { $statusColor = $FGDarkRed }
-        }
-
-        $itemColor = if ($MenuSelection -eq 0 -and $pending) { $FGYellow } else { $mDetailColorGlobal }
-        $pad = " " * (24 - $Txt.Length); 
-        Write-LeftAligned "${FGDarkGray}[${statusColor}$prefix${FGDarkGray}]${itemColor} $Txt${Reset}$pad${FGDarkGray}| ${itemColor}$Met${Reset}" -Indent 3  
-    }
 
     $mTopColor = if ($MenuSelection -eq 1 -or ($MenuSelection -eq 0 -and $maintActive)) { $FGWhite } else { $FGDarkGray }
     $mLabelColor = if ($MenuSelection -eq 1 -or ($MenuSelection -eq 0 -and $maintActive)) { $FGWhite } else { $FGDarkGray }
