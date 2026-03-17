@@ -2246,8 +2246,8 @@ while ($true) {
     }
     
     # SmartRUN Indicators
-    $cConfColor = if ($configActive) { $FGYellow } else { $FGDarkGray }
-    $cMaintColor = if ($maintActive) { $FGYellow } else { $FGDarkGray }
+    $cConfColor = if ($MenuSelection -eq 0 -and $configActive) { $FGYellow } else { $FGDarkGray }
+    $cMaintColor = if ($MenuSelection -eq 0 -and $maintActive) { $FGYellow } else { $FGDarkGray }
     Add-DashLine (" " * 18 + "${cConfColor}Configure${Reset} ${FGDarkGray}|${Reset} ${cMaintColor}Maintain${Reset}")
 
 
