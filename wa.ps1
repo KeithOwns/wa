@@ -443,7 +443,7 @@ function Add-DashLine {
 
 function Write-Centered {
     param([string]$Text, [int]$Width = 60, [string]$Color)
-    $cleanText = $Text -replace "\x1b\[[0-9;]*m", ""
+    $cleanText = $Text -replace "$($Esc -replace '\[', '\[' )\[[0-9;]*m", ""
     $padLeft = [Math]::Floor(($Width - $cleanText.Length) / 2)
     if ($padLeft -lt 0) { $padLeft = 0 }
     
@@ -583,7 +583,7 @@ $Global:TickAction = {
         
         # User defined footer with colors
         # Use ^ v keys then press Space to RUN | Esc to EXIT
-        $Line = "                       ${Global:FGYellow}Navigation${Global:Reset} ${Global:FGBlack}${Global:BGDarkCyan}KEYS${Global:Reset}                       `n   ${Global:FGBlack}${Global:BGDarkCyan} ^ ${Global:Reset}  ${Global:FGGray}arrow${Global:Reset}  ${Global:FGBlack}${Global:BGDarkCyan} v ${Global:Reset}  ${Global:FGGray}keys${Global:Reset} ${Global:FGYellow}->${Global:Reset}${Global:FGDarkGray}|${Global:Reset}${Global:FGBlack}${Global:BGYellow}Select${Global:Reset}${Global:FGDarkGray}|${Global:Reset}${Global:FGYellow}<-${Global:Reset} ${Global:FGDarkGray}|${Global:Reset} ${Global:FGBlack}${Global:BGDarkRed}Esc${Global:Reset} ${Global:FGGray}to${Global:Reset} ${Global:FGDarkRed}${Global:BGWhite}EXIT${Global:Reset}"
+        $Line = "                ${Global:FGYellow}Navigation${Global:Reset} ${Global:FGBlack}${Global:BGDarkCyan}KEYS${Global:Reset}                `n  ${Global:FGBlack}${Global:BGDarkCyan} ^ ${Global:Reset} ${Global:FGGray}arrow${Global:Reset} ${Global:FGBlack}${Global:BGDarkCyan} v ${Global:Reset} ${Global:FGGray}keys${Global:Reset} ${Global:FGYellow}->${Global:Reset}${Global:FGDarkGray}|${Global:Reset}${Global:FGBlack}${Global:BGYellow}Select${Global:Reset}${Global:FGDarkGray}|${Global:Reset}${Global:FGYellow}<-${Global:Reset} ${Global:FGDarkGray}|${Global:Reset}${Global:FGBlack}${Global:BGDarkRed}Esc${Global:Reset} ${Global:FGGray}to${Global:Reset}${Global:FGDarkRed}${Global:BGWhite}EXIT${Global:Reset}"
     }
 
     try { [Console]::SetCursorPosition(0, $PromptCursorTop); Write-Host $Line } catch {}
@@ -2267,7 +2267,7 @@ while ($true) {
     # Determine if sections are active (have pending steps) for SmartRUN mode
     $configActive = $false
     if ($MenuSelection -eq 0) {
-        if ($s_RT -eq $false -or $s_PUA -eq $false -or $s_Edge -eq $false -or $s_FW -eq $false -or $s_Ctx -eq $false -or $s_Task -eq $false -or $s_View -eq $false -or $s_MU -eq $false -or $s_Rest -eq $false -or $s_Pers -eq $false) {
+        if ($s_RT -eq $false -or $s_PUA -eq $false -or $s_Edge -eq $false -or $s_FW -eq $false -or $s_Ctx -eq $false -or $s_Task -eq $false -or $s_View -eq $false -or $s_MU -eq $false -or $s_Rest -eq $false -or $s_Pers -eq $false -or $s_Mem -eq $false -or $s_Kern -eq $false -or $s_LSA -eq $false) {
             $configActive = $true
         }
     }
@@ -2414,15 +2414,16 @@ while ($true) {
     Write-MaintItem "SFC / DISM Repair" "RUN_WindowsRepair" "Maintenance_SFC" -Threshold 30
 
     # Master Plan Metadata Info
-    Add-DashLine (" " * 4 + "${FGDarkGray}Technical Metadata Columns: The CSV contains six columns of${Reset}")
-    Add-DashLine (" " * 4 + "${FGDarkGray}technical detail (METHOD, TECHNICAL DETAILS, REVERTIBLE,${Reset}")
-    Add-DashLine (" " * 4 + "${FGDarkGray}RESTART REQUIRED, IMPACT, and FUNCTION) used for reporting${Reset}")
-    Add-DashLine (" " * 4 + "${FGDarkGray}and automation background, but omitted from the UI.${Reset}")
+    $mI = "   " # Indent 3
+    Add-DashLine ("${mI}${FGDarkGray}Technical Metadata: The CSV contains six columns of${Reset}")
+    Add-DashLine ("${mI}${FGDarkGray}technical detail (METHOD, TECHNICAL DETAILS, REVERTIBLE,${Reset}")
+    Add-DashLine ("${mI}${FGDarkGray}RESTART REQUIRED, IMPACT, and FUNCTION) used for${Reset}")
+    Add-DashLine ("${mI}${FGDarkGray}background automation, but omitted from the UI.${Reset}")
     Add-DashLine ""
-    Add-DashLine (" " * 4 + "${FGDarkGray}Infrastructure Setup Rows: The CSV includes four internal${Reset}")
-    Add-DashLine (" " * 4 + "${FGDarkGray}setup/phase tracking rows (Execution Policy Check,${Reset}")
-    Add-DashLine (" " * 4 + "${FGDarkGray}Auto-Unblock, System Hardening Check, and Maintenance${Reset}")
-    Add-DashLine (" " * 4 + "${FGDarkGray}Cycle) that happen automatically behind the scenes.${Reset}")
+    Add-DashLine ("${mI}${FGDarkGray}Infrastructure: The CSV includes internal setup rows${Reset}")
+    Add-DashLine ("${mI}${FGDarkGray}(Execution Policy Check, Auto-Unblock, Hardening${Reset}")
+    Add-DashLine ("${mI}${FGDarkGray}Check, and Maintenance Cycle) that happen${Reset}")
+    Add-DashLine ("${mI}${FGDarkGray}automatically behind the scenes.${Reset}")
     
     Add-DashLine "  ${manualHeaderColor}$('_' * 52)${Reset}"
     Write-Boundary -Color $FGYellow
@@ -2440,7 +2441,6 @@ while ($true) {
     $Pre = ""
 
     # Timeout logic: Only on first load
-    $ActionText = "DASHBOARD" # Unused variable but kept for readability if referenced elsewhere
     $TimeoutSecs = 0
     if ($Global:WinAutoFirstLoad) {
         $TimeoutSecs = 5
