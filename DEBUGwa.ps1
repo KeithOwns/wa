@@ -2275,6 +2275,7 @@ while ($true) {
     $cHeaderColor = if ($MenuSelection -eq 1 -or ($MenuSelection -eq 0 -and $configActive)) { $FGWhite } else { $FGDarkGray }
     Add-DashLine "  ${manualHeaderColor}$('_' * 52)${Reset}"
     Add-DashLine (" " * 15 + "${cHeaderColor}Configure Operating System${Reset}")
+    Add-DashLine ""
     
     $cTopColor = if ($MenuSelection -eq 1 -or ($MenuSelection -eq 0 -and $configActive)) { $FGWhite } else { $FGDarkGray }
     $cLabelColor = if ($MenuSelection -eq 1 -or ($MenuSelection -eq 0 -and $configActive)) { $FGWhite } else { $FGDarkGray }
