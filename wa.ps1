@@ -2413,20 +2413,6 @@ while ($true) {
     Write-MaintItem "Temp File Cleanup" "RUN_SystemCleanup" "Maintenance_Cleanup" -Threshold 7
     Write-MaintItem "SFC / DISM Repair" "RUN_WindowsRepair" "Maintenance_SFC" -Threshold 30
 
-    # Master Plan Metadata Info
-    $mI = "   " # Indent 3
-    Add-DashLine ("${mI}${FGDarkGray}Technical Metadata: The CSV contains six columns${Reset}")
-    Add-DashLine ("${mI}${FGDarkGray}of technical detail (METHOD, DETAILS, RESTART,${Reset}")
-    Add-DashLine ("${mI}${FGDarkGray}IMPACT, etc.) used for background automation,${Reset}")
-    Add-DashLine ("${mI}${FGDarkGray}but omitted from the UI to keep it clean.${Reset}")
-    Add-DashLine ""
-    Add-DashLine ("${mI}${FGDarkGray}Infrastructure: The CSV includes internal setup${Reset}")
-    Add-DashLine ("${mI}${FGDarkGray}rows (Policy Check, Auto-Unblock, Hardening,${Reset}")
-    Add-DashLine ("${mI}${FGDarkGray}and Maintenance Cycle) that happen automatically${Reset}")
-    Add-DashLine ("${mI}${FGDarkGray}behind the scenes.${Reset}")
-    
-    Add-DashLine ""
-    Add-DashLine "  ${manualHeaderColor}$('_' * 52)${Reset}"
     Add-DashLine ""
     Write-Boundary -Color $FGYellow
 
