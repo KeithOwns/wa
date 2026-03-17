@@ -2230,6 +2230,36 @@ while ($true) {
     else {
         Write-Centered "${manualHeaderColor}| Manual Mode |${Reset}"
     }
+
+    # --- LIVE STATUS CHECKS (Lightweight) ---
+    $s_RT = $null; $s_PUA = $null; $s_FW = $null
+    try { 
+        $av = Get-ThirdPartyAV
+        $mp = Get-MpPreference -ErrorAction SilentlyContinue
+        if ($av) { $s_RT = "GreyOut" } else { $s_RT = $mp.DisableRealtimeMonitoring -eq $false }
+        if ($mp.PUAProtection -eq 1) { $s_PUA = $true } else { $s_PUA = "GreyOut" }
+    }
+    catch { $s_RT = $false; $s_PUA = $false }
+    
+    try {
+        $profiles = Get-NetFirewallProfile
+        $allEnabled = $true
+        foreach ($fwProfile in $profiles) { if (-not $fwProfile.Enabled) { $allEnabled = $false } }
+        $s_FW = $allEnabled
+    } catch { $s_FW = $false }
+    
+    function Test-Reg { param($P, $N, $V) try { (Get-ItemProperty $P $N -EA 0).$N -eq $V } catch { $false } }
+    $edgeVal = (Get-ItemProperty "HKCU:\Software\Microsoft\Edge\SmartScreenPuaEnabled" -ErrorAction SilentlyContinue)."(default)"
+    $s_Edge = if ($edgeVal -eq 1) { $true } else { "GreyOut" }
+    $s_Mem = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity" "Enabled" 1
+    $s_Kern = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\KernelShadowStacks" "Enabled" 1
+    $s_LSA = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" "RunAsPPL" 1
+    $s_Task = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" "SearchboxTaskbarMode" 3
+    $s_View = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "ShowTaskViewButton" 0
+    $s_MU = Test-Reg "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" "AllowMUUpdateService" 1
+    $s_Rest = Test-Reg "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" "RestartNotificationsAllowed2" 1
+    $s_Pers = Test-Reg "HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" "RestartApps" 1
+
     # Determine if sections are active (have pending steps) for SmartRUN mode
     $configActive = $false
     if ($MenuSelection -eq 0) {
@@ -2282,65 +2312,6 @@ while ($true) {
         }
     }
     
-    # --- LIVE STATUS CHECKS (Lightweight) ---
-    $s_RT = $null; $s_PUA = $null; $s_FW = $null
-    # if ($MenuSelection -eq 2) {
-    # Always run checks for accurate dashboard
-    try { 
-        $av = Get-ThirdPartyAV
-        $mp = Get-MpPreference -ErrorAction SilentlyContinue
-
-        if ($av) {
-            $s_RT = "GreyOut"
-        }
-        else {
-            $s_RT = $mp.DisableRealtimeMonitoring -eq $false
-        }
-
-        if ($mp.PUAProtection -eq 1) {
-            $s_PUA = $true
-        }
-        else {
-            $s_PUA = "GreyOut"
-        }
-    }
-    catch { 
-        $s_RT = $false; $s_PUA = $false 
-        Write-Log "Failed to query Defender Preferences via WMI: $($_.Exception.Message)" -Level WARN
-    }
-    
-    try {
-        $profiles = Get-NetFirewallProfile
-        $allEnabled = $true
-
-        foreach ($fwProfile in $profiles) {
-            $isEnabled = $fwProfile.Enabled -eq $true
-            if (-not $isEnabled) { $allEnabled = $false }
-        }
-
-        $s_FW = $allEnabled
-    }
-    catch { 
-        $s_FW = $false 
-        Write-Log "Failed to query Firewall Profiles: $($_.Exception.Message)" -Level WARN
-    }
-
-    # }
-    
-    # Registry Checks (Fast)
-    function Test-Reg { param($P, $N, $V) try { (Get-ItemProperty $P $N -EA 0).$N -eq $V } catch { $false } }
-    
-    # Edge PUA (Registry Check)
-    $edgeVal = (Get-ItemProperty "HKCU:\Software\Microsoft\Edge\SmartScreenPuaEnabled" -ErrorAction SilentlyContinue)."(default)"
-    $s_Edge = if ($edgeVal -eq 1) { $true } else { "GreyOut" }
-    $s_Mem = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity" "Enabled" 1
-    $s_Kern = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\KernelShadowStacks" "Enabled" 1
-    $s_LSA = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" "RunAsPPL" 1
-    $s_Task = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" "SearchboxTaskbarMode" 3
-    $s_View = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "ShowTaskViewButton" 0
-    $s_MU = Test-Reg "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" "AllowMUUpdateService" 1
-    $s_Rest = Test-Reg "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" "RestartNotificationsAllowed2" 1
-    $s_Pers = Test-Reg "HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" "RestartApps" 1
     
 
     # Classic Context Menu Check (InprocServer32 Default Value must be empty string)
