@@ -583,7 +583,7 @@ $Global:TickAction = {
         
         # User defined footer with colors
         # Use ^ v keys then press Space to RUN | Esc to EXIT
-        $Line = "                     ${Global:FGYellow}Navigation${Global:Reset} ${Global:FGBlack}${Global:BGDarkCyan}KEYS${Global:Reset}`n      ${Global:FGBlack}${Global:BGDarkCyan} ^ ${Global:Reset} ${Global:FGGray}arrow${Global:Reset} ${Global:FGBlack}${Global:BGDarkCyan} v ${Global:Reset} ${Global:FGGray}keys${Global:Reset} ${Global:FGYellow}->${Global:Reset}${Global:FGDarkGray}|${Global:Reset}${Global:FGBlack}${Global:BGYellow}Select${Global:Reset}${Global:FGDarkGray}|${Global:Reset}${Global:FGYellow}<-${Global:Reset} ${Global:FGDarkGray}|${Global:Reset}${Global:FGBlack}${Global:BGDarkRed}Esc${Global:Reset} ${Global:FGGray}to${Global:Reset}${Global:FGDarkRed}${Global:BGWhite}EXIT${Global:Reset}"
+        $Line = "                     ${Global:FGYellow}Navigation${Global:Reset} ${Global:FGBlack}${Global:BGYellow}KEYS${Global:Reset}`n      ${Global:FGBlack}${Global:BGYellow} ^ ${Global:Reset} ${Global:FGGray}arrow${Global:Reset} ${Global:FGBlack}${Global:BGYellow} v ${Global:Reset} ${Global:FGGray}keys${Global:Reset} ${Global:FGYellow}->${Global:Reset}${Global:FGDarkGray}|${Global:Reset}${Global:FGBlack}${Global:BGYellow}Select${Global:Reset}${Global:FGDarkGray}|${Global:Reset}${Global:FGYellow}<-${Global:Reset} ${Global:FGDarkGray}|${Global:Reset} ${Global:FGBlack}${Global:BGYellow}Esc${Global:Reset} ${Global:FGGray}to${Global:Reset} ${Global:FGDarkRed}${Global:BGWhite}EXIT${Global:Reset}"
     }
 
     try { [Console]::SetCursorPosition(0, $PromptCursorTop); Write-Host $Line } catch {}
