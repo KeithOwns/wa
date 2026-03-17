@@ -828,6 +828,19 @@ function Test-WA_MaintenanceRecentlyComplete {
 }
 
 # --- ATTESTATION HELPERS (Global Access) ---
+function Get-ThirdPartyAV {
+    try {
+        $avList = Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntivirusProduct -ErrorAction Stop
+        foreach ($av in $avList) {
+            # 397568 is typical implementation for Defender, but name check is robust
+            if ($av.displayName -and $av.displayName -notmatch "Windows Defender" -and $av.displayName -notmatch "Microsoft Defender ") {
+                return $av.displayName
+            }
+        }
+    } catch {}
+    return $null
+}
+
 function Test-Reg { param($P, $N, $V) try { (Get-ItemProperty $P $N -EA 0).$N -eq $V } catch { $false } }
 
 function Test-WinAutoAttestation {
@@ -1063,9 +1076,8 @@ function Invoke-WinAutoConfiguration {
     # Status discovery before execution
     $s_RT = $null; $s_PUA = $null; $s_FW = $null
     try { 
-        $av = Get-ThirdPartyAV; $mp = Get-MpPreference -EA 0
-        if ($av) { $s_RT = "GreyOut" } else { $s_RT = $mp.DisableRealtimeMonitoring -eq $false }
-        if ($mp.PUAProtection -eq 1) { $s_PUA = $true } else { $s_PUA = "GreyOut" }
+        $avName = Get-ThirdPartyAV; $mp = Get-MpPreference -EA 0
+        if ($avName) { $s_RT = "GreyOut"; $s_PUA = "GreyOut" } else { $s_RT = $mp.DisableRealtimeMonitoring -eq $false; $s_PUA = $mp.PUAProtection -eq 1 }
     } catch { $s_RT = $false; $s_PUA = $false }
     try { $s_FW = (Get-NetFirewallProfile | Where-Object { -not $_.Enabled }).Count -eq 0 } catch { $s_FW = $false }
     $s_Mem = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity" "Enabled" 1
@@ -2188,10 +2200,15 @@ while ($true) {
     # --- LIVE STATUS CHECKS (Discovery for UI and SmartRUN Execution) ---
     $s_RT = $null; $s_PUA = $null; $s_FW = $null
     try { 
-        $av = Get-ThirdPartyAV
+        $avName = Get-ThirdPartyAV
         $mp = Get-MpPreference -ErrorAction SilentlyContinue
-        if ($av) { $s_RT = "GreyOut" } else { $s_RT = $mp.DisableRealtimeMonitoring -eq $false }
-        if ($mp.PUAProtection -eq 1) { $s_PUA = $true } else { $s_PUA = "GreyOut" }
+        if ($avName) { 
+            $s_RT = "GreyOut"
+            $s_PUA = "GreyOut" # PUA often managed by same engine
+        } else { 
+            $s_RT = $mp.DisableRealtimeMonitoring -eq $false 
+            $s_PUA = $mp.PUAProtection -eq 1
+        }
     }
     catch { $s_RT = $false; $s_PUA = $false }
     
