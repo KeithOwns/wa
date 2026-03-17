@@ -443,11 +443,15 @@ function Add-DashLine {
 
 function Write-Centered {
     param([string]$Text, [int]$Width = 60, [string]$Color)
-    $cleanText = $Text -replace "$Esc\[[0-9;]*m", ""
+    $cleanText = $Text -replace "\x1b\[[0-9;]*m", ""
     $padLeft = [Math]::Floor(($Width - $cleanText.Length) / 2)
     if ($padLeft -lt 0) { $padLeft = 0 }
-    if ($Color) { Add-DashLine (" " * $padLeft + "$Color$Text$Reset") }
-    else { Add-DashLine (" " * $padLeft + $Text) }
+    
+    # If using standard dashboard width (52), we hard-offset by 2 to match the box
+    $offset = if ($Width -eq 52) { 2 } else { 0 }
+    
+    if ($Color) { Add-DashLine (" " * ($padLeft + $offset) + "$Color$Text$Reset") }
+    else { Add-DashLine (" " * ($padLeft + $offset) + $Text) }
 }
 
 function Write-LeftAligned {
@@ -457,7 +461,7 @@ function Write-LeftAligned {
 
 function Write-Boundary {
     param([string]$Color = $FGDarkCyan)
-    Write-Centered "$Color$([string]'_' * 52)$Reset"
+    Add-DashLine ("  " + $Color + ([string]'_' * 52) + $Reset)
 }
 
 function Export-WinAutoCSV {
@@ -498,8 +502,8 @@ function Write-Header {
     Clear-Host
     Write-Host ""
     $WinAutoTitle = "WinAuto"
-    Write-Centered "$Bold$FGCyan$WinAutoTitle$Reset"
-    Write-Centered "$Bold$FGCyan$($Title.ToUpper())$Reset"
+    Write-Centered "$Bold$FGCyan$WinAutoTitle$Reset" -Width 52
+    Write-Centered "$Bold$FGCyan$($Title.ToUpper())$Reset" -Width 52
     if (-not $NoBottom) {
         Write-Boundary
     }
@@ -579,7 +583,7 @@ $Global:TickAction = {
         
         # User defined footer with colors
         # Use ^ v keys then press Space to RUN | Esc to EXIT
-        $Line = "                       ${Global:FGYellow}Navigation${Global:Reset} ${Global:FGBlack}${Global:BGDarkCyan}KEYS${Global:Reset}                       `n   ${Global:FGBlack}${Global:BGDarkCyan} ^ ${Global:Reset}  ${Global:FGGray}arrow${Global:Reset}  ${Global:FGBlack}${Global:BGDarkCyan} v ${Global:Reset}  ${Global:FGGray}keys${Global:Reset} ${Global:FGYellow}->${Global:Reset}${Global:FGDarkGray}|${Global:Reset}${Global:FGBlack}${Global:BGYellow}Select${Global:Reset}${Global:FGDarkGray}|${Global:Reset}${Global:FGYellow}<-${Global:Reset} ${Global:FGDarkGray}|${Global:Reset} ${Global:FGBlack}${Global:BGDarkCyan}I${Global:Reset}${Global:FGWhite}nfo${Global:Reset} ${Global:FGDarkGray}|${Global:Reset} ${Global:FGBlack}${Global:BGDarkRed}Esc${Global:Reset} ${Global:FGGray}to${Global:Reset} ${Global:FGDarkRed}${Global:BGWhite}EXIT${Global:Reset}"
+        $Line = "                       ${Global:FGYellow}Navigation${Global:Reset} ${Global:FGBlack}${Global:BGDarkCyan}KEYS${Global:Reset}                       `n   ${Global:FGBlack}${Global:BGDarkCyan} ^ ${Global:Reset}  ${Global:FGGray}arrow${Global:Reset}  ${Global:FGBlack}${Global:BGDarkCyan} v ${Global:Reset}  ${Global:FGGray}keys${Global:Reset} ${Global:FGYellow}->${Global:Reset}${Global:FGDarkGray}|${Global:Reset}${Global:FGBlack}${Global:BGYellow}Select${Global:Reset}${Global:FGDarkGray}|${Global:Reset}${Global:FGYellow}<-${Global:Reset} ${Global:FGDarkGray}|${Global:Reset} ${Global:FGBlack}${Global:BGDarkRed}Esc${Global:Reset} ${Global:FGGray}to${Global:Reset} ${Global:FGDarkRed}${Global:BGWhite}EXIT${Global:Reset}"
     }
 
     try { [Console]::SetCursorPosition(0, $PromptCursorTop); Write-Host $Line } catch {}
@@ -2187,20 +2191,20 @@ while ($true) {
     }
     
     Add-DashLine ""
-    Write-Centered "$Bold${FGCyan} - WinAuto - $Reset"
+    Write-Centered "$Bold${FGCyan} - WinAuto - $Reset" -Width 52
     Write-Boundary -Color $FGCyan
     if ($MenuSelection -eq 0) {
         # Align with 52-char block (2 space indent + 52 char block)
         Add-DashLine "  ${FGBlack}${BGYellow}$(' ' * 20)| SmartRUN |$(' ' * 20)${Reset}"
     }
     else {
-        Write-Centered "${FGDarkGray}| SmartRUN |${Reset}"
+        Add-DashLine (" " * 22 + "${FGDarkGray}| SmartRUN |${Reset}")
     }
     
     # SmartRUN Indicators
     $cConf = if (-not $configSkipped) { $FGCyan } else { $FGDarkGray }
     $cMaint = if (-not $Global:MaintenanceComplete) { $FGCyan } else { $FGDarkGray }
-    Write-Centered "${cConf}Configure${Reset} ${FGDarkGray}|${Reset} ${cMaint}Maintain${Reset}"
+    Add-DashLine (" " * 18 + "${cConf}Configure${Reset} ${FGDarkGray}|${Reset} ${cMaint}Maintain${Reset}")
 
 
 
@@ -2228,7 +2232,7 @@ while ($true) {
         Add-DashLine "  ${FGBlack}${BGYellow}$(' ' * 18)| Manual Mode |$(' ' * 19)${Reset}"
     }
     else {
-        Write-Centered "${manualHeaderColor}| Manual Mode |${Reset}"
+        Add-DashLine (" " * 20 + "${manualHeaderColor}| Manual Mode |${Reset}")
     }
 
     # --- LIVE STATUS CHECKS (Lightweight) ---
@@ -2272,7 +2276,7 @@ while ($true) {
     $cLabelColor = if ($MenuSelection -eq 1 -or ($MenuSelection -eq 0 -and $configActive)) { $FGWhite } else { $FGDarkGray }
     
     Write-LeftAligned "${FGDarkGray}[${cTopColor}>${FGDarkGray}] ${cLabelColor}ENABLE / ${FGDarkGray}[${FGDarkGreen}v${FGDarkGray}] ${cLabelColor}ENABLED    ${FGDarkGray}|${cLabelColor} ATOMIC_SCRIPT$Reset" -Indent 3
-    Write-Centered "${FGDarkGray}------------------------------------------------$Reset"
+    Add-DashLine ("  ${FGDarkGray}$('-' * 52)${Reset}")
     
     # Config Details
     # In SmartRUN (0), we want specific items to be Yellow only if they are pending
@@ -2362,7 +2366,7 @@ while ($true) {
     # Maintenance sub-section (inline under MANUAL-MODE)
     Add-DashLine "  ${manualHeaderColor}$('_' * 52)${Reset}"
     $mHeaderColor = if ($MenuSelection -eq 1 -or ($MenuSelection -eq 0 -and $maintActive)) { $FGWhite } else { $FGDarkGray }
-    Write-Centered "${mHeaderColor}Maintain Operating System${Reset}"
+    Add-DashLine (" " * 15 + "${mHeaderColor}Maintain Operating System${Reset}")
     Add-DashLine ""
     
     # Maintenance Details
@@ -2403,22 +2407,22 @@ while ($true) {
     $mTopColor = if ($MenuSelection -eq 1 -or ($MenuSelection -eq 0 -and $maintActive)) { $FGWhite } else { $FGDarkGray }
     $mLabelColor = if ($MenuSelection -eq 1 -or ($MenuSelection -eq 0 -and $maintActive)) { $FGWhite } else { $FGDarkGray }
     Write-LeftAligned "${FGDarkGray}[${mTopColor}#${FGDarkGray}]${mLabelColor} OF DAYS SINCE LAST RUN  ${FGDarkGray}|${mLabelColor} ATOMIC_SCRIPT$Reset" -Indent 3
-    Write-Centered "${FGDarkGray}------------------------------------------------$Reset"
+    Add-DashLine ("  ${FGDarkGray}$('-' * 52)${Reset}")
     Write-MaintItem "Get Updates" "RUN_UpdateSuite" "Maintenance_WinUpdate" -Threshold 1
     Write-MaintItem "Drive Optimization" "RUN_OptimizeDisks" "Maintenance_Disk" -Threshold 7
     Write-MaintItem "Temp File Cleanup" "RUN_SystemCleanup" "Maintenance_Cleanup" -Threshold 7
     Write-MaintItem "SFC / DISM Repair" "RUN_WindowsRepair" "Maintenance_SFC" -Threshold 30
 
     # Master Plan Metadata Info
-    Write-Centered "${FGDarkGray}Technical Metadata Columns: The CSV contains six columns of${Reset}"
-    Write-Centered "${FGDarkGray}technical detail (METHOD, TECHNICAL DETAILS, REVERTIBLE,${Reset}"
-    Write-Centered "${FGDarkGray}RESTART REQUIRED, IMPACT, and FUNCTION) used for reporting${Reset}"
-    Write-Centered "${FGDarkGray}and automation background, but omitted from the UI.${Reset}"
-    Write-Centered ""
-    Write-Centered "${FGDarkGray}Infrastructure Setup Rows: The CSV includes four internal${Reset}"
-    Write-Centered "${FGDarkGray}setup/phase tracking rows (Execution Policy Check,"
-    Write-Centered "${FGDarkGray}Auto-Unblock, System Hardening Check, and Maintenance${Reset}"
-    Write-Centered "${FGDarkGray}Cycle) that happen automatically behind the scenes.${Reset}"
+    Add-DashLine (" " * 4 + "${FGDarkGray}Technical Metadata Columns: The CSV contains six columns of${Reset}")
+    Add-DashLine (" " * 4 + "${FGDarkGray}technical detail (METHOD, TECHNICAL DETAILS, REVERTIBLE,${Reset}")
+    Add-DashLine (" " * 4 + "${FGDarkGray}RESTART REQUIRED, IMPACT, and FUNCTION) used for reporting${Reset}")
+    Add-DashLine (" " * 4 + "${FGDarkGray}and automation background, but omitted from the UI.${Reset}")
+    Add-DashLine ""
+    Add-DashLine (" " * 4 + "${FGDarkGray}Infrastructure Setup Rows: The CSV includes four internal${Reset}")
+    Add-DashLine (" " * 4 + "${FGDarkGray}setup/phase tracking rows (Execution Policy Check,${Reset}")
+    Add-DashLine (" " * 4 + "${FGDarkGray}Auto-Unblock, System Hardening Check, and Maintenance${Reset}")
+    Add-DashLine (" " * 4 + "${FGDarkGray}Cycle) that happen automatically behind the scenes.${Reset}")
     
     Add-DashLine "  ${manualHeaderColor}$('_' * 52)${Reset}"
     Write-Boundary -Color $FGYellow
