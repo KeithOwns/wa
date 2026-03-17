@@ -2210,7 +2210,8 @@ while ($true) {
     }
 
     # Sectional Pending State Detection
-    $configActive = if ($s_RT -eq $false -or $s_PUA -eq $false -or $s_Edge -eq $false -or $s_FW -eq $false -or $s_Ctx -eq $false -or $s_Task -eq $false -or $s_View -eq $false -or $s_MU -eq $false -or $s_Rest -eq $false -or $s_Pers -eq $false -or $s_Mem -eq $false -or $s_Kern -eq $false -or $s_LSA -eq $false) { $true } else { $false }
+    $configActive = if ($false -eq $s_RT -or $false -eq $s_PUA -or $false -eq $s_Edge -or $false -eq $s_FW -or $false -eq $s_Ctx -or $false -eq $s_Task -or $false -eq $s_View -or $false -eq $s_MU -or $false -eq $s_Rest -or $false -eq $s_Pers -or $false -eq $s_Mem -or $false -eq $s_Kern -or $false -eq $s_LSA) { $true } else { $false }
+
     
     $maintActive = $false
     $mKeys = "Maintenance_WinUpdate", "Maintenance_Disk", "Maintenance_Cleanup", "Maintenance_SFC"
@@ -2301,8 +2302,8 @@ while ($true) {
         
         $pending = $false
         if ($null -eq $Status) { $pending = $true }
-        elseif ($Status -eq $false) { $pending = $true }
-        elseif ($Status -eq "ForceRun") { $pending = $true }
+        elseif ($false -eq $Status) { $pending = $true }
+        elseif ("ForceRun" -eq $Status) { $pending = $true }
         
         $itemColor = $cDetailColorGlobal
         if ($MenuSelection -eq 0 -and $pending) {
