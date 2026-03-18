@@ -198,8 +198,8 @@ trap {
 
 $Global:WinAutoCSVContent = @'
 ACTION,STAGE,SOURCE SCRIPT,METHOD,TECHNICAL DETAILS,REVERTIBLE,RESTART REQUIRED,IMPACT,FUNCTION
-Execution Policy / Admin Check,Pre-Run Setup,wa.ps1,Inline,Set-ExecutionPolicy RemoteSigned -Scope Process,N/A,No,System,(Script Header)
-Auto-Unblock,Pre-Run Setup,wa.ps1,Inline,Unblock-File (Self),N/A,No,System,(Script Header)
+Execution Policy / Admin Check,Pre-Run Setup,wa,Inline,Set-ExecutionPolicy RemoteSigned -Scope Process,N/A,No,System,(Script Header)
+Auto-Unblock,Pre-Run Setup,wa,Inline,Unblock-File (Self),N/A,No,System,(Script Header)
 System Hardening Check,SmartRUN,CHECK_SystemHarden,Mixed,Checks Last Run date (30 days) to determine invalidation,N/A,No,Automation,Invoke-WinAutoConfiguration -SmartRun
 Maintenance Cycle,SmartRUN,SET_ScheduleMaintn,Mixed,Checks Last Run dates (SFC=30d; Disk=7d; Clean=7d) to trigger tasks,N/A,No,Automation,Invoke-WinAutoMaintenance -SmartRun
 Real-Time Protection,Configure,SET_RealTimeProt,PS WMI,Set-MpPreference -DisableRealtimeMonitoring 0,Yes,No,Security,Invoke-WA_SetRealTimeProtection
