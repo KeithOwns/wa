@@ -1,0 +1,8 @@
+
+2. Update the content of the homepage so that it is more compact horizontally. Start with deleting the ".ps1" filename extensions.
+3. Add the missing info:
+"Technical Metadata Columns: The CSV contains six columns of technical detail (METHOD, TECHNICAL DETAILS, REVERTIBLE, RESTART REQUIRED, IMPACT, and FUNCTION) used for reporting and automation background, but omitted from the UI to keep it clean.
+Infrastructure Setup Rows: The CSV includes four internal setup/phase tracking rows (Execution Policy Check, Auto-Unblock, System Hardening Check, and Maintenance Cycle) that happen automatically and aren't listed as manual items."
+to the homepage intelligently. 
+4. Delete all code related to the infopage entirely.
+5. Update the logic of the homepage so that, while 'SmartRUN' is currently selected, only the steps that are going to be run (due to the script's logic) are shown in Fg Yellow, and any section (Configure or Maintain) that has an active step, has Fg White.

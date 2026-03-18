@@ -915,6 +915,18 @@ function Invoke-WA_SystemPreCheck {
 function Invoke-WA_WindowsUpdate {
     Write-Header "WINDOWS UPDATE SCAN"
 
+    # UIA Preparation
+    if (-not ([System.Management.Automation.PSTypeName]"System.Windows.Automation.AutomationElement").Type) {
+        try {
+            Add-Type -AssemblyName UIAutomationClient
+            Add-Type -AssemblyName UIAutomationTypes
+        }
+        catch {
+            Write-LeftAligned "$FGRed$Char_RedCross Failed to load UI Automation assemblies.$Reset"
+            return
+        }
+    }
+
     Write-Host ""
     Write-Centered "$Global:Char_EnDash STORE & SETTINGS $Global:Char_EnDash" -Color "$Bold$FGCyan"
 
@@ -1417,6 +1429,19 @@ function Invoke-WA_SetKernelMode {
 
         # --- MAIN SCRIPT ---
         Write-Header "KERNEL STACK UIA"
+        
+        # UIA Preparation
+        if (-not ([System.Management.Automation.PSTypeName]"System.Windows.Automation.AutomationElement").Type) {
+            try {
+                Add-Type -AssemblyName UIAutomationClient
+                Add-Type -AssemblyName UIAutomationTypes
+            }
+            catch {
+                Write-LeftAligned "$FGRed$Char_RedCross Failed to load UI Automation assemblies.$Reset"
+                return
+            }
+        }
+
         Write-Log "Starting Windows Security Automation (Kernel-mode Stack Protection)..." "Cyan"
 
         $MaxRetries = 5
