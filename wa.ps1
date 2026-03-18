@@ -1454,11 +1454,8 @@ function Invoke-WA_SetKernelMode {
             # 1. Launch / Relaunch Windows Security
             Write-Log "Launching Windows Security (Iteration $RetryCount)..." "Gray"
         
-            Stop-Process -Name "SecHealthUI" -Force -ErrorAction SilentlyContinue
-            Start-Sleep -Seconds 1
-        
-            Start-Process "windowsdefender:"
-            Start-Sleep -Seconds 3
+            Start-SecHealthUI
+
 
             # 2. Find the Main Window
             $Desktop = [System.Windows.Automation.AutomationElement]::RootElement
