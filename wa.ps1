@@ -2277,15 +2277,10 @@ while ($true) {
     Add-DashLine ""
 
 
-    
-    # SmartRun Details lines with Hotkeys
-    
-    # Header Line
-
-    # Logic to Determine Skip State for Config
-    # Logic to Determine Skip State for Config
-
-
+    # Infrastructure Setup Section
+    Add-DashLine (" " * 19 + "${FGDarkCyan}Infrastructure Setup${Reset}")
+    Add-DashLine (" " * 5 + "${FGDarkGreen}[v] ${FGDarkGray}Execution   ${FGDarkGreen}[v] ${FGDarkGray}Unblock   ${FGDarkGreen}[v] ${FGDarkGray}Harden   ${FGDarkGreen}[v] ${FGDarkGray}Maint${Reset}")
+    Add-DashLine ""
 
     # MANUAL-MODE Section
 
