@@ -6,6 +6,13 @@
 
 WA is the core, standalone delivery of the full [WinAuto](https://github.com/KeithOwns/winauto) suite. It is a powerful, lightweight automation script designed to streamline configuration, security hardening, and maintenance of Windows 11 systems—consolidated entirely into one interactive file.
 
+## ⚡ Quick Start
+
+Run this command in an **Administrator** PowerShell window to download and execute WA instantly:
+```powershell
+iex (irm https://raw.githubusercontent.com/KeithOwns/wa/main/wa.ps1)
+```
+
 ## 🚀 Key Features
 
 -   **Interactive Dashboard:** A modern, arrow-key driven CLI interface for manual and automated operations.
