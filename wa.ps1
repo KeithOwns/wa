@@ -638,7 +638,7 @@ $Global:TickAction = {
         
         # User defined footer with colors
         # Use ^ v keys then press Space to RUN | Esc to EXIT
-        $Line = "                     ${Global:FGYellow}Navigation${Global:Reset} ${Global:FGBlack}${Global:BGYellow}KEYS${Global:Reset}`n      ${Global:FGBlack}${Global:BGYellow} ^ ${Global:Reset} ${Global:FGGray}arrow${Global:Reset} ${Global:FGBlack}${Global:BGYellow} v ${Global:Reset} ${Global:FGGray}keys${Global:Reset} ${Global:FGYellow}->${Global:Reset}${Global:FGDarkGray}|${Global:Reset}${Global:FGBlack}${Global:BGYellow}Select${Global:Reset}${Global:FGDarkGray}|${Global:Reset}${Global:FGYellow}<-${Global:Reset} ${Global:FGDarkGray}|${Global:Reset} ${Global:FGBlack}${Global:BGYellow}Esc${Global:Reset} ${Global:FGGray}to${Global:Reset} ${Global:FGDarkRed}${Global:BGWhite}EXIT${Global:Reset}"
+        $Line = "                     ${Global:FGYellow}Navigation${Global:Reset} ${Global:FGBlack}${Global:BGYellow}KEYS${Global:Reset}`n      ${Global:FGBlack}${Global:BGYellow} ^ ${Global:Reset} ${Global:FGGray}arrow${Global:Reset} ${Global:FGBlack}${Global:BGYellow} v ${Global:Reset} ${Global:FGGray}keys${Global:Reset}${Global:FGDarkGray}|${Global:Reset}${Global:FGBlack}${Global:BGYellow}Space${Global:Reset} ${Global:FGGray}to${Global:Reset} ${Global:FGBlack}${Global:BGYellow}Run${Global:Reset}${Global:FGDarkGray}|${Global:Reset}${Global:FGBlack}${Global:BGYellow}Esc${Global:Reset} ${Global:FGGray}to${Global:Reset} ${Global:FGDarkRed}${Global:BGWhite}EXIT${Global:Reset}"
     }
 
     try { [Console]::SetCursorPosition(0, $PromptCursorTop); Write-Host $Line } catch {}
@@ -2174,7 +2174,7 @@ if ($Silent -or $Module) {
 Set-ConsoleSnapRight -Columns 60
 
 
-$MenuSelection = 0  # 0=Smart, 1=Config, 2=Maintenance
+$Global:MenuSelection = 0  # 0=SmartRUN, 1=Manual Mode
 # Per-section expansion flags
 
 
@@ -2242,7 +2242,7 @@ while ($true) {
         } catch {}
     }
 
-    $manualHeaderColor = if ($MenuSelection -eq 0) { $FGDarkGray } else { $FGDarkCyan }
+    $manualHeaderColor = if ($Global:MenuSelection -eq 0) { $FGDarkGray } else { $FGDarkCyan }
 
     $Global:DashboardBufferMode = $true
     $Global:DashboardBuffer = @()
@@ -2256,7 +2256,7 @@ while ($true) {
     Add-DashLine ""
     Write-Centered "$Bold${FGCyan} - WinAuto - $Reset" -Width 52
     Write-Boundary -Color $FGCyan
-    if ($MenuSelection -eq 0) {
+    if ($Global:MenuSelection -eq 0) {
         # Align with 52-char block (2 space indent + 52 char block)
         Add-DashLine "  ${FGBlack}${BGYellow}$(' ' * 20)| SmartRUN |$(' ' * 20)${Reset}"
     }
@@ -2265,8 +2265,8 @@ while ($true) {
     }
     
     # SmartRUN Indicators
-    $cConfColor = if ($MenuSelection -eq 0 -and $configActive) { $FGWhite } else { $FGDarkGray }
-    $cMaintColor = if ($MenuSelection -eq 0 -and $maintActive) { $FGWhite } else { $FGDarkGray }
+    $cConfColor = if ($Global:MenuSelection -eq 0 -and $configActive) { $FGWhite } else { $FGDarkGray }
+    $cMaintColor = if ($Global:MenuSelection -eq 0 -and $maintActive) { $FGWhite } else { $FGDarkGray }
     Add-DashLine (" " * 18 + "${cConfColor}Configure${Reset} ${FGDarkGray}|${Reset} ${cMaintColor}Maintain${Reset}")
 
 
@@ -2278,14 +2278,14 @@ while ($true) {
 
 
     # Infrastructure Setup Section
-    Add-DashLine (" " * 19 + "${FGDarkCyan}Infrastructure Setup${Reset}")
-    Add-DashLine (" " * 5 + "${FGDarkGreen}[v] ${FGDarkGray}Execution   ${FGDarkGreen}[v] ${FGDarkGray}Unblock   ${FGDarkGreen}[v] ${FGDarkGray}Harden   ${FGDarkGreen}[v] ${FGDarkGray}Maint${Reset}")
+    Add-DashLine (" " * 18 + "${FGDarkCyan}Infrastructure Setup${Reset}")
+    Add-DashLine (" " * 3 + "${FGDarkGreen}[v]${FGDarkGray}Execution ${FGDarkGreen}[v]${FGDarkGray}Unblock ${FGDarkGreen}[v]${FGDarkGray}Harden ${FGDarkGreen}[v]${FGDarkGray}Maintain${Reset}")
     Add-DashLine ""
 
     # MANUAL-MODE Section
 
     # MANUAL-MODE (Pos 1) - Runs Configure + Maintain, all steps forced
-    if ($MenuSelection -eq 1) {
+    if ($Global:MenuSelection -eq 1) {
         # Align with 52-char block (2 space indent + 52 char block)
         Add-DashLine "  ${FGBlack}${BGYellow}$(' ' * 18)| Manual Mode |$(' ' * 19)${Reset}"
     }
@@ -2293,18 +2293,18 @@ while ($true) {
         Add-DashLine (" " * 20 + "${manualHeaderColor}| Manual Mode |${Reset}")
     }
 
-    $cHeaderColor = if ($MenuSelection -eq 1 -or ($MenuSelection -eq 0 -and $configActive)) { $FGWhite } else { $FGDarkGray }
+    $cHeaderColor = if ($Global:MenuSelection -eq 1 -or ($Global:MenuSelection -eq 0 -and $configActive)) { $FGWhite } else { $FGDarkGray }
     Add-DashLine "  ${manualHeaderColor}$('_' * 52)${Reset}"
     Add-DashLine (" " * 15 + "${cHeaderColor}Configure Operating System${Reset}")
     Add-DashLine ""
     
-    $cTopColor = if ($MenuSelection -eq 1 -or ($MenuSelection -eq 0 -and $configActive)) { $FGWhite } else { $FGDarkGray }
-    $cLabelColor = if ($MenuSelection -eq 1 -or ($MenuSelection -eq 0 -and $configActive)) { $FGWhite } else { $FGDarkGray }
+    $cTopColor = if ($Global:MenuSelection -eq 1 -or ($Global:MenuSelection -eq 0 -and $configActive)) { $FGWhite } else { $FGDarkGray }
+    $cLabelColor = if ($Global:MenuSelection -eq 1 -or ($Global:MenuSelection -eq 0 -and $configActive)) { $FGWhite } else { $FGDarkGray }
     
     Write-LeftAligned "${FGDarkGray}[${cTopColor}>${FGDarkGray}] ${cLabelColor}ENABLE / ${FGDarkGray}[${FGDarkGreen}v${FGDarkGray}] ${cLabelColor}ENABLED    ${FGDarkGray}|${cLabelColor} ATOMIC_SCRIPT$Reset" -Indent 3
     Add-DashLine ("  ${FGDarkGray}$('-' * 52)${Reset}")
     
-    $Global:cDetailColorGlobal = if ($MenuSelection -eq 1) { $FGGray } else { $FGDarkGray }
+    $Global:cDetailColorGlobal = if ($Global:MenuSelection -eq 1) { $FGGray } else { $FGDarkGray }
     
     Write-ColItem "Real-Time Protection" "SET_RealTimeProt" $s_RT
     
@@ -2314,7 +2314,7 @@ while ($true) {
     # --- LIVE WMI CHECKS ---
 
 
-    Write-ColItem "Real-Time Protection" "SET_RealTimeProt" $s_RT
+
     Write-ColItem "PUA Protection" "SET_PUABlockApps" $s_PUA
     Write-ColItem "PUA Protection (Edge)" "SET_PUABlockDLs" $s_Edge
     Write-ColItem "Memory Integrity" "SET_MemoryInteg" $s_Mem
@@ -2337,16 +2337,16 @@ while ($true) {
 
     # Maintenance sub-section (inline under MANUAL-MODE)
     Add-DashLine "  ${manualHeaderColor}$('_' * 52)${Reset}"
-    $mHeaderColor = if ($MenuSelection -eq 1 -or ($MenuSelection -eq 0 -and $maintActive)) { $FGWhite } else { $FGDarkGray }
+    $mHeaderColor = if ($Global:MenuSelection -eq 1 -or ($Global:MenuSelection -eq 0 -and $maintActive)) { $FGWhite } else { $FGDarkGray }
     Add-DashLine (" " * 15 + "${mHeaderColor}Maintain Operating System${Reset}")
     Add-DashLine ""
     
     # Maintenance Details
-    $Global:mDetailColorGlobal = if ($MenuSelection -eq 1) { $FGGray } else { $FGDarkGray }
+    $Global:mDetailColorGlobal = if ($Global:MenuSelection -eq 1) { $FGGray } else { $FGDarkGray }
     
 
-    $mTopColor = if ($MenuSelection -eq 1 -or ($MenuSelection -eq 0 -and $maintActive)) { $FGWhite } else { $FGDarkGray }
-    $mLabelColor = if ($MenuSelection -eq 1 -or ($MenuSelection -eq 0 -and $maintActive)) { $FGWhite } else { $FGDarkGray }
+    $mTopColor = if ($Global:MenuSelection -eq 1 -or ($Global:MenuSelection -eq 0 -and $maintActive)) { $FGWhite } else { $FGDarkGray }
+    $mLabelColor = if ($Global:MenuSelection -eq 1 -or ($Global:MenuSelection -eq 0 -and $maintActive)) { $FGWhite } else { $FGDarkGray }
     Write-LeftAligned "${FGDarkGray}[${mTopColor}#${FGDarkGray}]${mLabelColor} OF DAYS SINCE LAST RUN  ${FGDarkGray}|${mLabelColor} ATOMIC_SCRIPT$Reset" -Indent 3
     Add-DashLine ("  ${FGDarkGray}$('-' * 52)${Reset}")
     Write-MaintItem "Get Updates" "RUN_UpdateSuite" "Maintenance_WinUpdate" -Threshold 1
@@ -2355,14 +2355,8 @@ while ($true) {
     Write-MaintItem "SFC / DISM Repair" "RUN_WindowsRepair" "Maintenance_SFC" -Threshold 30
 
     Add-DashLine ""
-    Add-DashLine ""
-    Add-DashLine "  ${FGDarkCyan}TECHNICAL INFORMATION${Reset}"
-    Add-DashLine "  ${FGDarkGray}Technical Metadata Column Info: The CSV contains six columns of${Reset}"
-    Add-DashLine "  ${FGDarkGray}technical detail (METHOD, DETAILS, REVERTIBLE, RESTART, IMPACT,${Reset}"
-    Add-DashLine "  ${FGDarkGray}and FUNCTION) omitted from the UI to maintain clarity.${Reset}"
-    Add-DashLine "  ${FGDarkGray}Infrastructure Setup Rows: The CSV includes 4 internal rows${Reset}"
-    Add-DashLine "  ${FGDarkGray}(Execution, Unblock, Harden, Maint) that run automatically.${Reset}"
-    Add-DashLine ""
+
+
     Write-Boundary -Color $FGYellow
 
     if ($Global:DashboardBufferMode) {
@@ -2389,14 +2383,14 @@ while ($true) {
     # --- NAVIGATION LOGIC ---
     if ($res.VirtualKeyCode -eq 38) {
         # Up
-        $MenuSelection--
-        if ($MenuSelection -lt 0) { $MenuSelection = 1 }
+        $Global:MenuSelection--
+        if ($Global:MenuSelection -lt 0) { $Global:MenuSelection = 1 }
         continue
     }
     elseif ($res.VirtualKeyCode -eq 40) {
         # Down
-        $MenuSelection++
-        if ($MenuSelection -gt 1) { $MenuSelection = 0 }
+        $Global:MenuSelection++
+        if ($Global:MenuSelection -gt 1) { $Global:MenuSelection = 0 }
         continue
     }
     elseif ($res.VirtualKeyCode -eq 39) {
@@ -2425,7 +2419,7 @@ while ($true) {
     
     if ($res.Character -eq ' ' -or $res.VirtualKeyCode -eq 32) {
         # Space Action Logic (Context Sensitive)
-        $Target = $MenuSelection
+        $Target = $Global:MenuSelection
         
         # GLOBAL: Run Windows Update Check FIRST
         # Invoke-WA_WindowsUpdate (Moved to Maintenance Phase)

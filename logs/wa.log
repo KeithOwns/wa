@@ -149,3 +149,72 @@ at <ScriptBlock>, C:\Users\admin\src\github.com\KeithOwns\wa\DEBUGwa.ps1: line 2
 at <ScriptBlock>, <No file>: line 1
 at <ScriptBlock>, <No file>: line 1
 [2026-03-17 10:52:28] [INFO] WinAuto Standalone Session Started
+[2026-03-17 12:08:09] [INFO] WinAuto Standalone Session Started
+[2026-03-17 12:11:22] [INFO] WinAuto Standalone Session Started
+[2026-03-17 12:57:50] [INFO] WinAuto Standalone Session Started
+[2026-03-17 13:11:14] [INFO] WinAuto Standalone Session Started
+[2026-03-17 14:09:56] [INFO] WinAuto Standalone Session Started
+[2026-03-17 14:10:03] [Cyan] Starting Windows Security Automation (Kernel-mode Stack Protection)...
+[2026-03-17 14:10:03] [Gray] Launching Windows Security (Iteration 1)...
+[2026-03-17 14:10:08] [Green] Found 'Windows Security' window.
+[2026-03-17 14:10:08] [Gray] Navigating to 'Device security'...
+[2026-03-17 14:10:10] [Gray] Navigating to 'Core isolation details'...
+[2026-03-17 14:10:12] [Gray] Looking for 'Kernel-mode Hardware-enforced Stack Protection' toggle...
+[2026-03-17 14:10:12] [Cyan] Found Target Element (ControlType.Button). Checking state...
+[2026-03-17 14:10:12] [Green] Feature is already ON.
+[2026-03-17 14:10:12] [Cyan] Automation complete.
+[2026-03-17 14:39:40] [INFO] WinAuto Standalone Session Started
+[2026-03-17 14:39:51] [Cyan] Starting Windows Security Automation (Kernel-mode Stack Protection)...
+[2026-03-17 14:39:51] [Gray] Launching Windows Security (Iteration 1)...
+[2026-03-17 14:39:55] [Green] Found 'Windows Security' window.
+[2026-03-17 14:39:55] [Gray] Navigating to 'Device security'...
+[2026-03-17 14:39:57] [Gray] Navigating to 'Core isolation details'...
+[2026-03-17 14:39:59] [Gray] Looking for 'Kernel-mode Hardware-enforced Stack Protection' toggle...
+[2026-03-17 14:39:59] [Cyan] Found Target Element (ControlType.Button). Checking state...
+[2026-03-17 14:40:00] [Green] Feature is already ON.
+[2026-03-17 14:40:00] [Cyan] Automation complete.
+[2026-03-18 09:23:35] [INFO] WinAuto Standalone Session Started
+[2026-03-18 09:25:37] [Cyan] Starting Windows Security Automation (Kernel-mode Stack Protection)...
+[2026-03-18 09:25:37] [Gray] Launching Windows Security (Iteration 1)...
+[2026-03-18 09:25:41] [Green] Found 'Windows Security' window.
+[2026-03-18 09:25:41] [Gray] Navigating to 'Device security'...
+[2026-03-18 09:25:43] [Gray] Navigating to 'Core isolation details'...
+[2026-03-18 09:25:45] [Gray] Looking for 'Kernel-mode Hardware-enforced Stack Protection' toggle...
+[2026-03-18 09:25:45] [Cyan] Found Target Element (ControlType.Button). Checking state...
+[2026-03-18 09:25:45] [Green] Feature is already ON.
+[2026-03-18 09:25:45] [Cyan] Automation complete.
+[2026-03-18 09:37:24] [INFO] WinAuto Standalone Session Started
+[2026-03-18 09:51:01] [INFO] WinAuto Standalone Session Started
+[2026-03-18 09:57:50] [INFO] WinAuto Standalone Session Started
+[2026-04-24 16:02:17] [INFO] WinAuto Standalone Session Started
+[2026-04-24 16:11:20] [INFO] WinAuto Standalone Session Started
+[2026-04-24 16:37:37] [INFO] WinAuto Standalone Session Started
+[2026-04-24 16:40:49] [INFO] WinAuto Standalone Session Started
+[2026-04-24 16:42:23] [INFO] WinAuto Standalone Session Started
+[2026-04-24 16:42:30] [INFO] WinAuto Standalone Session Started
+[2026-04-24 16:56:06] [INFO] WinAuto Standalone Session Started
+[2026-04-24 16:56:08] [ERROR] CRITICAL UNHANDLED ERROR: The variable '$Global:MenuSelection' cannot be retrieved because it has not been set.
+at Write-ColItem, C:\Users\admin\src\github.com\KeithOwns\wa\wa.ps1: line 233
+at <ScriptBlock>, C:\Users\admin\src\github.com\KeithOwns\wa\wa.ps1: line 2309
+at <ScriptBlock>, <No file>: line 1
+[2026-04-24 16:56:45] [INFO] WinAuto Standalone Session Started
+[2026-04-24 16:56:45] [ERROR] CRITICAL UNHANDLED ERROR: The variable '$Global:MenuSelection' cannot be retrieved because it has not been set.
+at Write-ColItem, C:\Users\admin\src\github.com\KeithOwns\wa\wa.ps1: line 233
+at <ScriptBlock>, C:\Users\admin\src\github.com\KeithOwns\wa\wa.ps1: line 2309
+at <ScriptBlock>, <No file>: line 1
+[2026-04-24 16:58:06] [INFO] WinAuto Standalone Session Started
+[2026-04-24 16:58:06] [ERROR] CRITICAL UNHANDLED ERROR: The variable '$Global:MenuSelection' cannot be retrieved because it has not been set.
+at Write-ColItem, C:\Users\admin\src\github.com\KeithOwns\wa\wa.ps1: line 233
+at <ScriptBlock>, C:\Users\admin\src\github.com\KeithOwns\wa\wa.ps1: line 2309
+at <ScriptBlock>, <No file>: line 1
+[2026-04-24 16:58:46] [INFO] WinAuto Standalone Session Started
+[2026-04-24 16:59:41] [INFO] WinAuto Standalone Session Started
+[2026-04-24 17:03:07] [INFO] WinAuto Standalone Session Started
+[2026-04-24 17:05:59] [INFO] WinAuto Standalone Session Started
+[2026-04-24 17:06:10] [INFO] WinAuto Standalone Session Started
+[2026-04-24 17:10:20] [INFO] WinAuto Standalone Session Started
+[2026-04-24 17:10:59] [INFO] WinAuto Standalone Session Started
+[2026-04-24 17:19:02] [INFO] WinAuto Standalone Session Started
+[2026-04-24 17:19:11] [INFO] WinAuto Standalone Session Started
+[2026-04-24 17:21:20] [INFO] WinAuto Standalone Session Started
+[2026-04-24 17:22:08] [INFO] WinAuto Standalone Session Started
