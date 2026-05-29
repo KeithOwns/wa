@@ -29,9 +29,9 @@ iex (irm https://raw.githubusercontent.com/KeithOwns/wa/main/wa.ps1)
     ```powershell
     .\wa.ps1
     ```
-3.  **Navigate:** Use the `^` and `v` arrow keys to select sections.
-4.  **Execute:** Press `Space` to run the selected section or `SmartRUN`.
-5.  **Info:** Press `I` to view the functional outline. From the Info page, press `Enter` to export a technical CSV map or `Esc` to return to the dashboard.
+3.  **Navigate:** Use the `^` and `v` arrow keys to select items.
+4.  **Toggle:** Press `Space` to toggle selected options.
+5.  **Execute:** Press `Enter` to run the selected section or `SmartRUN`.
 
 ## 📁 Repository Structure
 

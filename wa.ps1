@@ -21,7 +21,10 @@ param(
     [string]$LogPath,
 
     [Parameter(Mandatory = $false)]
-    [string]$Config
+    [string]$Config,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$Force
     
     # Verbose is automatic due to [Parameter()] attributes
 )
@@ -42,6 +45,8 @@ $Global:Silent = $Silent
 $Global:Module = $Module
 $Global:Config = $Config
 $Global:LogPath = $LogPath
+$Global:Force = $Force
+$Global:Toggle_MaintainForced = if ($Force) { 1 } else { 0 }
 
 # --- EXECUTION POLICY CONFIGURATION ---
 # Ensures local scripts can run by setting policy to 'RemoteSigned'
@@ -125,6 +130,7 @@ else {
 $Esc = [char]0x1B
 $Global:Reset = "$Esc[0m"
 $Global:Bold = "$Esc[1m"
+$Global:Italic = "$Esc[3m"
 
 # Script Palette (Foreground)
 $Global:FGCyan = "$Esc[96m"
@@ -156,7 +162,7 @@ $Global:BGWhite = "$Esc[107m"
 
 # --- Unicode Icons & Characters ---
 $Global:Char_HeavyCheck = "[v]" 
-$Global:Char_Warn = "!" 
+$Global:Char_Warn = "[!]" 
 $Global:Char_BallotCheck = "[v]" 
 $Global:Char_Copyright = "(c)" 
 $Global:Char_Finger = "->" 
@@ -196,36 +202,57 @@ trap {
 }
 
 
-$Global:WinAutoCSVContent = @'
-ACTION,STAGE,SOURCE SCRIPT,METHOD,TECHNICAL DETAILS,REVERTIBLE,RESTART REQUIRED,IMPACT,FUNCTION
-Execution Policy / Admin Check,Pre-Run Setup,wa,Inline,Set-ExecutionPolicy RemoteSigned -Scope Process,N/A,No,System,(Script Header)
-Auto-Unblock,Pre-Run Setup,wa,Inline,Unblock-File (Self),N/A,No,System,(Script Header)
-System Hardening Check,SmartRUN,CHECK_SystemHarden,Mixed,Checks Last Run date (30 days) to determine invalidation,N/A,No,Automation,Invoke-WinAutoConfiguration -SmartRun
-Maintenance Cycle,SmartRUN,SET_ScheduleMaintn,Mixed,Checks Last Run dates (SFC=30d; Disk=7d; Clean=7d) to trigger tasks,N/A,No,Automation,Invoke-WinAutoMaintenance -SmartRun
-Real-Time Protection,Configure,SET_RealTimeProt,PS WMI,Set-MpPreference -DisableRealtimeMonitoring 0,Yes,No,Security,Invoke-WA_SetRealTimeProtection
-PUA Protection,Configure,SET_PUABlockApps,PS WMI,Set-MpPreference -PUAProtection 1,Yes,No,Security,Invoke-WA_SetPUABlockApps
-PUA Protection (Edge),Configure,SET_PUABlockDLs,Registry (HKCU),HKCU:\Software\Microsoft\Edge\SmartScreenPuaEnabled (1),Yes,No,Security,Invoke-WA_SetPUABlockDLs
-Memory Integrity,Configure,SET_MemoryInteg,Registry (HKLM),HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity (Enabled=1),Yes,Yes,Security,Invoke-WA_SetMemoryInteg
-Kernel Stack Protection,Configure,SET_KernelMode,Registry (HKLM),HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\KernelShadowStacks (Enabled=1),Yes,Yes,Security,Invoke-WA_SetKernelMode
-LSA Protection,Configure,SET_LocalSecurity,Registry (HKLM),HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\RunAsPPL (1),Yes,Yes,Security,Invoke-WA_SetLocalSecurity
-Windows Firewall,Configure,SET_FirewallON,PowerShell Cmdlt,Set-NetFirewallProfile -Enabled True,Yes,No,Security,Invoke-WA_SetFirewallON
-Classic Context Menu,Configure,SET_ClassicMenu,Registry (HKCU),HKCU:\Software\Classes\CLSID\{86ca1aa0...}\InprocServer32,Yes,No,UI,Invoke-WA_SetClassicMenu
-Taskbar Search Box,Configure,SET_TaskbarSearch,Registry (HKCU),HKCU:\Software\Microsoft\Windows\CurrentVersion\Search\SearchboxTaskbarMode (3),Yes,No,UI,Invoke-WA_SetTaskbarSearch
-Task View Toggle,Configure,SET_TaskViewOFF,Registry (HKCU),HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced\ShowTaskViewButton (0),Yes,No,UI,Invoke-WA_SetTaskViewOFF
-Microsoft Update Service,Configure,SET_MicrosoftUpd,Registry (HKLM),HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings\AllowMUUpdateService (1),Yes,No,Config,Invoke-WA_SetMicrosoftUpd
-Restart Notifications,Configure,SET_RestartIsReq,Registry (HKLM),HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings\RestartNotificationsAllowed2 (1),Yes,No,Config,Invoke-WA_SetRestartIsReq
-App Restart Persistence,Configure,SET_RestartApps,Registry (HKCU),HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\RestartApps (1),Yes,No,Config,Invoke-WA_SetRestartApps
-Get Updates,Maintain,RUN_UpdateSuite,UI Automation,Automates Windows Update Settings and MS Store updates,No,No,Maintenance,Invoke-WA_WindowsUpdate
-Drive Optimization,Maintain,RUN_OptimizeDisks,PowerShell Cmdlt,Optimize-Volume -DriveLetter C -NormalPriority,No,No,Maintenance,Invoke-WA_OptimizeDisks
-Temp File Cleanup,Maintain,RUN_SystemCleanup,File System,Clears Windows Temp and User Temp,No,No,Maintenance,Invoke-WA_SystemCleanup
-SFC / DISM Repair,Maintain,RUN_WindowsRepair,Command Line,Runs SFC scan; if corruption found runs DISM,No,No,Maintenance,Invoke-WA_WindowsRepair
-'@
-
-
 # --- UI HELPERS ---
 function Write-ColItem {
-    param($Txt, $Met, $Status) 
+    param(
+        $Txt,
+        $Met,
+        $Status,
+        [switch]$IsToggle,
+        [int]$ToggleValue = 0,
+        [bool]$IsSelected = $false
+    ) 
     
+    if ($IsToggle) {
+        # Determine symbol and color based on status and toggle value
+        $iconSymbol = if ($Status -eq $true) { "v" } else { " " }
+        $iconColor = if ($Status -eq $true) { $Global:FGDarkGreen } else { $Global:FGDarkGray }
+
+        if ($ToggleValue -eq 1) {
+            # Toggled state: opposite of current system state
+            $iconSymbol = if ($Status -eq $true) { " " } else { "v" }
+            $iconColor = if ($IsSelected) { $Global:FGYellow } else { $Global:FGWhite }
+        }
+        else {
+            # Default state (ToggleValue is 0)
+            if ($IsSelected) {
+                $iconColor = $Global:FGYellow
+            }
+        }
+
+        $icon = "${FGDarkGray}[${iconColor}${iconSymbol}${FGDarkGray}]${Reset}"
+        
+        # Text/detail color
+        if ($Global:MenuSelection -eq 0) {
+            $itemColor = $Global:FGDarkGray
+        }
+        else {
+            if ($IsSelected) {
+                $itemColor = $Global:FGYellow
+            }
+            elseif ($ToggleValue -ne 0) {
+                $itemColor = $Global:FGWhite
+            }
+            else {
+                $itemColor = $Global:FGGray
+            }
+        }
+
+        $pad = " " * (24 - $Txt.Length)
+        Write-LeftAligned "$icon ${itemColor}$Txt${Reset}$pad${FGDarkGray}| ${itemColor}$Met${Reset}" -Indent 3  
+        return
+    }
+
     $pending = $false
     if ($null -eq $Status -or $false -eq $Status -or "ForceRun" -eq $Status) { $pending = $true }
     
@@ -254,7 +281,7 @@ function Write-ColItem {
 }
 
 function Write-MaintItem {
-    param($Txt, $Met, $Key, [int]$Threshold = 7) 
+    param($Txt, $Met, $Key, [int]$Threshold = 7, [int]$ToggleValue = 0, [bool]$IsSelected = $false) 
     
     $pending = $false
     $prefix = "-"
@@ -271,16 +298,41 @@ function Write-MaintItem {
     }
     
     $statusColor = $Global:mDetailColorGlobal
-    if ($Global:MenuSelection -eq 0 -and $pending) {
+    if ($Global:Toggle_MaintainForced -eq 1 -or $ToggleValue -eq 1) {
+        $prefix = "v"
         $statusColor = $Global:FGYellow
+        $pending = $true
     }
-    elseif ($Key) {
-        if ($prefix -eq "!") { $statusColor = $Global:FGDarkRed }
-        elseif ($prefix -le $Threshold) { $statusColor = $Global:FGDarkGreen }
-        else { $statusColor = $Global:FGDarkRed }
+    else {
+        if ($Global:MenuSelection -eq 0 -and $pending) {
+            $statusColor = $Global:FGYellow
+        }
+        elseif ($Key) {
+            if ($prefix -eq "!") { $statusColor = $Global:FGDarkRed }
+            elseif ($prefix -le $Threshold) { $statusColor = $Global:FGDarkGreen }
+            else { $statusColor = $Global:FGDarkRed }
+        }
     }
 
-    $itemColor = if ($Global:MenuSelection -eq 0 -and $pending) { $Global:FGYellow } else { $Global:mDetailColorGlobal }
+    if ($IsSelected) {
+        $statusColor = $Global:FGYellow
+    }
+
+    if ($Global:MenuSelection -eq 0) {
+        $itemColor = if ($pending) { $Global:FGYellow } else { $Global:FGDarkGray }
+    }
+    else {
+        if ($IsSelected) {
+            $itemColor = $Global:FGYellow
+        }
+        elseif ($Global:Toggle_MaintainForced -eq 1 -or $ToggleValue -eq 1) {
+            $itemColor = $Global:FGWhite
+        }
+        else {
+            $itemColor = $Global:mDetailColorGlobal
+        }
+    }
+
     $pad = " " * (24 - $Txt.Length); 
     Write-LeftAligned "${FGDarkGray}[${statusColor}$prefix${FGDarkGray}]${itemColor} $Txt${Reset}$pad${FGDarkGray}| ${itemColor}$Met${Reset}" -Indent 3  
 }
@@ -510,21 +562,100 @@ function Write-Centered {
 }
 
 function Write-LeftAligned {
-    param([string]$Text, [int]$Indent = 2)
-    Add-DashLine (" " * $Indent + $Text)
+    param(
+        [string]$Text,
+        [int]$Indent = 2,
+        [int]$Width = 52
+    )
+    
+    # Strip ANSI colors to calculate character lengths correctly
+    $Esc = [char]0x1B
+    $ansiRegex = "$($Esc -replace '\[', '\[' )\[[0-9;]*m"
+    
+    $targetWidth = $Width - $Indent
+    if ($targetWidth -le 10) { $targetWidth = 10 }
+    
+    $words = $Text -split ' '
+    $wrappedLines = @()
+    $cur = ""
+    $curCleanLen = 0
+    
+    foreach ($w in $words) {
+        $cleanW = $w -replace $ansiRegex, ""
+        
+        if ($cleanW.Length -gt $targetWidth) {
+            # Word is longer than max width; flush current line first
+            if ($cur -ne "") {
+                $wrappedLines += $cur
+                $cur = ""
+                $curCleanLen = 0
+            }
+            # Break down the long word
+            $temp = $w
+            $tempClean = $cleanW
+            while ($tempClean.Length -gt $targetWidth) {
+                # Find length of prefix with $targetWidth clean chars
+                $charCount = 0
+                $cleanCount = 0
+                $chars = $temp.ToCharArray()
+                for ($k = 0; $k -lt $chars.Count; $k++) {
+                    if ($chars[$k] -eq $Esc -and ($k + 1) -lt $chars.Count -and $chars[$k+1] -eq '[') {
+                        $mIdx = $k + 2
+                        while ($mIdx -lt $chars.Count -and $chars[$mIdx] -ne 'm') { $mIdx++ }
+                        $k = $mIdx
+                        continue
+                    }
+                    $charCount = $k + 1
+                    $cleanCount++
+                    if ($cleanCount -eq $targetWidth) { break }
+                }
+                
+                $wrappedLines += $temp.Substring(0, $charCount)
+                $temp = $temp.Substring($charCount)
+                $tempClean = $temp -replace $ansiRegex, ""
+            }
+            $cur = $temp
+            $curCleanLen = $tempClean.Length
+        }
+        else {
+            $extra = if ($curCleanLen -eq 0) { 0 } else { 1 }
+            if ($curCleanLen + $extra + $cleanW.Length -gt $targetWidth) {
+                $wrappedLines += $cur
+                $cur = $w
+                $curCleanLen = $cleanW.Length
+            } else {
+                $cur = if ($cur -eq "") { $w } else { "$cur $w" }
+                $curCleanLen += $extra + $cleanW.Length
+            }
+        }
+    }
+    if ($cur -ne "") { $wrappedLines += $cur }
+    
+    if ($wrappedLines.Count -gt 0) {
+        Add-DashLine (" " * $Indent + $wrappedLines[0])
+        
+        # Calculate dynamic text alignment offset
+        $firstClean = $wrappedLines[0] -replace $ansiRegex, ""
+        $prefixMatch = $firstClean -match "^(\[[^\]]+\]|[^A-Za-z0-9\s]+|[a-z])\s+"
+        $textIndent = $Indent
+        if ($prefixMatch) {
+            $textIndent += $Matches[0].Length
+        }
+        
+        for ($i = 1; $i -lt $wrappedLines.Count; $i++) {
+            Add-DashLine (" " * $textIndent + $wrappedLines[$i])
+        }
+    }
+}
+
+function Write-WrappedError {
+    param([string]$Message)
+    Write-LeftAligned "$FGRed$Char_RedCross    Failed: $Message"
 }
 
 function Write-Boundary {
     param([string]$Color = $FGDarkCyan)
     Add-DashLine ("  " + $Color + ([string]'_' * 52) + $Reset)
-}
-
-function Export-WinAutoCSV {
-    $path = $PSScriptRoot
-    if (-not $path) { $path = $PWD.Path }
-    $file = Join-Path $path "scriptOUTLINE-wa.csv"
-    $Global:WinAutoCSVContent | Set-Content -Path $file -Encoding UTF8 -Force
-    # Invoke-Item $path # Optional: Open folder
 }
 
 # --- REGISTRY HELPERS ---
@@ -554,6 +685,7 @@ function Write-Header {
         [string]$Title,
         [switch]$NoBottom
     )
+    Start-Sleep -Seconds 2
     Clear-Host
     Write-Host ""
     $WinAutoTitle = "WinAuto"
@@ -565,9 +697,9 @@ function Write-Header {
 }
 
 function Write-Footer {
-    Write-Host "${FGCyan}$('_' * 60)${Reset}"
+    Write-Boundary -Color $FGCyan
     $FooterText = "$Char_Copyright 2026 www.AIIT.support"
-    Write-Centered "$FGCyan$FooterText$Reset"
+    Write-Centered "$FGCyan$FooterText$Reset" -Width 52
 }
 
 function Write-FlexLine {
@@ -635,10 +767,19 @@ $Global:TickAction = {
     $Line = ""
     
     if ($ActionText -eq "DASHBOARD") {
-        
-        # User defined footer with colors
-        # Use ^ v keys then press Space to RUN | Esc to EXIT
-        $Line = "                     ${Global:FGYellow}Navigation${Global:Reset} ${Global:FGBlack}${Global:BGYellow}KEYS${Global:Reset}`n      ${Global:FGBlack}${Global:BGYellow} ^ ${Global:Reset} ${Global:FGGray}arrow${Global:Reset} ${Global:FGBlack}${Global:BGYellow} v ${Global:Reset} ${Global:FGGray}keys${Global:Reset}${Global:FGDarkGray}|${Global:Reset}${Global:FGBlack}${Global:BGYellow}Space${Global:Reset} ${Global:FGGray}to${Global:Reset} ${Global:FGBlack}${Global:BGYellow}Run${Global:Reset}${Global:FGDarkGray}|${Global:Reset}${Global:FGBlack}${Global:BGYellow}Esc${Global:Reset} ${Global:FGGray}to${Global:Reset} ${Global:FGDarkRed}${Global:BGWhite}EXIT${Global:Reset}"
+        $sel = $Global:MenuSelection
+        if ($sel -eq 0) {
+            $Line = "${Esc}[K`n  ${Global:FGBlack}${Global:BGYellow} ^ ${Global:Reset} ${Global:FGBlack}${Global:BGYellow} v ${Global:Reset} ${Global:FGGray}selects${Global:Reset}${Global:FGDarkGray}|${Reset}${Global:FGBlack}${Global:BGYellow}Enter${Global:Reset} ${Global:FGGray}Runs SmartRUN${Global:Reset}${Global:FGDarkGray}|${Reset}${Global:FGBlack}${Global:BGYellow}Esc${Global:Reset} ${Global:FGDarkRed}${Global:BGWhite}EXITs${Global:Reset}${Esc}[K"
+        }
+        elseif ($sel -eq 1) {
+            $Line = "${Esc}[K`n  ${Global:FGBlack}${Global:BGYellow} ^ ${Global:Reset} ${Global:FGBlack}${Global:BGYellow} v ${Global:Reset} ${Global:FGGray}selects${Global:Reset}${Global:FGDarkGray}|${Reset}${Global:FGBlack}${Global:BGYellow}Enter${Global:Reset} ${Global:FGGray}Runs Manual Mode${Global:Reset}${Global:FGDarkGray}|${Reset}${Global:FGBlack}${Global:BGYellow}Esc${Global:Reset} ${Global:FGDarkRed}${Global:BGWhite}EXITs${Global:Reset}${Esc}[K"
+        }
+        elseif ($sel -eq 2 -or $sel -eq 6) {
+            $Line = "${Esc}[K`n  ${Global:FGBlack}${Global:BGYellow} ^ ${Global:Reset} ${Global:FGBlack}${Global:BGYellow} v ${Global:Reset} ${Global:FGGray}selects${Global:Reset}${Global:FGDarkGray}|${Reset}${Global:FGBlack}${Global:BGYellow}Space${Global:Reset} ${Global:FGGray}Enters Section${Global:Reset}${Global:FGDarkGray}|${Reset}${Global:FGBlack}${Global:BGYellow}Esc${Global:Reset} ${Global:FGDarkRed}${Global:BGWhite}EXITs${Global:Reset}${Esc}[K"
+        }
+        else {
+            $Line = "${Esc}[K`n  ${Global:FGBlack}${Global:BGYellow} ^ ${Global:Reset} ${Global:FGBlack}${Global:BGYellow} v ${Global:Reset} ${Global:FGGray}selects${Global:Reset}${Global:FGDarkGray}|${Reset}${Global:FGBlack}${Global:BGYellow}Space${Global:Reset} ${Global:FGGray}Toggles${Global:Reset}${Global:FGDarkGray}|${Reset}${Global:FGBlack}${Global:BGYellow}Esc${Global:Reset} ${Global:FGDarkRed}${Global:BGWhite}EXITs${Global:Reset}${Esc}[K"
+        }
     }
 
     try { [Console]::SetCursorPosition(0, $PromptCursorTop); Write-Host $Line } catch {}
@@ -887,6 +1028,17 @@ function Get-ThirdPartyAV {
 
 function Test-Reg { param($P, $N, $V) try { (Get-ItemProperty $P $N -EA 0).$N -eq $V } catch { $false } }
 
+function Sync-ToggleStates {
+    $ctxPath = "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32"
+    $currentCtx = if (Test-Path $ctxPath) { (Get-ItemProperty $ctxPath)."(default)" -eq "" } else { $false }
+    $currentTask = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" "SearchboxTaskbarMode" 3
+    $currentView = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "ShowTaskViewButton" 0
+
+    if ($currentCtx -ne $s_Ctx) { $Global:Toggle_ClassicMenu = 0 }
+    if ($currentTask -ne $s_Task) { $Global:Toggle_TaskbarSearch = 0 }
+    if ($currentView -ne $s_View) { $Global:Toggle_TaskView = 0 }
+}
+
 
 # --- MAINTENANCE FUNCTIONS ---
 
@@ -928,7 +1080,7 @@ function Invoke-WA_WindowsUpdate {
     }
 
     Write-Host ""
-    Write-Centered "$Global:Char_EnDash STORE & SETTINGS $Global:Char_EnDash" -Color "$Bold$FGCyan"
+    Write-Centered "$Global:Char_EnDash STORE & SETTINGS $Global:Char_EnDash" -Width 52 -Color "$Bold$FGCyan"
 
     # 2. Windows Update Settings (UIA)
     Write-LeftAligned "Opening Windows Update Settings..."
@@ -1079,7 +1231,7 @@ function Invoke-WinAutoConfiguration {
         Write-Boundary
         Write-LeftAligned "$FGGreen$Global:Char_CheckMark All Configuration states are ENABLED. Skipping execution phase.$Reset"
         Write-Boundary
-        Write-Centered "$FGGreen CONFIGURATION COMPLETE $Reset"
+        Write-Centered "$FGGreen CONFIGURATION COMPLETE $Reset" -Width 52
         Set-WinAutoLastRun -Module "Configuration"
         Start-Sleep -Seconds 2
         return
@@ -1123,9 +1275,22 @@ function Invoke-WinAutoConfiguration {
     Invoke-Smart { Invoke-WA_SetPUABlockDLs } $s_Edge
 
     # 3. UI & Performance
-    Invoke-Smart { Invoke-WA_SetClassicMenu } $s_Ctx
-    Invoke-Smart { Invoke-WA_SetTaskbarSearch } $s_Task
-    Invoke-Smart { Invoke-WA_SetTaskViewOFF } $s_View
+    if (-not $SmartRun) {
+        if ($Global:Toggle_ClassicMenu -eq 1) {
+            if ($s_Ctx) { Invoke-WA_SetClassicMenu -Reverse }
+            else { Invoke-WA_SetClassicMenu }
+        }
+
+        if ($Global:Toggle_TaskbarSearch -eq 1) {
+            if ($s_Task) { Invoke-WA_SetTaskbarSearch -Reverse }
+            else { Invoke-WA_SetTaskbarSearch }
+        }
+
+        if ($Global:Toggle_TaskView -eq 1) {
+            if ($s_View) { Invoke-WA_SetTaskViewOFF -Reverse }
+            else { Invoke-WA_SetTaskViewOFF }
+        }
+    }
     
     # 4. Updates & Persistence
     Invoke-Smart { Invoke-WA_SetMicrosoftUpd } $s_MU
@@ -1133,15 +1298,24 @@ function Invoke-WinAutoConfiguration {
     Invoke-Smart { Invoke-WA_SetRestartApps } $s_Pers
 
     # Explorer Refresh
-    if (-not $SmartRun -or $s_Ctx -eq $false -or $s_Task -eq $false -or $s_View -eq $false) {
+    $runRefresh = $false
+    if (-not $SmartRun) {
+        if ($Global:Toggle_ClassicMenu -ne 0 -or $Global:Toggle_TaskbarSearch -ne 0 -or $Global:Toggle_TaskView -ne 0) {
+            $runRefresh = $true
+        }
+    }
+
+    if ($runRefresh) {
         Write-LeftAligned "Refreshing Explorer to apply UI settings..."
         Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
         Start-Sleep -Seconds 1
         if (-not (Get-Process explorer -ErrorAction SilentlyContinue)) { Start-Process explorer }
     }
 
+    Sync-ToggleStates
+
     Write-Boundary
-    Write-Centered "$FGGreen CONFIGURATION COMPLETE $Reset"
+    Write-Centered "$FGGreen CONFIGURATION COMPLETE $Reset" -Width 52
     Set-WinAutoLastRun -Module "Configuration"
     Start-Sleep -Seconds 2
 }
@@ -1151,10 +1325,45 @@ function Invoke-WinAutoMaintenance {
     Write-Header "WINDOWS MAINTENANCE PHASE"
     $lastRun = Get-WinAutoLastRun -Module "Maintenance"
     Write-LeftAligned "$FGGray Last Run: $FGWhite$lastRun$Reset"
+
+    # Check if all maintenance tasks have 0 days since last run
+    $mKeys = @("Maintenance_WinUpdate", "Maintenance_Disk", "Maintenance_Cleanup", "Maintenance_SFC")
+    $allZero = $true
+    if ($Global:Toggle_MaintainForced -eq 1 -or $Global:Toggle_MaintUpdate -eq 1 -or $Global:Toggle_MaintDisk -eq 1 -or $Global:Toggle_MaintCleanup -eq 1 -or $Global:Toggle_MaintSFC -eq 1) {
+        $allZero = $false
+    } else {
+        foreach ($k in $mKeys) {
+            $lr = Get-WinAutoLastRun -Module $k
+            if ($lr -eq "Never") { $allZero = $false; break }
+            try {
+                $days = ((Get-Date) - (Get-Date $lr)).Days
+                if ($days -ne 0) { $allZero = $false; break }
+            } catch { $allZero = $false; break }
+        }
+    }
+
+    if ($allZero) {
+        Write-Boundary
+        Write-LeftAligned "$FGGreen$Global:Char_CheckMark All maintenance tasks were run today (0 days since last run). Skipping Maintenance section.$Reset"
+        Write-Boundary
+        Write-Centered "$FGGreen MAINTENANCE SKIPPED $Reset" -Width 52
+        Set-WinAutoLastRun -Module "Maintenance"
+        Start-Sleep -Seconds 2
+        return
+    }
     
     function Test-RunNeeded {
         param($Key, $Days)
-        if (-not $SmartRun) { return $true }
+        if ($Global:Toggle_MaintainForced -eq 1) { return $true }
+        if ($Key -eq "Maintenance_WinUpdate" -and $Global:Toggle_MaintUpdate -eq 1) { return $true }
+        if ($Key -eq "Maintenance_Disk" -and $Global:Toggle_MaintDisk -eq 1) { return $true }
+        if ($Key -eq "Maintenance_Cleanup" -and $Global:Toggle_MaintCleanup -eq 1) { return $true }
+        if ($Key -eq "Maintenance_SFC" -and $Global:Toggle_MaintSFC -eq 1) { return $true }
+        if (-not $SmartRun) {
+            $anyToggled = ($Global:Toggle_MaintUpdate -eq 1 -or $Global:Toggle_MaintDisk -eq 1 -or $Global:Toggle_MaintCleanup -eq 1 -or $Global:Toggle_MaintSFC -eq 1)
+            if (-not $anyToggled) { return $true }
+        }
+        if (-not $SmartRun) { return $false }
         $last = Get-WinAutoLastRun -Module $Key
         if ($last -eq "Never") { return $true }
         $date = Get-Date $last
@@ -1190,7 +1399,7 @@ function Invoke-WinAutoMaintenance {
 
 
         Write-Host ""
-        Write-Centered "$FGGreen MAINTENANCE COMPLETE $Reset"
+        Write-Centered "$FGGreen MAINTENANCE COMPLETE $Reset" -Width 52
         Set-WinAutoLastRun -Module "Maintenance"
         Start-Sleep -Seconds 2
     }
@@ -1267,7 +1476,7 @@ function Invoke-WA_SetRealTimeProt {
         }
     }
     catch {
-        Write-LeftAligned "$FGRed$Char_RedCross  Failed: $($_.Exception.Message)$Reset"
+        Write-WrappedError $_.Exception.Message
     }
 
 }
@@ -1308,7 +1517,7 @@ function Invoke-WA_SetPUABlockApps {
 
     }
     catch {
-        Write-LeftAligned "$FGRed$Char_RedCross  Failed: $($_.Exception.Message)$Reset"
+        Write-WrappedError $_.Exception.Message
     }
 
 }
@@ -1348,7 +1557,7 @@ function Invoke-WA_SetPUABlockDLs {
 
     }
     catch {
-        Write-LeftAligned "$FGRed$Char_RedCross  Failed: $($_.Exception.Message)$Reset"
+        Write-WrappedError $_.Exception.Message
     }
 
 }
@@ -1395,7 +1604,7 @@ function Invoke-WA_SetMemoryInteg {
         Write-LeftAligned "$FGDarkYellow$Char_Warn  A system restart is required to take effect.$Reset"
     }
     catch {
-        Write-LeftAligned "$FGRed$Char_RedCross  Failed: $($_.Exception.Message)$Reset"
+        Write-WrappedError $_.Exception.Message
         Write-LeftAligned "$FGCyan  Hint: Tamper Protection might be blocking this.$Reset"
     }
 
@@ -1632,7 +1841,7 @@ function Invoke-WA_SetLocalSecurity {
         Write-LeftAligned "$FGDarkYellow$Char_Warn  A system restart is required to take effect.$Reset"
     }
     catch {
-        Write-LeftAligned "$FGRed$Char_RedCross  Failed: $($_.Exception.Message)$Reset"
+        Write-WrappedError $_.Exception.Message
     }
 
 }
@@ -1664,9 +1873,8 @@ function Invoke-WA_SetFirewallON {
         Write-LeftAligned "$FGGreen$Char_HeavyCheck  Firewall (All Profiles) is $statusStr.$Reset"
     }
     catch {
-        Write-LeftAligned "$FGRed$Char_RedCross  Failed: $($_.Exception.Message)$Reset"
+        Write-WrappedError $_.Exception.Message
     }
-
 }
 
 # --- EMBEDDED ATOMIC SCRIPTS (UI Config Part 3) ---
@@ -1722,7 +1930,7 @@ function Invoke-WA_SetClassicMenu {
         }
     }
     catch {
-        Write-LeftAligned "$FGRed$Char_RedCross Failed: $($_.Exception.Message)$Reset"
+        Write-WrappedError $_.Exception.Message
     }
 
 }
@@ -1764,7 +1972,7 @@ function Invoke-WA_SetTaskbarSearch {
         Start-Sleep -Seconds 1
     }
     catch {
-        Write-LeftAligned "$FGRed$Char_RedCross Failed: $($_.Exception.Message)$Reset"
+        Write-WrappedError $_.Exception.Message
     }
 
 }
@@ -1805,7 +2013,7 @@ function Invoke-WA_SetTaskViewOFF {
         Start-Sleep -Seconds 1
     }
     catch {
-        Write-LeftAligned "$FGRed$Char_RedCross Failed: $($_.Exception.Message)$Reset"
+        Write-WrappedError $_.Exception.Message
     }
 
 }
@@ -1841,7 +2049,7 @@ function Invoke-WA_SetMicrosoftUpd {
         Write-LeftAligned "$FGGreen$Char_HeavyCheck MS Update Service is $StatusStr.$Reset"
     }
     catch {
-        Write-LeftAligned "$FGRed$Char_RedCross Failed: $($_.Exception.Message)$Reset"
+        Write-WrappedError $_.Exception.Message
     }
 
 }
@@ -1876,7 +2084,7 @@ function Invoke-WA_SetRestartIsReq {
         Write-LeftAligned "$FGGreen$Char_HeavyCheck Restart Notifications are $StatusStr.$Reset"
     }
     catch {
-        Write-LeftAligned "$FGRed$Char_RedCross Failed: $($_.Exception.Message)$Reset"
+        Write-WrappedError $_.Exception.Message
     }
 
 }
@@ -1911,7 +2119,7 @@ function Invoke-WA_SetRestartApps {
         Write-LeftAligned "$FGGreen$Char_HeavyCheck App Restart Persistence is $StatusStr.$Reset"
     }
     catch {
-        Write-LeftAligned "$FGRed$Char_RedCross Failed: $($_.Exception.Message)$Reset"
+        Write-WrappedError $_.Exception.Message
     }
 
 }
@@ -2140,7 +2348,7 @@ function Invoke-WA_WindowsRepair {
 
     Write-Host ""
     Write-Boundary
-    Write-Centered "$FGGreen REPAIR FLOW COMPLETE $Reset"
+    Write-Centered "$FGGreen REPAIR FLOW COMPLETE $Reset" -Width 52
     Write-Boundary
 
 }
@@ -2174,7 +2382,15 @@ if ($Silent -or $Module) {
 Set-ConsoleSnapRight -Columns 60
 
 
-$Global:MenuSelection = 0  # 0=SmartRUN, 1=Manual Mode
+$Global:MenuSelection = 0  # 0=SmartRUN, 1=Manual Mode, 2=Configure Operating System (Header), 3=Classic Context Menu, 4=Taskbar Search Box, 5=Task View Toggle, 6=Maintain Operating System (Header)
+$Global:Toggle_ClassicMenu = 0
+$Global:Toggle_TaskbarSearch = 0
+$Global:Toggle_TaskView = 0
+$Global:Toggle_MaintUpdate = 0
+$Global:Toggle_MaintDisk = 0
+$Global:Toggle_MaintCleanup = 0
+$Global:Toggle_MaintSFC = 0
+# $Global:Toggle_MaintainForced is initialized at the top to support CLI/Silent mode
 # Per-section expansion flags
 
 
@@ -2183,7 +2399,7 @@ $Global:WinAutoFirstLoad = $true
 
 while ($true) {
     # Maintain
-    $Global:MaintenanceComplete = Test-WA_MaintenanceRecentlyComplete
+    $Global:MaintenanceComplete = if ($Global:Toggle_MaintainForced -eq 1 -or $Global:Toggle_MaintUpdate -eq 1 -or $Global:Toggle_MaintDisk -eq 1 -or $Global:Toggle_MaintCleanup -eq 1 -or $Global:Toggle_MaintSFC -eq 1) { $false } else { Test-WA_MaintenanceRecentlyComplete }
     if ($Global:MaintenanceComplete) { $Global:AnySkipped = $true }
 
     # --- LIVE STATUS CHECKS (Discovery for UI and SmartRUN Execution) ---
@@ -2228,18 +2444,22 @@ while ($true) {
     }
 
     # Sectional Pending State Detection
-    $configActive = if ($false -eq $s_RT -or $false -eq $s_PUA -or $false -eq $s_Edge -or $false -eq $s_FW -or $false -eq $s_Ctx -or $false -eq $s_Task -or $false -eq $s_View -or $false -eq $s_MU -or $false -eq $s_Rest -or $false -eq $s_Pers -or $false -eq $s_Mem -or $false -eq $s_Kern -or $false -eq $s_LSA) { $true } else { $false }
+    $configActive = if ($false -eq $s_RT -or $false -eq $s_PUA -or $false -eq $s_Edge -or $false -eq $s_FW -or $false -eq $s_MU -or $false -eq $s_Rest -or $false -eq $s_Pers -or $false -eq $s_Mem -or $false -eq $s_Kern -or $false -eq $s_LSA) { $true } else { $false }
 
     
     $maintActive = $false
-    $mKeys = "Maintenance_WinUpdate", "Maintenance_Disk", "Maintenance_Cleanup", "Maintenance_SFC"
-    foreach ($k in $mKeys) {
-        $lr = Get-WinAutoLastRun -Module $k
-        if ($lr -eq "Never") { $maintActive = $true; break }
-        try {
-            $th = 7; if ($k -eq "Maintenance_WinUpdate") { $th = 1 } elseif ($k -eq "Maintenance_SFC") { $th = 30 }
-            if (((Get-Date) - (Get-Date $lr)).Days -gt $th) { $maintActive = $true; break }
-        } catch {}
+    if ($Global:Toggle_MaintainForced -eq 1 -or $Global:Toggle_MaintUpdate -eq 1 -or $Global:Toggle_MaintDisk -eq 1 -or $Global:Toggle_MaintCleanup -eq 1 -or $Global:Toggle_MaintSFC -eq 1) {
+        $maintActive = $true
+    } else {
+        $mKeys = "Maintenance_WinUpdate", "Maintenance_Disk", "Maintenance_Cleanup", "Maintenance_SFC"
+        foreach ($k in $mKeys) {
+            $lr = Get-WinAutoLastRun -Module $k
+            if ($lr -eq "Never") { $maintActive = $true; break }
+            try {
+                $th = 7; if ($k -eq "Maintenance_WinUpdate") { $th = 1 } elseif ($k -eq "Maintenance_SFC") { $th = 30 }
+                if (((Get-Date) - (Get-Date $lr)).Days -gt $th) { $maintActive = $true; break }
+            } catch {}
+        }
     }
 
     $manualHeaderColor = if ($Global:MenuSelection -eq 0) { $FGDarkGray } else { $FGDarkCyan }
@@ -2248,6 +2468,7 @@ while ($true) {
     $Global:DashboardBuffer = @()
 
     if ($Global:WinAutoFirstLoad) {
+        Start-Sleep -Seconds 2
         Clear-Host
     } else {
         [Console]::SetCursorPosition(0,0)
@@ -2282,7 +2503,7 @@ while ($true) {
     # MANUAL-MODE Section
 
     # MANUAL-MODE (Pos 1) - Runs Configure + Maintain, all steps forced
-    if ($Global:MenuSelection -eq 1) {
+    if ($Global:MenuSelection -ge 1) {
         # Align with 52-char block (2 space indent + 52 char block)
         Add-DashLine "  ${FGBlack}${BGYellow}$(' ' * 18)| Manual Mode |$(' ' * 19)${Reset}"
     }
@@ -2290,26 +2511,32 @@ while ($true) {
         Add-DashLine (" " * 20 + "${manualHeaderColor}| Manual Mode |${Reset}")
     }
 
-    $cHeaderColor = if ($Global:MenuSelection -eq 1 -or ($Global:MenuSelection -eq 0 -and $configActive)) { $FGWhite } else { $FGDarkGray }
+    $cHeaderColor = if ($Global:MenuSelection -ge 1 -or ($Global:MenuSelection -eq 0 -and $configActive)) { $FGWhite } else { $FGDarkGray }
     Add-DashLine "  ${manualHeaderColor}$('_' * 52)${Reset}"
-    Add-DashLine (" " * 15 + "${cHeaderColor}Configure Operating System${Reset}")
+    if ($Global:MenuSelection -eq 2) {
+        Add-DashLine (" " * 13 + "${FGYellow}> Configure Operating System${Reset}")
+    } else {
+        Add-DashLine (" " * 15 + "${cHeaderColor}Configure Operating System${Reset}")
+    }
     Add-DashLine ""
 
 
     
-    $cTopColor = if ($Global:MenuSelection -eq 1 -or ($Global:MenuSelection -eq 0 -and $configActive)) { $FGWhite } else { $FGDarkGray }
-    $cLabelColor = if ($Global:MenuSelection -eq 1 -or ($Global:MenuSelection -eq 0 -and $configActive)) { $FGWhite } else { $FGDarkGray }
+    $cTopColor = if ($Global:MenuSelection -ge 1 -or ($Global:MenuSelection -eq 0 -and $configActive)) { $FGWhite } else { $FGDarkGray }
+    $cLabelColor = if ($Global:MenuSelection -ge 1 -or ($Global:MenuSelection -eq 0 -and $configActive)) { $FGWhite } else { $FGDarkGray }
     
-    Write-LeftAligned "${FGDarkGray}[${cTopColor}>${FGDarkGray}] ${cLabelColor}ENABLE / ${FGDarkGray}[${FGDarkGreen}v${FGDarkGray}] ${cLabelColor}ENABLED    ${FGDarkGray}|${cLabelColor} ATOMIC_SCRIPT$Reset" -Indent 3
+    Write-LeftAligned "${FGDarkGray}[${Global:FGYellow}v${FGDarkGray}] ${cLabelColor}ENABLE / ${FGDarkGray}[${FGDarkGreen}v${FGDarkGray}] ${cLabelColor}ENABLED    ${FGDarkGray}|${cLabelColor} ATOMIC_SCRIPT$Reset" -Indent 3
     Add-DashLine ("  ${FGDarkGray}$('-' * 52)${Reset}")
     
-    $Global:cDetailColorGlobal = if ($Global:MenuSelection -eq 1) { $FGGray } else { $FGDarkGray }
+    $Global:cDetailColorGlobal = if ($Global:MenuSelection -ge 1) { $FGGray } else { $FGDarkGray }
+    Write-LeftAligned "${Italic}${cLabelColor}User Interface${Reset}" -Indent 3
+    Write-ColItem "Classic Context Menu" "SET_ClassicMenu" $s_Ctx -IsToggle -ToggleValue $Global:Toggle_ClassicMenu -IsSelected ($Global:MenuSelection -eq 3)
+    Write-ColItem "Taskbar Search Box" "SET_TaskbarSearch" $s_Task -IsToggle -ToggleValue $Global:Toggle_TaskbarSearch -IsSelected ($Global:MenuSelection -eq 4)
+    Write-ColItem "Task View Toggle" "SET_TaskViewOFF" $s_View -IsToggle -ToggleValue $Global:Toggle_TaskView -IsSelected ($Global:MenuSelection -eq 5)
     
-    Write-ColItem "Infrastructure Setup" "SET_Infrastructure" $true
+    Write-LeftAligned "${Italic}${cLabelColor}Security${Reset}" -Indent 3
     Write-ColItem "Real-Time Protection" "SET_RealTimeProt" $s_RT
     
-    
-
     
     # --- LIVE WMI CHECKS ---
 
@@ -2321,10 +2548,8 @@ while ($true) {
     Write-ColItem "Kernel Stack Protection" "SET_KernelMode" $s_Kern
     Write-ColItem "LSA Protection" "SET_LocalSecurity" $s_LSA
     Write-ColItem "Windows Firewall" "SET_FirewallON" $s_FW
-    Write-ColItem "Classic Context Menu" "SET_ClassicMenu" $s_Ctx
-    Write-ColItem "Taskbar Search Box" "SET_TaskbarSearch" $s_Task
-    Write-ColItem "Task View Toggle" "SET_TaskViewOFF" $s_View
-
+    
+    Write-LeftAligned "${Italic}${cLabelColor}Automation${Reset}" -Indent 3
     Write-ColItem "Microsoft Update Service" "SET_MicrosoftUpd" $s_MU
     Write-ColItem "Restart Notifications" "SET_RestartIsReq" $s_Rest
     Write-ColItem "App Restart Persistence" "SET_RestartApps" $s_Pers
@@ -2337,25 +2562,27 @@ while ($true) {
 
     # Maintenance sub-section (inline under MANUAL-MODE)
     Add-DashLine "  ${manualHeaderColor}$('_' * 52)${Reset}"
-    $mHeaderColor = if ($Global:MenuSelection -eq 1 -or ($Global:MenuSelection -eq 0 -and $maintActive)) { $FGWhite } else { $FGDarkGray }
-    Add-DashLine (" " * 15 + "${mHeaderColor}Maintain Operating System${Reset}")
+    $mHeaderColor = if ($Global:MenuSelection -ge 1 -or ($Global:MenuSelection -eq 0 -and $maintActive)) { $FGWhite } else { $FGDarkGray }
+    if ($Global:MenuSelection -eq 6) {
+        Add-DashLine (" " * 13 + "${FGYellow}> Maintain Operating System${Reset}")
+    } else {
+        Add-DashLine (" " * 15 + "${mHeaderColor}Maintain Operating System${Reset}")
+    }
     Add-DashLine ""
     
     # Maintenance Details
-    $Global:mDetailColorGlobal = if ($Global:MenuSelection -eq 1) { $FGGray } else { $FGDarkGray }
+    $Global:mDetailColorGlobal = if ($Global:MenuSelection -ge 1) { $FGGray } else { $FGDarkGray }
     
 
-    $mTopColor = if ($Global:MenuSelection -eq 1 -or ($Global:MenuSelection -eq 0 -and $maintActive)) { $FGWhite } else { $FGDarkGray }
-    $mLabelColor = if ($Global:MenuSelection -eq 1 -or ($Global:MenuSelection -eq 0 -and $maintActive)) { $FGWhite } else { $FGDarkGray }
+    $mTopColor = if ($Global:MenuSelection -ge 1 -or ($Global:MenuSelection -eq 0 -and $maintActive)) { $FGWhite } else { $FGDarkGray }
+    $mLabelColor = if ($Global:MenuSelection -ge 1 -or ($Global:MenuSelection -eq 0 -and $maintActive)) { $FGWhite } else { $FGDarkGray }
     Write-LeftAligned "${FGDarkGray}[${mTopColor}#${FGDarkGray}]${mLabelColor} OF DAYS SINCE LAST RUN  ${FGDarkGray}|${mLabelColor} ATOMIC_SCRIPT$Reset" -Indent 3
     Add-DashLine ("  ${FGDarkGray}$('-' * 52)${Reset}")
-    Write-MaintItem "Get Updates" "RUN_UpdateSuite" "Maintenance_WinUpdate" -Threshold 1
-    Write-MaintItem "Drive Optimization" "RUN_OptimizeDisks" "Maintenance_Disk" -Threshold 7
-    Write-MaintItem "Temp File Cleanup" "RUN_SystemCleanup" "Maintenance_Cleanup" -Threshold 7
-    Write-MaintItem "SFC / DISM Repair" "RUN_WindowsRepair" "Maintenance_SFC" -Threshold 30
-
+    Write-MaintItem "Get Updates" "RUN_UpdateSuite" "Maintenance_WinUpdate" -Threshold 1 -ToggleValue $Global:Toggle_MaintUpdate -IsSelected ($Global:MenuSelection -eq 7)
+    Write-MaintItem "Drive Optimization" "RUN_OptimizeDisks" "Maintenance_Disk" -Threshold 7 -ToggleValue $Global:Toggle_MaintDisk -IsSelected ($Global:MenuSelection -eq 8)
+    Write-MaintItem "Temp File Cleanup" "RUN_SystemCleanup" "Maintenance_Cleanup" -Threshold 7 -ToggleValue $Global:Toggle_MaintCleanup -IsSelected ($Global:MenuSelection -eq 9)
+    Write-MaintItem "SFC / DISM Repair" "RUN_WindowsRepair" "Maintenance_SFC" -Threshold 30 -ToggleValue $Global:Toggle_MaintSFC -IsSelected ($Global:MenuSelection -eq 10)
     Add-DashLine ""
-
 
     Write-Boundary -Color $FGYellow
 
@@ -2383,14 +2610,78 @@ while ($true) {
     # --- NAVIGATION LOGIC ---
     if ($res.VirtualKeyCode -eq 38) {
         # Up
-        $Global:MenuSelection--
-        if ($Global:MenuSelection -lt 0) { $Global:MenuSelection = 1 }
+        $current = $Global:MenuSelection
+        if ($current -eq 0) {
+            $Global:MenuSelection = 6
+        }
+        elseif ($current -eq 1) {
+            $Global:MenuSelection = 0
+        }
+        elseif ($current -eq 2) {
+            $Global:MenuSelection = 1
+        }
+        elseif ($current -eq 3) {
+            $Global:MenuSelection = 2
+        }
+        elseif ($current -eq 4) {
+            $Global:MenuSelection = 3
+        }
+        elseif ($current -eq 5) {
+            $Global:MenuSelection = 4
+        }
+        elseif ($current -eq 6) {
+            $Global:MenuSelection = 2
+        }
+        elseif ($current -eq 7) {
+            $Global:MenuSelection = 6
+        }
+        elseif ($current -eq 8) {
+            $Global:MenuSelection = 7
+        }
+        elseif ($current -eq 9) {
+            $Global:MenuSelection = 8
+        }
+        elseif ($current -eq 10) {
+            $Global:MenuSelection = 9
+        }
         continue
     }
     elseif ($res.VirtualKeyCode -eq 40) {
         # Down
-        $Global:MenuSelection++
-        if ($Global:MenuSelection -gt 1) { $Global:MenuSelection = 0 }
+        $current = $Global:MenuSelection
+        if ($current -eq 0) {
+            $Global:MenuSelection = 1
+        }
+        elseif ($current -eq 1) {
+            $Global:MenuSelection = 2
+        }
+        elseif ($current -eq 2) {
+            $Global:MenuSelection = 6
+        }
+        elseif ($current -eq 3) {
+            $Global:MenuSelection = 4
+        }
+        elseif ($current -eq 4) {
+            $Global:MenuSelection = 5
+        }
+        elseif ($current -eq 5) {
+            $Global:MenuSelection = 6
+        }
+        elseif ($current -eq 6) {
+            $Global:MenuSelection = 0
+        }
+        elseif ($current -eq 7) {
+            $Global:MenuSelection = 8
+        }
+        elseif ($current -eq 8) {
+            $Global:MenuSelection = 9
+        }
+        elseif ($current -eq 9) {
+            $Global:MenuSelection = 10
+        }
+        elseif ($current -eq 10) {
+            $Global:MenuSelection = 0
+        }
         continue
     }
     elseif ($res.VirtualKeyCode -eq 39) {
@@ -2409,35 +2700,59 @@ while ($true) {
         break
     }
     elseif ($res.VirtualKeyCode -eq 13) {
-        # Enter Handling (Mapped to Spacebar logic logic effectively, or just loop if user insists on space)
-        # We will ignore Enter or treat it as Space to be safe, but Space is the primary.
-        $res.Character = ' '
-        $res.VirtualKeyCode = 32
-    }
-    
-
-    
-    if ($res.Character -eq ' ' -or $res.VirtualKeyCode -eq 32) {
-        # Space Action Logic (Context Sensitive)
+        # Enter Action Logic (Runs SmartRUN or Manual Mode)
         $Target = $Global:MenuSelection
-        
-        # GLOBAL: Run Windows Update Check FIRST
-        # Invoke-WA_WindowsUpdate (Moved to Maintenance Phase)
-        
         if ($Target -eq 0) {
             # [S]mart Run -> EXECUTE
             Invoke-WinAutoConfiguration -SmartRun
             Set-WinAutoLastRun -Module "Configuration"
             if (-not $Global:MaintenanceComplete) { Invoke-WinAutoMaintenance -SmartRun }
+            Start-Sleep -Milliseconds 200
         }
-        elseif ($Target -eq 1) {
+        elseif ($Target -ge 1) {
             # MANUAL-MODE -> Run Configure + Maintain, all steps forced (no SmartRun)
             Invoke-WinAutoConfiguration
             Set-WinAutoLastRun -Module "Configuration"
             Invoke-WinAutoMaintenance
+            Start-Sleep -Milliseconds 200
+        }
+        continue
+    }
+    elseif ($res.Character -eq ' ' -or $res.VirtualKeyCode -eq 32) {
+        # Space Action Logic (Only Toggle options)
+        $Target = $Global:MenuSelection
+        
+        if ($Target -eq 2) {
+            # Move cursor to first optional line (Classic Context Menu)
+            $Global:MenuSelection = 3
+        }
+        elseif ($Target -eq 3) {
+            $Global:Toggle_ClassicMenu = if ($Global:Toggle_ClassicMenu -eq 1) { 0 } else { 1 }
+        }
+        elseif ($Target -eq 4) {
+            $Global:Toggle_TaskbarSearch = if ($Global:Toggle_TaskbarSearch -eq 1) { 0 } else { 1 }
+        }
+        elseif ($Target -eq 5) {
+            $Global:Toggle_TaskView = if ($Global:Toggle_TaskView -eq 1) { 0 } else { 1 }
+        }
+        elseif ($Target -eq 6) {
+            # Move cursor to first optional line (Get Updates)
+            $Global:MenuSelection = 7
+        }
+        elseif ($Target -eq 7) {
+            $Global:Toggle_MaintUpdate = if ($Global:Toggle_MaintUpdate -eq 1) { 0 } else { 1 }
+        }
+        elseif ($Target -eq 8) {
+            $Global:Toggle_MaintDisk = if ($Global:Toggle_MaintDisk -eq 1) { 0 } else { 1 }
+        }
+        elseif ($Target -eq 9) {
+            $Global:Toggle_MaintCleanup = if ($Global:Toggle_MaintCleanup -eq 1) { 0 } else { 1 }
+        }
+        elseif ($Target -eq 10) {
+            $Global:Toggle_MaintSFC = if ($Global:Toggle_MaintSFC -eq 1) { 0 } else { 1 }
         }
         
-        # Pause slightly if we toggled, or if we ran (though ran usually has its own pauses)
+        # Pause slightly if we toggled
         Start-Sleep -Milliseconds 200
         continue
     }
