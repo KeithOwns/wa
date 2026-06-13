@@ -1,0 +1,56 @@
+                   = ATOMIC SCRIPTS =
+                - Configure & Maintain -
+  ____________________________________________________
+                     | Smart Run |
+  ____________________________________________________
+                    | Manual Mode |
+  ____________________________________________________
+               Configure Operating System
+
+                       Automation
+   [v] Enabled [ ] Disabled | Atomic Script
+  ----------------------------------------------------
+   [v] Microsoft Update     | SET_MicrosoftUpd
+   [v] Restart Notifications| SET_RestartIsReq
+   [v] App Restart Persist  | SET_RestartApps
+
+                        Security
+   [v] Enabled [ ] Disabled | Atomic Script
+  ----------------------------------------------------
+   [v] PS Transcription     | SET_PSTranscription
+   [v] Windows Telemetry    | SET_Telemetry
+   [v] LLMNR Configuration  | SET_LLMNR
+   [v] PS Script Block Log  | SET_PSScriptBlock
+   [v] PS Module Logging    | SET_PSModuleLogging
+   [v] NetBIOS over TCP/IP  | SET_NetBIOS
+   [v] Real-Time Protection | SET_RealTimeProt
+   [v] PUA Protection       | SET_PUABlockApps
+   [v] PUA Edge             | SET_PUABlockDLs
+   [v] Memory Integrity     | SET_MemoryInteg
+   [v] Kernel Stack         | SET_KernelMode
+   [v] LSA Protection       | SET_LocalSecurity
+   [v] Windows Firewall     | SET_FirewallON
+
+                     User Interface
+   [v] Enabled [ ] Disabled | Atomic Script
+  ----------------------------------------------------
+   [v] Classic Context Menu | SET_ClassicMenu
+   [v] Taskbar Search Box   | SET_TaskbarSearch
+   [v] Task View Toggle     | SET_TaskViewOFF
+   [v] Show File Extensions | SET_ShowExtensions
+   [v] Show Hidden Files    | SET_ShowHidden
+
+  ____________________________________________________
+               Maintain Operating System
+
+   [#] OF DAYS SINCE LAST   | Atomic Script
+  ----------------------------------------------------
+   [0] Get Updates          | RUN_UpdateSuite
+   [1] Drive Optimization   | RUN_OptimizeDisks
+   [1] Temp File Cleanup    | RUN_SystemCleanup
+   [1] SFC / DISM Repair    | RUN_WindowsRepair
+
+  ____________________________________________________
+
+  Press Enter to Run         | Press Space to Toggle
+  Use arrows  ^  v to select | Press  Esc to EXIT =>

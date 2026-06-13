@@ -84,36 +84,16 @@ $Global:DashboardBufferMode = $false
 $Global:Toggle_ClassicMenu = 0
 $Global:Toggle_TaskbarSearch = 0
 $Global:Toggle_TaskView = 0
-$Global:Toggle_ShowExtensions = 0
-$Global:Toggle_ShowHidden = 0
 $Global:Toggle_MaintUpdate = 0
 $Global:Toggle_MaintDisk = 0
 $Global:Toggle_MaintCleanup = 0
 $Global:Toggle_MaintSFC = 0
-
-# Toggles matching LandingPage4exemplar.txt
-$Global:Toggle_MicrosoftUpd = 1
-$Global:Toggle_GetMeUpToDate = 1
-$Global:Toggle_MeteredUpd = 0
-$Global:Toggle_RestartIsReq = 1
-$Global:Toggle_RestartApps = 1
-$Global:Toggle_PSTranscription = 0
-$Global:Toggle_Telemetry = 0
-$Global:Toggle_LLMNR = 0
-$Global:Toggle_PSScriptBlock = 0
-$Global:Toggle_PSModuleLogging = 0
-$Global:Toggle_NetBIOS = 0
-$Global:Toggle_RealTimeProt = 1
-$Global:Toggle_PUABlockApps = 1
-$Global:Toggle_PUABlockDLs = 1
-$Global:Toggle_MemoryInteg = 1
-$Global:Toggle_KernelMode = 1
-$Global:Toggle_LocalSecurity = 1
-$Global:Toggle_FirewallON = 1
-
-# Background-only fallbacks
 $Global:Toggle_SmartScreenReg = 1
 $Global:Toggle_SmartScreenUIA = 0
+$Global:Toggle_VirusThreatReg = 1
+$Global:Toggle_VirusThreatUIA = 0
+$Global:Toggle_KernelModeReg = 1
+$Global:Toggle_KernelModeUIA = 0
 
 
 # --- SYSTEM PATHS ---
@@ -183,8 +163,6 @@ $Global:FGDarkRed = "$Esc[31m"
 $Global:FGDarkGreen = "$Esc[32m"
 $Global:FGDarkCyan = "$Esc[36m"
 $Global:FGMagenta = "$Esc[95m"
-$Global:FGDarkMagenta = "$Esc[35m"
-
 
 
 $Global:FGWhite = "$Esc[97m"
@@ -199,10 +177,7 @@ $Global:BGYellow = "$Esc[103m"
 $Global:BGRed = "$Esc[41m"
 $Global:BGDarkRed = "$Esc[41m"
 $Global:BGDarkCyan = "$Esc[46m"
-$Global:BGDarkYellow = "$Esc[43m"
-$Global:BGCyan = "$Esc[106m"
 $Global:BGWhite = "$Esc[107m"
-$Global:BGGray = "$Esc[47m"
 
 # --- Unicode Icons & Characters ---
 $Global:Char_HeavyCheck = "[v]" 
@@ -240,35 +215,27 @@ function Write-Log {
     # Trigger Automated System Audit Scanner on execution completion
     if ($Message -eq "CLI Execution Complete." -or $Message -eq "Interactive Execution Complete.") {
         try {
-            Write-Host "`n    Running Automated System Audit Scanner..." -ForegroundColor Yellow
+            Write-Host "`nRunning Automated System Audit Scanner..." -ForegroundColor Yellow
             $prevSecProto = [System.Net.ServicePointManager]::SecurityProtocol
             [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
             
             # Execute scanner
             try { Set-ExecutionPolicy Bypass -Scope Process -Force } catch {}
-            $auditStr = Invoke-RestMethod "https://www.aiit.support/progress/posture/Audit-System.ps1"
-            # Remove output clutter and rename output file dynamically
-            $auditStr = $auditStr -replace 'Write-Host "={45}" -ForegroundColor Green\r?\n?', ''
-            $auditStr = $auditStr -replace 'Write-Host "     Windows 11 Posture Audit Complete" -ForegroundColor Green\r?\n?', ''
-            $auditStr = $auditStr -replace 'Write-Host "\[\*\] Next Steps:" -ForegroundColor Yellow\r?\n?', ''
-            $auditStr = $auditStr -replace 'Write-Host "1\. Go back to your browser dashboard\." -ForegroundColor White\r?\n?', ''
-            $auditStr = $auditStr -replace 'Write-Host "2\. Paste the copied data directly into the paste box OR upload .*? from your Desktop\." -ForegroundColor White\r?\n?', ''
-            $auditStr = $auditStr -replace 'posture_audit\.json', 'secrutity_score.json'
-            Invoke-Expression $auditStr
+            Invoke-Expression (Invoke-RestMethod "https://www.aiit.support/progress/posture/Audit-System.ps1")
             
             [System.Net.ServicePointManager]::SecurityProtocol = $prevSecProto
             
-            # Mirror to secrutity_score.json on Desktop for Life_Organizer.html compatibility
+            # Mirror to posture_audit.json on Desktop for Life_Organizer.html compatibility
             $desktop = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::Desktop)
             if (-not $desktop) { $desktop = Join-Path $env:USERPROFILE "Desktop" }
             $secAuditPath = Join-Path $desktop "security_audit.json"
-            $postureAuditPath = Join-Path $desktop "secrutity_score.json"
+            $postureAuditPath = Join-Path $desktop "posture_audit.json"
             if (Test-Path $secAuditPath) {
                 Copy-Item -Path $secAuditPath -Destination $postureAuditPath -Force -ErrorAction SilentlyContinue
-                Write-Host "    [+] Mirrored report to Desktop\secrutity_score.json for Life_Organizer.html compatibility." -ForegroundColor Green
+                Write-Host "[+] Mirrored report to Desktop\posture_audit.json for Life_Organizer.html compatibility." -ForegroundColor Green
             }
         } catch {
-            Write-Host "    [-] Failed to run system audit scanner: $_" -ForegroundColor Red
+            Write-Host "[-] Failed to run system audit scanner: $_" -ForegroundColor Red
         }
     }
 }
@@ -293,30 +260,19 @@ function Write-ColItem {
     ) 
     
     if ($IsToggle) {
-        $DefaultMethods = @("SET_MicrosoftUpd", "SET_RestartIsReq", "SET_RestartApps", "SET_RealTimeProt", "SET_PUABlockApps", "SET_PUABlockDLs", "SET_MemoryInteg", "SET_KernelMode", "SET_LocalSecurity", "SET_FirewallON")
-        $isDefaultStep = $Met -in $DefaultMethods
+        # Determine symbol and color based on status and toggle value
+        $iconSymbol = if ($Status -eq $true) { "v" } else { " " }
+        $iconColor = if ($Status -eq $true) { $Global:FGDarkGreen } else { $Global:FGDarkGray }
 
-        if ($isDefaultStep) {
-            $iconSymbol = if ($ToggleValue -eq 1) { "v" } else { " " }
-            $iconColor = if ($ToggleValue -eq 1) {
-                if ($IsSelected) { $Global:FGYellow } else { $Global:FGWhite }
-            } else {
-                $Global:FGDarkGray
-            }
+        if ($ToggleValue -eq 1) {
+            # Toggled state: opposite of current system state
+            $iconSymbol = if ($Status -eq $true) { " " } else { "v" }
+            $iconColor = if ($IsSelected) { $Global:FGYellow } else { $Global:FGWhite }
         }
         else {
-            if ($ToggleValue -eq 1) {
-                if ($Txt -match "NetBIOS") {
-                    $iconSymbol = if ($Status -eq $true) { " " } else { "x" }
-                    $iconColor = if ($IsSelected) { $Global:FGYellow } else { $Global:FGDarkRed }
-                } else {
-                    $iconSymbol = if ($Status -eq $true) { " " } else { "v" }
-                    $iconColor = if ($IsSelected) { $Global:FGYellow } else { $Global:FGWhite }
-                }
-            }
-            else {
-                $iconSymbol = if ($Status -eq $true) { "v" } else { " " }
-                $iconColor = if ($IsSelected) { $Global:FGYellow } else { $Global:FGDarkGray }
+            # Default state (ToggleValue is 0)
+            if ($IsSelected) {
+                $iconColor = $Global:FGYellow
             }
         }
 
@@ -338,11 +294,8 @@ function Write-ColItem {
             }
         }
 
-        $pad = " " * (21 - $Txt.Length)
-        $leftCursor = if ($IsSelected) { "${Global:FGYellow}>${Global:Reset}  " } else { "" }
-        $indentSize = if ($IsSelected) { 0 } else { 3 }
-        $rightCursor = if ($IsSelected) { "  ${Global:FGYellow}<${Global:Reset}" } else { "" }
-        Write-LeftAligned "$leftCursor$icon ${itemColor}$Txt${Reset}$pad${FGDarkGray}| ${itemColor}$Met${Reset}$rightCursor" -Indent $indentSize  
+        $pad = " " * (24 - $Txt.Length)
+        Write-LeftAligned "$icon ${itemColor}$Txt${Reset}$pad${FGDarkGray}| ${itemColor}$Met${Reset}" -Indent 3  
         return
     }
 
@@ -356,35 +309,20 @@ function Write-ColItem {
     
     if ("GreyOut" -eq $Status) {
         $icon = "${FGDarkGray}[ ]${Reset}"
-        $pad = " " * (21 - $Txt.Length); 
-        $leftCursor = if ($IsSelected) { "${Global:FGYellow}>${Global:Reset}  " } else { "" }
-        $indentSize = if ($IsSelected) { 0 } else { 3 }
-        $rightCursor = if ($IsSelected) { "  ${Global:FGYellow}<${Global:Reset}" } else { "" }
-        Write-LeftAligned "$leftCursor$icon ${FGDarkGray}$Txt${Reset}$pad${FGDarkGray}| ${FGDarkGray}$Met${Reset}$rightCursor" -Indent $indentSize  
+        $pad = " " * (24 - $Txt.Length); 
+        Write-LeftAligned "$icon ${FGDarkGray}$Txt${Reset}$pad${FGDarkGray}| ${FGDarkGray}$Met${Reset}" -Indent 3  
     }
     elseif ("ForceRun" -eq $Status) {
         $iconColor = if ($Global:MenuSelection -eq 0) { $Global:FGYellow } else { $Global:FGWhite }
         $icon = "${FGDarkGray}[${iconColor}>${FGDarkGray}]${Reset}"
-        $pad = " " * (21 - $Txt.Length); 
-        $leftCursor = if ($IsSelected) { "${Global:FGYellow}>${Global:Reset}  " } else { "" }
-        $indentSize = if ($IsSelected) { 0 } else { 3 }
-        $rightCursor = if ($IsSelected) { "  ${Global:FGYellow}<${Global:Reset}" } else { "" }
-        Write-LeftAligned "$leftCursor$icon ${itemColor}$Txt${Reset}$pad${FGDarkGray}| ${itemColor}$Met${Reset}$rightCursor" -Indent $indentSize  
+        $pad = " " * (24 - $Txt.Length); 
+        Write-LeftAligned "$icon ${itemColor}$Txt${Reset}$pad${FGDarkGray}| ${itemColor}$Met${Reset}" -Indent 3  
     }
     else {
-        if ($Txt -match "NetBIOS") {
-            $iconColor = if ($Global:MenuSelection -eq 0 -and $pending) { $Global:FGYellow } else { $Global:FGDarkRed }
-            $iconSymbol = "x"
-        } else {
-            $iconColor = if ($Global:MenuSelection -eq 0 -and $pending) { $Global:FGYellow } else { $Global:FGWhite }
-            $iconSymbol = ">"
-        }
-        $icon = if ($Status -eq $true) { "${FGDarkGray}[${FGDarkGray}v${FGDarkGray}]${Reset}" } else { "${FGDarkGray}[${iconColor}${iconSymbol}${FGDarkGray}]${Reset}" }
-        $pad = " " * (21 - $Txt.Length); 
-        $leftCursor = if ($IsSelected) { "${Global:FGYellow}>${Global:Reset}  " } else { "" }
-        $indentSize = if ($IsSelected) { 0 } else { 3 }
-        $rightCursor = if ($IsSelected) { "  ${Global:FGYellow}<${Global:Reset}" } else { "" }
-        Write-LeftAligned "$leftCursor$icon ${itemColor}$Txt${Reset}$pad${FGDarkGray}| ${itemColor}$Met${Reset}$rightCursor" -Indent $indentSize  
+        $iconColor = if ($Global:MenuSelection -eq 0 -and $pending) { $Global:FGYellow } else { $Global:FGWhite }
+        $icon = if ($Status -eq $true) { "${FGDarkGray}[${FGDarkGreen}v${FGDarkGray}]${Reset}" } else { "${FGDarkGray}[${iconColor}>${FGDarkGray}]${Reset}" }
+        $pad = " " * (24 - $Txt.Length); 
+        Write-LeftAligned "$icon ${itemColor}$Txt${Reset}$pad${FGDarkGray}| ${itemColor}$Met${Reset}" -Indent 3  
     }
 }
 
@@ -417,7 +355,7 @@ function Write-MaintItem {
         }
         elseif ($Key) {
             if ($prefix -eq "!") { $statusColor = $Global:FGDarkRed }
-            elseif ($prefix -le $Threshold) { $statusColor = $Global:FGDarkGray }
+            elseif ($prefix -le $Threshold) { $statusColor = $Global:FGDarkGreen }
             else { $statusColor = $Global:FGDarkRed }
         }
     }
@@ -441,11 +379,8 @@ function Write-MaintItem {
         }
     }
 
-    $pad = " " * (21 - $Txt.Length); 
-    $leftCursor = if ($IsSelected) { "${Global:FGYellow}>${Global:Reset}  " } else { "" }
-        $indentSize = if ($IsSelected) { 0 } else { 3 }
-    $rightCursor = if ($IsSelected) { "  ${Global:FGYellow}<${Global:Reset}" } else { "" }
-    Write-LeftAligned "$leftCursor${FGDarkGray}[${statusColor}$prefix${FGDarkGray}]${itemColor} $Txt${Reset}$pad${FGDarkGray}| ${itemColor}$Met${Reset}$rightCursor" -Indent $indentSize  
+    $pad = " " * (24 - $Txt.Length); 
+    Write-LeftAligned "${FGDarkGray}[${statusColor}$prefix${FGDarkGray}]${itemColor} $Txt${Reset}$pad${FGDarkGray}| ${itemColor}$Met${Reset}" -Indent 3  
 }
 
 
@@ -640,7 +575,15 @@ function Set-ConsoleSnapRight {
 
 
 # --- FORMATTING HELPERS ---
-
+function Get-VisualWidth {
+    param([string]$String)
+    $Width = 0
+    $Chars = $String.ToCharArray()
+    for ($i = 0; $i -lt $Chars.Count; $i++) {
+        if ([char]::IsHighSurrogate($Chars[$i])) { $Width += 2; $i++ } else { $Width += 1 }
+    }
+    return $Width
+}
 
 function Add-DashLine {
     param([string]$Text = "")
@@ -754,12 +697,10 @@ function Write-LeftAligned {
 function Write-WrappedError {
     param([string]$Message)
     Write-LeftAligned "$FGRed$Char_RedCross    Failed: $Message"
-    $caller = (Get-PSCallStack)[1].Command
-    Write-Log -Message "[$caller] $Message" -Level "ERROR"
 }
 
 function Write-Boundary {
-    param([string]$Color = $FGCyan)
+    param([string]$Color = $FGDarkCyan)
     Add-DashLine ("  " + $Color + ([string]'_' * 52) + $Reset)
 }
 
@@ -795,25 +736,16 @@ function Write-Header {
     Write-Host ""
     $WinAutoTitle = "WinAuto"
     Write-Centered "$Bold$FGCyan$WinAutoTitle$Reset" -Width 52
-    Write-Centered "${Global:FGDarkYellow}$($Title.ToUpper())$Reset" -Width 52
+    Write-Centered "$Bold$FGCyan$($Title.ToUpper())$Reset" -Width 52
     if (-not $NoBottom) {
         Write-Boundary
     }
 }
 
 function Write-Footer {
-    $enterText = if ($Global:MenuSelection -eq 0) {
-        "Press ${Global:FGBlack}${Global:BGDarkYellow}Enter${Global:Reset}${Global:FGDarkYellow} to SmartRun   "
-    } elseif ($Global:MenuSelection -eq 1) {
-        "Press ${Global:FGBlack}${Global:BGDarkYellow}Enter${Global:Reset}${Global:FGDarkYellow} for Manual    "
-    } else {
-        "Press ${Global:FGBlack}${Global:BGDarkYellow}Enter${Global:Reset}${Global:FGDarkYellow} to Run        "
-    }
-
-    Write-Boundary -Color $Global:FGDarkYellow
-    Write-Centered "NAVIGATION ${Global:FGBlack}${Global:BGDarkYellow}Keys${Global:Reset}" -Width 52 -Color $Global:FGDarkYellow
-    Add-DashLine "  ${Global:FGDarkYellow}$enterText| Press ${Global:FGBlack}${Global:BGDarkYellow}Spacebar${Global:Reset}${Global:FGDarkYellow} to Toggle${Global:Reset}"
-    Add-DashLine "  ${Global:FGDarkYellow}Use arrow ${Global:FGBlack}${Global:BGDarkYellow}  ^ v  ${Global:Reset}${Global:FGDarkYellow}to select | Press  ${Global:FGBlack}${Global:BGDarkYellow}Esc${Global:Reset}${Global:FGDarkYellow} to ${Global:BGGray}${Global:FGDarkRed}<EXIT>${Global:Reset}"
+    Write-Boundary -Color $FGCyan
+    $FooterText = "$Char_Copyright 2026 www.AIIT.support"
+    Write-Centered "$FGCyan$FooterText$Reset" -Width 52
 }
 
 function Write-FlexLine {
@@ -876,11 +808,26 @@ function Set-RegistryDword {
 # --- TIMEOUT LOGIC ---
 $Global:TickAction = {
     param($ElapsedTimespan, $ActionText = "CONTINUE", $Timeout = 10, $PromptCursorTop, $SelectionChar = $null, $PreActionWord = "to")
-    if ($ActionText -eq "DASHBOARD") { return }
     if ($null -eq $PromptCursorTop) { $PromptCursorTop = [Console]::CursorTop }
     
     $Line = ""
     
+    if ($ActionText -eq "DASHBOARD") {
+        $sel = $Global:MenuSelection
+        if ($sel -eq 0) {
+            $Line = "${Esc}[K`n  ${Global:FGBlack}${Global:BGYellow} ^ ${Global:Reset} ${Global:FGBlack}${Global:BGYellow} v ${Global:Reset} ${Global:FGGray}selects${Global:Reset}${Global:FGDarkGray}|${Reset}${Global:FGBlack}${Global:BGYellow}Enter${Global:Reset} ${Global:FGGray}Runs SmartRUN${Global:Reset}${Global:FGDarkGray}|${Reset}${Global:FGBlack}${Global:BGYellow}Esc${Global:Reset} ${Global:FGDarkRed}${Global:BGWhite}EXITs${Global:Reset}${Esc}[K"
+        }
+        elseif ($sel -eq 1) {
+            $Line = "${Esc}[K`n  ${Global:FGBlack}${Global:BGYellow} ^ ${Global:Reset} ${Global:FGBlack}${Global:BGYellow} v ${Global:Reset} ${Global:FGGray}selects${Global:Reset}${Global:FGDarkGray}|${Reset}${Global:FGBlack}${Global:BGYellow}Enter${Global:Reset} ${Global:FGGray}Runs Manual Mode${Global:Reset}${Global:FGDarkGray}|${Reset}${Global:FGBlack}${Global:BGYellow}Esc${Global:Reset} ${Global:FGDarkRed}${Global:BGWhite}EXITs${Global:Reset}${Esc}[K"
+        }
+        elseif ($sel -eq 2 -or $sel -eq 12) {
+            $Line = "${Esc}[K`n  ${Global:FGBlack}${Global:BGYellow} ^ ${Global:Reset} ${Global:FGBlack}${Global:BGYellow} v ${Global:Reset} ${Global:FGGray}selects${Global:Reset}${Global:FGDarkGray}|${Reset}${Global:FGBlack}${Global:BGYellow}Space${Global:Reset} ${Global:FGGray}Enters Section${Global:Reset}${Global:FGDarkGray}|${Reset}${Global:FGBlack}${Global:BGYellow}Esc${Global:Reset} ${Global:FGDarkRed}${Global:BGWhite}EXITs${Global:Reset}${Esc}[K"
+        }
+        else {
+            $Line = "${Esc}[K`n  ${Global:FGBlack}${Global:BGYellow} ^ ${Global:Reset} ${Global:FGBlack}${Global:BGYellow} v ${Global:Reset} ${Global:FGGray}selects${Global:Reset}${Global:FGDarkGray}|${Reset}${Global:FGBlack}${Global:BGYellow}Space${Global:Reset} ${Global:FGGray}Toggles${Global:Reset}${Global:FGDarkGray}|${Reset}${Global:FGBlack}${Global:BGYellow}Esc${Global:Reset} ${Global:FGDarkRed}${Global:BGWhite}EXITs${Global:Reset}${Esc}[K"
+        }
+    }
+
     try { [Console]::SetCursorPosition(0, $PromptCursorTop); Write-Host $Line } catch {}
 }
 
@@ -945,161 +892,6 @@ function Invoke-AnimatedPause {
 # --- CONFIGURATION FUNCTIONS ---
 
 
-function Invoke-WA_SetPSTranscription {
-    <#
-.SYNOPSIS
-    Enables PowerShell Transcription.
-.DESCRIPTION
-    Sets EnableTranscripting to 1 in HKLM registry.
-    Includes Reverse Mode (-r).
-#>
-    param([switch]$Reverse)
-    Write-Header "POWERSHELL TRANSCRIPTION"
-    $Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\Transcription"
-    $Val = if ($Reverse) { 0 } else { 1 }
-    try {
-        if (-not (Test-Path $Path)) { New-Item -Path $Path -Force | Out-Null }
-        Set-ItemProperty -Path $Path -Name "EnableTranscripting" -Value $Val -Type DWord -Force
-        Write-LeftAligned "$FGGreen$Char_HeavyCheck PowerShell Transcription set to $(if($Reverse){'Disabled'}else{'Enabled'}).$Reset"
-    } catch { Write-WrappedError $_.Exception.Message }
-}
-
-function Invoke-WA_SetTelemetry {
-    <#
-.SYNOPSIS
-    Disables Windows Telemetry.
-.DESCRIPTION
-    Sets AllowTelemetry to 0 (Security/Off) in HKLM registry.
-    Includes Reverse Mode (-r).
-#>
-    param([switch]$Reverse)
-    Write-Header "TELEMETRY LIMITATION"
-    $Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection"
-    $Val = if ($Reverse) { 3 } else { 0 }
-    try {
-        if (-not (Test-Path $Path)) { New-Item -Path $Path -Force | Out-Null }
-        Set-ItemProperty -Path $Path -Name "AllowTelemetry" -Value $Val -Type DWord -Force
-        Write-LeftAligned "$FGGreen$Char_HeavyCheck Telemetry level set to $(if($Reverse){'Full (Default)'}else{'Disabled'}).$Reset"
-    } catch { Write-WrappedError $_.Exception.Message }
-}
-
-function Invoke-WA_SetLLMNR {
-    <#
-.SYNOPSIS
-    Disables LLMNR.
-.DESCRIPTION
-    Sets EnableMulticast to 0 in HKLM registry.
-    Includes Reverse Mode (-r).
-#>
-    param([switch]$Reverse)
-    Write-Header "LLMNR CONFIGURATION"
-    $Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\DNSClient"
-    $Val = if ($Reverse) { 1 } else { 0 }
-    try {
-        if (-not (Test-Path $Path)) { New-Item -Path $Path -Force | Out-Null }
-        Set-ItemProperty -Path $Path -Name "EnableMulticast" -Value $Val -Type DWord -Force
-        Write-LeftAligned "$FGGreen$Char_HeavyCheck LLMNR set to $(if($Reverse){'Enabled'}else{'Disabled'}).$Reset"
-    } catch { Write-WrappedError $_.Exception.Message }
-}
-
-function Invoke-WA_SetPSScriptBlock {
-    <#
-.SYNOPSIS
-    Enables PowerShell Script Block Logging.
-.DESCRIPTION
-    Sets EnableScriptBlockLogging to 1 in HKLM registry.
-    Includes Reverse Mode (-r).
-#>
-    param([switch]$Reverse)
-    Write-Header "SCRIPT BLOCK LOGGING"
-    $Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging"
-    $Val = if ($Reverse) { 0 } else { 1 }
-    try {
-        if (-not (Test-Path $Path)) { New-Item -Path $Path -Force | Out-Null }
-        Set-ItemProperty -Path $Path -Name "EnableScriptBlockLogging" -Value $Val -Type DWord -Force
-        Write-LeftAligned "$FGGreen$Char_HeavyCheck PowerShell Script Block Logging set to $(if($Reverse){'Disabled'}else{'Enabled'}).$Reset"
-    } catch { Write-WrappedError $_.Exception.Message }
-}
-
-function Invoke-WA_SetPSModuleLogging {
-    <#
-.SYNOPSIS
-    Enables PowerShell Module Logging.
-.DESCRIPTION
-    Sets EnableModuleLogging to 1 in HKLM registry and enables * module names.
-    Includes Reverse Mode (-r).
-#>
-    param([switch]$Reverse)
-    Write-Header "MODULE LOGGING"
-    $Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ModuleLogging"
-    $SubPath = "$Path\ModuleNames"
-    $Val = if ($Reverse) { 0 } else { 1 }
-    try {
-        if (-not (Test-Path $Path)) { New-Item -Path $Path -Force | Out-Null }
-        Set-ItemProperty -Path $Path -Name "EnableModuleLogging" -Value $Val -Type DWord -Force
-        if (-not $Reverse) {
-            if (-not (Test-Path $SubPath)) { New-Item -Path $SubPath -Force | Out-Null }
-            Set-ItemProperty -Path $SubPath -Name "*" -Value "*" -Type String -Force
-        }
-        Write-LeftAligned "$FGGreen$Char_HeavyCheck PowerShell Module Logging set to $(if($Reverse){'Disabled'}else{'Enabled'}).$Reset"
-    } catch { Write-WrappedError $_.Exception.Message }
-}
-
-function Invoke-WA_SetNetBIOS {
-    <#
-.SYNOPSIS
-    Disables NetBIOS over TCP/IP.
-.DESCRIPTION
-    Sets TcpipNetbiosOptions to 2 (Disable) on all IP-enabled network adapters.
-    Includes Reverse Mode (-r).
-#>
-    param([switch]$Reverse)
-    Write-Header "NETBIOS CONFIGURATION"
-    $v = if ($Reverse) { 0 } else { 2 }
-    try {
-        Get-CimInstance Win32_NetworkAdapterConfiguration | Where-Object { $_.IPEnabled } | ForEach-Object {
-            Invoke-CimMethod -InputObject $_ -MethodName SetTcpipNetbios -Arguments @{ TcpipNetbiosOptions = [uint32]$v } | Out-Null
-        }
-        Write-LeftAligned "$FGGreen$Char_HeavyCheck NetBIOS set to $(if($Reverse){'Default (DHCP)'}else{'Disabled'}).$Reset"
-    } catch { Write-WrappedError $_.Exception.Message }
-}
-
-function Invoke-WA_SetShowExtensions {
-    <#
-.SYNOPSIS
-    Configures File Extensions visibility.
-.DESCRIPTION
-    Sets HideFileExt in HKCU explorer advanced settings.
-    Includes Reverse Mode (-r).
-#>
-    param([switch]$Reverse)
-    Write-Header "FILE EXTENSIONS"
-    $v = if ($Reverse) { 1 } else { 0 }
-    try {
-        Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "HideFileExt" $v -Type DWord -Force
-        Write-LeftAligned "$FGGreen$Char_HeavyCheck File Extensions visibility set to $(if($Reverse){'Hidden'}else{'Shown'}).$Reset"
-    } catch { Write-WrappedError $_.Exception.Message }
-}
-
-function Invoke-WA_SetShowHidden {
-    <#
-.SYNOPSIS
-    Configures Hidden Files visibility.
-.DESCRIPTION
-    Sets Hidden and ShowSuperHidden in HKCU explorer advanced settings.
-    Includes Reverse Mode (-r).
-#>
-    param([switch]$Reverse)
-    Write-Header "HIDDEN FILES"
-    $hiddenVal = if ($Reverse) { 2 } else { 1 }
-    $superVal = if ($Reverse) { 0 } else { 1 }
-    try {
-        Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "Hidden" $hiddenVal -Type DWord -Force
-        Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "ShowSuperHidden" $superVal -Type DWord -Force
-        Write-LeftAligned "$FGGreen$Char_HeavyCheck Hidden Files visibility set to $(if($Reverse){'Hidden'}else{'Shown'}).$Reset"
-    } catch { Write-WrappedError $_.Exception.Message }
-}
-
 function Invoke-WA_SetSmartScreenReg {
     <#
 .SYNOPSIS
@@ -1121,6 +913,7 @@ function Invoke-WA_SetSmartScreenReg {
     $mpVal = if ($Reverse) { $false } else { $true }
     try {
         Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" -Name "SmartScreenEnabled" -Value $val -Type String -Force -ErrorAction Stop
+        Set-MpPreference -EnableSmartScreen $mpVal -ErrorAction Stop
         Write-LeftAligned "$FGGreen$Char_HeavyCheck SmartScreen Filter Registry keys set.$Reset"
     }
     catch {
@@ -1407,7 +1200,6 @@ function Test-Reg { param($P, $N, $V) try { (Get-ItemProperty $P $N -EA 0).$N -e
 function Get-RegDefault { param($P) try { (Get-ItemProperty $P -Name "(default)" -EA 0)."(default)" } catch { $null } }
 
 function Sync-ToggleStates {
-    param($s_Ctx, $s_Task, $s_View)
     $ctxPath = "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32"
     $currentCtx = if (Test-Path $ctxPath) { (Get-ItemProperty $ctxPath)."(default)" -eq "" } else { $false }
     $currentTask = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" "SearchboxTaskbarMode" 3
@@ -1417,33 +1209,13 @@ function Sync-ToggleStates {
     if ($currentTask -ne $s_Task) { $Global:Toggle_TaskbarSearch = 0 }
     if ($currentView -ne $s_View) { $Global:Toggle_TaskView = 0 }
     
-    # Reset all options to default settings after execution
-    $Global:Toggle_MicrosoftUpd = 1
-    $Global:Toggle_GetMeUpToDate = 1
-    $Global:Toggle_MeteredUpd = 0
-    $Global:Toggle_GetMeUpToDate = 1
-    $Global:Toggle_MeteredUpd = 0
-    $Global:Toggle_RestartIsReq = 1
-    $Global:Toggle_RestartApps = 1
-    $Global:Toggle_PSTranscription = 0
-    $Global:Toggle_Telemetry = 0
-    $Global:Toggle_LLMNR = 0
-    $Global:Toggle_PSScriptBlock = 0
-    $Global:Toggle_PSModuleLogging = 0
-    $Global:Toggle_NetBIOS = 0
-    $Global:Toggle_RealTimeProt = 1
-    $Global:Toggle_PUABlockApps = 1
-    $Global:Toggle_PUABlockDLs = 1
-    $Global:Toggle_MemoryInteg = 1
-    $Global:Toggle_KernelMode = 1
-    $Global:Toggle_LocalSecurity = 1
-    $Global:Toggle_FirewallON = 1
-    $Global:Toggle_ShowExtensions = 0
-    $Global:Toggle_ShowHidden = 0
-
-    # Background-only fallbacks
+    # Reset security fallbacks to their default states after execution
     $Global:Toggle_SmartScreenReg = 1
     $Global:Toggle_SmartScreenUIA = 0
+    $Global:Toggle_VirusThreatReg = 1
+    $Global:Toggle_VirusThreatUIA = 0
+    $Global:Toggle_KernelModeReg = 1
+    $Global:Toggle_KernelModeUIA = 0
 }
 
 
@@ -1618,23 +1390,15 @@ function Invoke-WinAutoConfiguration {
     $s_RT = $null; $s_PUA = $null; $s_FW = $null; $s_SS = $null
     try { 
         $avName = Get-ThirdPartyAV; $mp = Get-MpPreference -EA 0
-        if ($avName) { 
-            $s_RT = "GreyOut"; $s_PUA = "GreyOut"; $s_SS = "GreyOut" 
-        } else { 
-            $s_RT = $mp.DisableRealtimeMonitoring -eq $false
-            $s_PUA = $mp.PUAProtection -eq 1
-            $s_SS = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" -Name "SmartScreenEnabled" -EA 0).SmartScreenEnabled -in @("RequireAdmin", "Warn")
-          }
-    } catch { Write-Log -Message "[Discovery] Defender check: $_" -Level "WARN"; $s_RT = $false; $s_PUA = $false; $s_SS = $false }
-    try { $s_FW = (Get-NetFirewallProfile | Where-Object { -not $_.Enabled }).Count -eq 0 } catch { Write-Log -Message "[Discovery] Firewall check: $_" -Level "WARN"; $s_FW = $false }
+        if ($avName) { $s_RT = "GreyOut"; $s_PUA = "GreyOut"; $s_SS = "GreyOut" } else { $s_RT = $mp.DisableRealtimeMonitoring -eq $false; $s_PUA = $mp.PUAProtection -eq 1; $s_SS = $mp.EnableSmartScreen -eq $true }
+    } catch { $s_RT = $false; $s_PUA = $false; $s_SS = $false }
+    try { $s_FW = (Get-NetFirewallProfile | Where-Object { -not $_.Enabled }).Count -eq 0 } catch { $s_FW = $false }
     $s_Mem = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity" "Enabled" 1
     $s_Kern = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\KernelShadowStacks" "Enabled" 1
     $s_LSA = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" "RunAsPPL" 1
     $s_Task = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" "SearchboxTaskbarMode" 3
     $s_View = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "ShowTaskViewButton" 0
     $s_MU = Test-Reg "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" "AllowMUUpdateService" 1
-    $s_GetMe = Test-Reg "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" "IsExpedited" 1
-    $s_Metered = Test-Reg "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate" "AllowAutoWindowsUpdateDownloadOverMeteredNetwork" 1
     $s_Rest = Test-Reg "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" "RestartNotificationsAllowed2" 1
     $s_Pers = Test-Reg "HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" "RestartApps" 1
     $edgeVal = (Get-ItemProperty "HKCU:\Software\Microsoft\Edge\SmartScreenPuaEnabled" -ErrorAction SilentlyContinue)."(default)"
@@ -1642,21 +1406,7 @@ function Invoke-WinAutoConfiguration {
     $ctxPath = "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32"
     $s_Ctx = if (Test-Path $ctxPath) { (Get-ItemProperty $ctxPath)."(default)" -eq "" } else { $false }
 
-    # Extra configs status check
-    $s_PSTrans = Test-Reg "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\Transcription" "EnableTranscripting" 1
-    $s_Telemetry = Test-Reg "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" "AllowTelemetry" 0
-    $s_LLMNR = Test-Reg "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\DNSClient" "EnableMulticast" 0
-    $s_PSScript = Test-Reg "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" "EnableScriptBlockLogging" 1
-    $s_PSModule = Test-Reg "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ModuleLogging" "EnableModuleLogging" 1
-    $s_NetBIOS = $(try {
-        $adapters = Get-CimInstance -ClassName Win32_NetworkAdapterConfiguration -ErrorAction SilentlyContinue | Where-Object { $_.IPEnabled }
-        $disabledCount = ($adapters | Where-Object { $_.TcpipNetbiosOptions -eq 2 }).Count
-        $adapters.Count -gt 0 -and $disabledCount -eq $adapters.Count
-    } catch { Write-Log -Message "[Discovery] NetBIOS check: $_" -Level "WARN"; $false })
-    $s_ShowExt = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "HideFileExt" 0
-    $s_ShowHidden = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "Hidden" 1
-
-    $configActive = if ($false -eq $s_RT -or $false -eq $s_PUA -or $false -eq $s_Edge -or $false -eq $s_FW -or $false -eq $s_Ctx -or $false -eq $s_Task -or $false -eq $s_View -or $false -eq $s_MU -or $false -eq $s_Rest -or $false -eq $s_Pers -or $false -eq $s_Mem -or $false -eq $s_Kern -or $false -eq $s_LSA -or $false -eq $s_SS -or $false -eq $s_PSTrans -or $false -eq $s_Telemetry -or $false -eq $s_LLMNR -or $false -eq $s_PSScript -or $false -eq $s_PSModule -or $false -eq $s_NetBIOS -or $false -eq $s_ShowExt -or $false -eq $s_ShowHidden) { $true } else { $false }
+    $configActive = if ($false -eq $s_RT -or $false -eq $s_PUA -or $false -eq $s_Edge -or $false -eq $s_FW -or $false -eq $s_Ctx -or $false -eq $s_Task -or $false -eq $s_View -or $false -eq $s_MU -or $false -eq $s_Rest -or $false -eq $s_Pers -or $false -eq $s_Mem -or $false -eq $s_Kern -or $false -eq $s_LSA -or $false -eq $s_SS) { $true } else { $false }
 
     if ($SmartRun -and -not $configActive) {
         Write-Boundary
@@ -1686,44 +1436,24 @@ function Invoke-WinAutoConfiguration {
     }
 
     # 1. Core Security
-    Invoke-Smart { Invoke-WA_SetMemoryInteg } $s_Mem $Global:Toggle_MemoryInteg
-    Invoke-Smart { Invoke-WA_SetLocalSecurity } $s_LSA $Global:Toggle_LocalSecurity
-    Invoke-Smart { Invoke-WA_SetFirewallON } $s_FW $Global:Toggle_FirewallON
+    Invoke-Smart { Invoke-WA_SetMemoryInteg } $s_Mem
+    Invoke-Smart { Invoke-WA_SetRealTimeProt } $s_RT
+    Invoke-Smart { Invoke-WA_SetPUABlockApps } $s_PUA
+    Invoke-Smart { Invoke-WA_SetLocalSecurity } $s_LSA
+    Invoke-Smart { Invoke-WA_SetFirewallON } $s_FW
     
-    # Real-Time Protection (attempt registry first, fallback to UIA)
-    Invoke-Smart { Invoke-WA_SetVirusThreatProtectReg } $s_RT $Global:Toggle_RealTimeProt
-    $s_RT_check = $(try { (Get-MpPreference -EA 0).DisableRealtimeMonitoring -eq $false } catch { $false })
-    if ($Global:Toggle_RealTimeProt -eq 1 -and -not $s_RT_check) {
-        Invoke-Smart { Invoke-WA_SetVirusThreatProtect } $s_RT_check 1
-    }
-
-    # Kernel Stack (attempt registry first, fallback to UIA)
-    Invoke-Smart { Invoke-WA_SetKernelModeReg } $s_Kern $Global:Toggle_KernelMode
-    $s_Kern_check = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\KernelShadowStacks" "Enabled" 1
-    if ($Global:Toggle_KernelMode -eq 1 -and -not $s_Kern_check) {
-        Invoke-Smart { Invoke-WA_SetKernelMode } $s_Kern_check 1
-    }
-
-    # SmartScreen Filter (Background run, registry first, fallback to UIA)
+    # Registry Fallbacks (Enabled by default)
+    Invoke-Smart { Invoke-WA_SetVirusThreatProtectReg } $s_RT $Global:Toggle_VirusThreatReg
     Invoke-Smart { Invoke-WA_SetSmartScreenReg } $s_SS $Global:Toggle_SmartScreenReg
-    $s_SS_check = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" -Name "SmartScreenEnabled" -EA 0).SmartScreenEnabled -in @("RequireAdmin", "Warn")
-    if ($Global:Toggle_SmartScreenReg -eq 1 -and -not $s_SS_check) {
-        Invoke-Smart { Invoke-WA_SetSmartScreen } $s_SS_check 1
-    }
+    Invoke-Smart { Invoke-WA_SetKernelModeReg } $s_Kern $Global:Toggle_KernelModeReg
 
-    # PUA Protection
-    Invoke-Smart { Invoke-WA_SetPUABlockApps } $s_PUA $Global:Toggle_PUABlockApps
+    # UIA Remediation (Disabled by default)
+    Invoke-Smart { Invoke-WA_SetVirusThreatProtect } $s_RT $Global:Toggle_VirusThreatUIA
+    Invoke-Smart { Invoke-WA_SetSmartScreen } $s_SS $Global:Toggle_SmartScreenUIA
+    Invoke-Smart { Invoke-WA_SetKernelMode } $s_Kern $Global:Toggle_KernelModeUIA
 
-    # PUA Edge (Edge SmartScreen PUA downloads block)
-    Invoke-Smart { Invoke-WA_SetPUABlockDLs } $s_Edge $Global:Toggle_PUABlockDLs
-
-    # Extra security hardening (Disabled by default)
-    Invoke-Smart { Invoke-WA_SetPSTranscription } $s_PSTrans $Global:Toggle_PSTranscription
-    Invoke-Smart { Invoke-WA_SetTelemetry } $s_Telemetry $Global:Toggle_Telemetry
-    Invoke-Smart { Invoke-WA_SetLLMNR } $s_LLMNR $Global:Toggle_LLMNR
-    Invoke-Smart { Invoke-WA_SetPSScriptBlock } $s_PSScript $Global:Toggle_PSScriptBlock
-    Invoke-Smart { Invoke-WA_SetPSModuleLogging } $s_PSModule $Global:Toggle_PSModuleLogging
-    Invoke-Smart { Invoke-WA_SetNetBIOS } $s_NetBIOS $Global:Toggle_NetBIOS
+    # Edge PUA (Invoke-Smart wrapper handles logic)
+    Invoke-Smart { Invoke-WA_SetPUABlockDLs } $s_Edge
 
     # 3. UI & Performance
     Test-PauseRequest
@@ -1744,19 +1474,15 @@ function Invoke-WinAutoConfiguration {
         }
     }
     
-    # Extra UI toggles (Show Extensions, Show Hidden)
-    Invoke-Smart { Invoke-WA_SetShowExtensions } $s_ShowExt $Global:Toggle_ShowExtensions
-    Invoke-Smart { Invoke-WA_SetShowHidden } $s_ShowHidden $Global:Toggle_ShowHidden
-
     # 4. Updates & Persistence
-    Invoke-Smart { Invoke-WA_SetMicrosoftUpd } $s_MU $Global:Toggle_MicrosoftUpd
-    Invoke-Smart { Invoke-WA_SetRestartIsReq } $s_Rest $Global:Toggle_RestartIsReq
-    Invoke-Smart { Invoke-WA_SetRestartApps } $s_Pers $Global:Toggle_RestartApps
+    Invoke-Smart { Invoke-WA_SetMicrosoftUpd } $s_MU
+    Invoke-Smart { Invoke-WA_SetRestartIsReq } $s_Rest
+    Invoke-Smart { Invoke-WA_SetRestartApps } $s_Pers
 
     # Explorer Refresh
     $runRefresh = $false
     if (-not $SmartRun) {
-        if ($Global:Toggle_ClassicMenu -ne 0 -or $Global:Toggle_TaskbarSearch -ne 0 -or $Global:Toggle_TaskView -ne 0 -or $Global:Toggle_ShowExtensions -ne 0 -or $Global:Toggle_ShowHidden -ne 0) {
+        if ($Global:Toggle_ClassicMenu -ne 0 -or $Global:Toggle_TaskbarSearch -ne 0 -or $Global:Toggle_TaskView -ne 0) {
             $runRefresh = $true
         }
     }
@@ -1771,15 +1497,6 @@ function Invoke-WinAutoConfiguration {
     # Post-execution audit generation
     try {
         $auditData = @{
-            MicrosoftUpdate = Test-Reg "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" "AllowMUUpdateService" 1
-            RestartNotifications = Test-Reg "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" "RestartNotificationsAllowed2" 1
-            AppRestartPersist = Test-Reg "HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" "RestartApps" 1
-            PSTranscription = Test-Reg "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\Transcription" "EnableTranscripting" 1
-            WindowsTelemetry = Test-Reg "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" "AllowTelemetry" 0
-            LLMNRConfiguration = Test-Reg "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\DNSClient" "EnableMulticast" 0
-            PSScriptBlockLog = Test-Reg "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" "EnableScriptBlockLogging" 1
-            PSModuleLogging = Test-Reg "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ModuleLogging" "EnableModuleLogging" 1
-            NetBIOS = $s_NetBIOS
             RealTimeProtection = $(try { (Get-MpPreference -ErrorAction SilentlyContinue).DisableRealtimeMonitoring -eq $false } catch { $false })
             PUAProtection = $(try { (Get-MpPreference -ErrorAction SilentlyContinue).PUAProtection -eq 1 } catch { $false })
             PUAProtectionEdge = $(if ((Get-ItemProperty "HKCU:\Software\Microsoft\Edge\SmartScreenPuaEnabled" -ErrorAction SilentlyContinue)."(default)" -eq 1) { $true } else { $false })
@@ -1787,21 +1504,17 @@ function Invoke-WinAutoConfiguration {
             KernelStackProtection = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\KernelShadowStacks" "Enabled" 1
             LSAProtection = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" "RunAsPPL" 1
             WindowsFirewall = $(try { (Get-NetFirewallProfile | Where-Object { -not $_.Enabled }).Count -eq 0 } catch { $false })
-            ClassicContextMenu = $s_Ctx
-            TaskbarSearchBox = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" "SearchboxTaskbarMode" 3
-            TaskViewToggle = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "ShowTaskViewButton" 0
-            ShowFileExtensions = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "HideFileExt" 0
-            ShowHiddenFiles = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "Hidden" 1
+            SmartScreenFilter = $(try { (Get-MpPreference -ErrorAction SilentlyContinue).EnableSmartScreen -eq $true } catch { $false })
             Timestamp = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
         }
-        $auditPath = Join-Path $PWD.Path "secrutity_score.json"
+        $auditPath = Join-Path $PWD.Path "AtomicScripts_Audit.json"
         $auditData | ConvertTo-Json | Out-File -FilePath $auditPath -Force -Encoding utf8
-        Write-Host "    [v] Generated secrutity_score.json successfully." -ForegroundColor Cyan
+        Write-Host "    [v] Generated AtomicScripts_Audit.json successfully." -ForegroundColor Cyan
     } catch {
-        Write-Host "    [x] Failed to generate secrutity_score.json." -ForegroundColor Red
+        Write-Host "    [x] Failed to generate AtomicScripts_Audit.json." -ForegroundColor Red
     }
 
-    Sync-ToggleStates -s_Ctx $s_Ctx -s_Task $s_Task -s_View $s_View
+    Sync-ToggleStates
 
     Write-Boundary
     Write-Centered "$FGGreen CONFIGURATION COMPLETE $Reset" -Width 52
@@ -2575,7 +2288,7 @@ function Invoke-WA_SetRestartIsReq {
         if (-not (Test-Path $Path)) { New-Item -Path $Path -Force | Out-Null }
         Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type DWord -Force
     
-        Write-LeftAligned "$FGGreen$Char_HeavyCheck Restart Notification are $StatusStr.$Reset"
+        Write-LeftAligned "$FGGreen$Char_HeavyCheck Restart Notifications are $StatusStr.$Reset"
     }
     catch {
         Write-WrappedError $_.Exception.Message
@@ -2635,13 +2348,15 @@ function Invoke-WA_OptimizeDisks {
     param(
         [Parameter(Mandatory = $false)]
         [Alias('r')]
-        [switch]$Reverse
+        [switch]$Reverse,
+        [switch]$Undo
     )
     Write-Header "DISK OPTIMIZATION"
 
     if ($Reverse) {
         Write-LeftAligned "$FGYellow$Char_Warn Reverse Mode: Disk optimization cannot be reversed.$Reset"
         Write-Host ""
+        $copyright = ""; $cPad = [Math]::Floor((60 - $copyright.Length) / 2); Write-Host (" " * $cPad + "$FGCyan$copyright$Reset"); Write-Host ""
         return
     }
 
@@ -2689,13 +2404,15 @@ function Invoke-WA_SystemCleanup {
     param(
         [Parameter(Mandatory = $false)]
         [Alias('r')]
-        [switch]$Reverse
+        [switch]$Reverse,
+        [switch]$Undo
     )
     Write-Header "SYSTEM CLEANUP"
 
     if ($Reverse) {
         Write-LeftAligned "$FGYellow$Char_Warn Reverse Mode: File cleanup cannot be reversed.$Reset"
         Write-Host ""
+        $copyright = ""; $cPad = [Math]::Floor((60 - $copyright.Length) / 2); Write-Host (" " * $cPad + "$FGCyan$copyright$Reset"); Write-Host ""
         return
     }
 
@@ -2748,7 +2465,8 @@ function Invoke-WA_WindowsRepair {
     param(
         [Parameter(Mandatory = $false)]
         [Alias('r')]
-        [switch]$Reverse
+        [switch]$Reverse,
+        [switch]$Undo
     )
     Set-StrictMode -Version Latest
     $ErrorActionPreference = 'Stop'
@@ -2817,6 +2535,7 @@ function Invoke-WA_WindowsRepair {
     if ($Reverse) {
         Write-LeftAligned "$FGYellow$Char_Warn Reverse Mode: System repairs cannot be reversed.$Reset"
         Write-Host ""
+        $copyright = ""; $cPad = [Math]::Floor((60 - $copyright.Length) / 2); Write-Host (" " * $cPad + "$FGCyan$copyright$Reset"); Write-Host ""
         return
     }
 
@@ -2868,7 +2587,7 @@ if ($Silent -or $Module) {
 }
 
 Set-ConsoleSnapRight -Columns 60
-$Global:MenuSelection = 0  # 0=SmartRun, 1=ManualMode, 2=Configure Operating System (Header), 3=Classic Context Menu, 4=Taskbar Search Box, 5=Task View Toggle, 6-19=Security/UI Toggles, 20=Maintain Operating System (Header)
+$Global:MenuSelection = 0  # 0=SmartRUN, 1=Manual Mode, 2=Configure Operating System (Header), 3=Classic Context Menu, 4=Taskbar Search Box, 5=Task View Toggle, 6-11=Security Toggles, 12=Maintain Operating System (Header)
 # $Global:Toggle_MaintainForced is initialized at the top to support CLI/Silent mode
 # Per-section expansion flags
 
@@ -2879,7 +2598,7 @@ $Global:WinAutoFirstLoad = $true
 while ($true) {
     # Maintain
     $Global:MaintenanceComplete = if ($Global:Toggle_MaintainForced -eq 1 -or $Global:Toggle_MaintUpdate -eq 1 -or $Global:Toggle_MaintDisk -eq 1 -or $Global:Toggle_MaintCleanup -eq 1 -or $Global:Toggle_MaintSFC -eq 1) { $false } else { Test-WA_MaintenanceRecentlyComplete }
-    
+    if ($Global:MaintenanceComplete) { $Global:AnySkipped = $true }
 
     # --- LIVE STATUS CHECKS (Discovery for UI and SmartRUN Execution) ---
     $s_RT = $null; $s_PUA = $null; $s_FW = $null; $s_SS = $null
@@ -2893,17 +2612,17 @@ while ($true) {
         } else { 
             $s_RT = $mp.DisableRealtimeMonitoring -eq $false 
             $s_PUA = $mp.PUAProtection -eq 1
-            $s_SS = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" -Name "SmartScreenEnabled" -EA 0).SmartScreenEnabled -in @("RequireAdmin", "Warn")
+            $s_SS = $mp.EnableSmartScreen -eq $true
         }
     }
-    catch { Write-Log -Message "[Discovery] Defender check: $_" -Level "WARN"; $s_RT = $false; $s_PUA = $false; $s_SS = $false }
+    catch { $s_RT = $false; $s_PUA = $false; $s_SS = $false }
     
     try {
         $profiles = Get-NetFirewallProfile
         $allEnabled = $true
         foreach ($fwProfile in $profiles) { if (-not $fwProfile.Enabled) { $allEnabled = $false } }
         $s_FW = $allEnabled
-    } catch { Write-Log -Message "[Discovery] Firewall check: $_" -Level "WARN"; $s_FW = $false }
+    } catch { $s_FW = $false }
     
     $edgeVal = (Get-ItemProperty "HKCU:\Software\Microsoft\Edge\SmartScreenPuaEnabled" -ErrorAction SilentlyContinue)."(default)"
     $s_Edge = if ($edgeVal -eq 1) { $true } else { "GreyOut" }
@@ -2913,24 +2632,8 @@ while ($true) {
     $s_Task = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" "SearchboxTaskbarMode" 3
     $s_View = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "ShowTaskViewButton" 0
     $s_MU = Test-Reg "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" "AllowMUUpdateService" 1
-    $s_GetMe = Test-Reg "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" "IsExpedited" 1
-    $s_Metered = Test-Reg "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate" "AllowAutoWindowsUpdateDownloadOverMeteredNetwork" 1
     $s_Rest = Test-Reg "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" "RestartNotificationsAllowed2" 1
     $s_Pers = Test-Reg "HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" "RestartApps" 1
-
-    # Extra configs status check
-    $s_PSTrans = Test-Reg "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\Transcription" "EnableTranscripting" 1
-    $s_Telemetry = Test-Reg "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" "AllowTelemetry" 0
-    $s_LLMNR = Test-Reg "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\DNSClient" "EnableMulticast" 0
-    $s_PSScript = Test-Reg "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" "EnableScriptBlockLogging" 1
-    $s_PSModule = Test-Reg "HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ModuleLogging" "EnableModuleLogging" 1
-    $s_NetBIOS = $(try {
-        $adapters = Get-CimInstance -ClassName Win32_NetworkAdapterConfiguration -ErrorAction SilentlyContinue | Where-Object { $_.IPEnabled }
-        $disabledCount = ($adapters | Where-Object { $_.TcpipNetbiosOptions -eq 2 }).Count
-        $adapters.Count -gt 0 -and $disabledCount -eq $adapters.Count
-    } catch { Write-Log -Message "[Discovery] NetBIOS check: $_" -Level "WARN"; $false })
-    $s_ShowExt = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "HideFileExt" 0
-    $s_ShowHidden = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "Hidden" 1
 
     # Classic Context Menu Check
     $ctxPath = "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32"
@@ -2941,7 +2644,7 @@ while ($true) {
     }
 
     # Sectional Pending State Detection
-    $configActive = if ($false -eq $s_RT -or $false -eq $s_PUA -or $false -eq $s_Edge -or $false -eq $s_FW -or $false -eq $s_Ctx -or $false -eq $s_Task -or $false -eq $s_View -or $false -eq $s_MU -or $false -eq $s_Rest -or $false -eq $s_Pers -or $false -eq $s_Mem -or $false -eq $s_Kern -or $false -eq $s_LSA -or $false -eq $s_SS -or $false -eq $s_PSTrans -or $false -eq $s_Telemetry -or $false -eq $s_LLMNR -or $false -eq $s_PSScript -or $false -eq $s_PSModule -or $false -eq $s_NetBIOS -or $false -eq $s_ShowExt -or $false -eq $s_ShowHidden) { $true } else { $false }
+    $configActive = if ($false -eq $s_RT -or $false -eq $s_PUA -or $false -eq $s_Edge -or $false -eq $s_FW -or $false -eq $s_Ctx -or $false -eq $s_Task -or $false -eq $s_View -or $false -eq $s_MU -or $false -eq $s_Rest -or $false -eq $s_Pers -or $false -eq $s_Mem -or $false -eq $s_Kern -or $false -eq $s_LSA -or $false -eq $s_SS) { $true } else { $false }
 
     
     $maintActive = $false
@@ -2959,7 +2662,7 @@ while ($true) {
         }
     }
 
-    $manualHeaderColor = if ($Global:MenuSelection -eq 0) { $FGDarkGray } else { $FGCyan }
+    $manualHeaderColor = if ($Global:MenuSelection -eq 0) { $FGDarkGray } else { $FGDarkCyan }
 
     $Global:DashboardBufferMode = $true
     $Global:DashboardBuffer = @()
@@ -2970,111 +2673,121 @@ while ($true) {
     } else {
         [Console]::SetCursorPosition(0,0)
     }
-     Add-DashLine ""
-    Write-Centered "${Global:FGWhite}= ATOMIC SCRIPTS =$Reset" -Width 52
-    Write-Centered "${Global:FGDarkYellow}-Configure | Maintain-${Reset}" -Width 52
-    Write-Boundary -Color $FGCyan
     
+    Add-DashLine ""
+    Write-Centered "$Bold${FGCyan} - WinAuto - $Reset" -Width 52
+    Write-Boundary -Color $FGCyan
     if ($Global:MenuSelection -eq 0) {
         # Align with 52-char block (2 space indent + 52 char block)
-        Add-DashLine "  ${FGBlack}${BGCyan}$(' ' * 19)| SmartRun |$(' ' * 21)${Reset}"
+        Add-DashLine "  ${FGBlack}${BGYellow}$(' ' * 20)| SmartRUN |$(' ' * 20)${Reset}"
     }
     else {
-        Add-DashLine (" " * 21 + "${FGDarkGray}| SmartRun |${Reset}")
+        Add-DashLine (" " * 22 + "${FGDarkGray}| SmartRUN |${Reset}")
     }
     
-    Write-Boundary -Color $FGCyan
-    
+    # SmartRUN Indicators
+    $cConfColor = if ($Global:MenuSelection -eq 0 -and $configActive) { $FGWhite } else { $FGDarkGray }
+    $cMaintColor = if ($Global:MenuSelection -eq 0 -and $maintActive) { $FGWhite } else { $FGDarkGray }
+    Add-DashLine (" " * 18 + "${cConfColor}Configure${Reset} ${FGDarkGray}|${Reset} ${cMaintColor}Maintain${Reset}")
+
+
+
+    Add-DashLine ""
+
+    Add-DashLine ""
+    Add-DashLine ""
+
+
+
+
     # MANUAL-MODE Section
-    if ($Global:MenuSelection -eq 1) {
+
+    # MANUAL-MODE (Pos 1) - Runs Configure + Maintain, all steps forced
+    if ($Global:MenuSelection -ge 1) {
         # Align with 52-char block (2 space indent + 52 char block)
-        Add-DashLine "  ${FGBlack}${BGCyan}$(' ' * 18)| ManualMode |$(' ' * 20)${Reset}"
+        Add-DashLine "  ${FGBlack}${BGYellow}$(' ' * 18)| Manual Mode |$(' ' * 19)${Reset}"
     }
     else {
-        Add-DashLine (" " * 20 + "${manualHeaderColor}| ManualMode |${Reset}")
+        Add-DashLine (" " * 20 + "${manualHeaderColor}| Manual Mode |${Reset}")
     }
 
     $cHeaderColor = if ($Global:MenuSelection -ge 1 -or ($Global:MenuSelection -eq 0 -and $configActive)) { $FGWhite } else { $FGDarkGray }
-    Write-Boundary -Color $manualHeaderColor
-    
+    Add-DashLine "  ${manualHeaderColor}$('_' * 52)${Reset}"
     if ($Global:MenuSelection -eq 2) {
-        Add-DashLine (" " * 12 + "${FGYellow}> CONFIGURE OPERATING SYSTEM${Reset}")
+        Add-DashLine (" " * 13 + "${FGYellow}> Configure Operating System${Reset}")
     } else {
-        Add-DashLine (" " * 14 + "${cHeaderColor}CONFIGURE OPERATING SYSTEM${Reset}")
+        Add-DashLine (" " * 15 + "${cHeaderColor}Configure Operating System${Reset}")
     }
     Add-DashLine ""
+
+
     
-    $isNavConfig = ($Global:MenuSelection -ge 2 -and $Global:MenuSelection -le 23)
     $cTopColor = if ($Global:MenuSelection -ge 1 -or ($Global:MenuSelection -eq 0 -and $configActive)) { $FGWhite } else { $FGDarkGray }
-    $cLabelColor = if ($isNavConfig -or ($Global:MenuSelection -eq 0 -and $configActive)) { $FGWhite } else { $FGDarkGray }
+    $cLabelColor = if ($Global:MenuSelection -ge 1 -or ($Global:MenuSelection -eq 0 -and $configActive)) { $FGWhite } else { $FGDarkGray }
     
-    Write-LeftAligned "${FGDarkGray}[${FGDarkGray}v${FGDarkGray}] ${cLabelColor}Enabled ${FGDarkGray}[ ] ${cLabelColor}Disabled ${FGDarkGray}|${cLabelColor} Atomic Script$Reset" -Indent 3
+    Write-LeftAligned "${FGDarkGray}[${Global:FGYellow}v${FGDarkGray}] ${cLabelColor}ENABLE / ${FGDarkGray}[${FGDarkGreen}v${FGDarkGray}] ${cLabelColor}ENABLED    ${FGDarkGray}|${cLabelColor} ATOMIC_SCRIPT$Reset" -Indent 3
     Add-DashLine ("  ${FGDarkGray}$('-' * 52)${Reset}")
     
-    $Global:cDetailColorGlobal = if ($isNavConfig) { $FGGray } else { $FGDarkGray }
+    $Global:cDetailColorGlobal = if ($Global:MenuSelection -ge 1) { $FGGray } else { $FGDarkGray }
+    Write-LeftAligned "${Italic}${cLabelColor}User Interface${Reset}" -Indent 3
+    Write-ColItem "Classic Context Menu" "SET_ClassicMenu" $s_Ctx -IsToggle -ToggleValue $Global:Toggle_ClassicMenu -IsSelected ($Global:MenuSelection -eq 3)
+    Write-ColItem "Taskbar Search Box" "SET_TaskbarSearch" $s_Task -IsToggle -ToggleValue $Global:Toggle_TaskbarSearch -IsSelected ($Global:MenuSelection -eq 4)
+    Write-ColItem "Task View Toggle" "SET_TaskViewOFF" $s_View -IsToggle -ToggleValue $Global:Toggle_TaskView -IsSelected ($Global:MenuSelection -eq 5)
     
-    # --- AUTOMATION SUBSECTION ---
-    Write-Centered "${Italic}Automation${Reset}" -Width 52 -Color $cLabelColor
-    Write-ColItem "Microsoft Update" "SET_MicrosoftUpd" $s_MU -IsToggle -ToggleValue $Global:Toggle_MicrosoftUpd -IsSelected ($Global:MenuSelection -eq 3)
-    Write-ColItem "Get Me Up To Date" "SET_GetMeUpToDate" $s_GetMe -IsToggle -ToggleValue $Global:Toggle_GetMeUpToDate -IsSelected ($Global:MenuSelection -eq 4)
-    Write-ColItem "Metered Updates" "SET_MeteredUpd" $s_Metered -IsToggle -ToggleValue $Global:Toggle_MeteredUpd -IsSelected ($Global:MenuSelection -eq 5)
-    Write-ColItem "Restart Notification" "SET_RestartIsReq" $s_Rest -IsToggle -ToggleValue $Global:Toggle_RestartIsReq -IsSelected ($Global:MenuSelection -eq 6)
-    Write-ColItem "App Restart Persist" "SET_RestartApps" $s_Pers -IsToggle -ToggleValue $Global:Toggle_RestartApps -IsSelected ($Global:MenuSelection -eq 7)
-    Add-DashLine ("  ${FGDarkGray}$('-' * 52)${Reset}")
-
-    # --- SECURITY SUBSECTION ---
-    Write-Centered "${Italic}Security${Reset}" -Width 52 -Color $cLabelColor
-    Write-ColItem "PS Transcription" "SET_PSTranscription" $s_PSTrans -IsToggle -ToggleValue $Global:Toggle_PSTranscription -IsSelected ($Global:MenuSelection -eq 8)
-    Write-ColItem "Windows Telemetry" "SET_Telemetry" $s_Telemetry -IsToggle -ToggleValue $Global:Toggle_Telemetry -IsSelected ($Global:MenuSelection -eq 9)
-    Write-ColItem "LLMNR Configuration" "SET_LLMNR" $s_LLMNR -IsToggle -ToggleValue $Global:Toggle_LLMNR -IsSelected ($Global:MenuSelection -eq 10)
-    Write-ColItem "PS Script Block Log" "SET_PSScriptBlock" $s_PSScript -IsToggle -ToggleValue $Global:Toggle_PSScriptBlock -IsSelected ($Global:MenuSelection -eq 11)
-    Write-ColItem "PS Module Logging" "SET_PSModuleLogging" $s_PSModule -IsToggle -ToggleValue $Global:Toggle_PSModuleLogging -IsSelected ($Global:MenuSelection -eq 12)
-    Write-ColItem "NetBIOS over TCP/IP" "SET_NetBIOS" $s_NetBIOS -IsToggle -ToggleValue $Global:Toggle_NetBIOS -IsSelected ($Global:MenuSelection -eq 13)
-    Write-ColItem "Real-Time Protection" "SET_RealTimeProt" $s_RT -IsToggle -ToggleValue $Global:Toggle_RealTimeProt -IsSelected ($Global:MenuSelection -eq 14)
-    Write-ColItem "PUA Protection" "SET_PUABlockApps" $s_PUA -IsToggle -ToggleValue $Global:Toggle_PUABlockApps -IsSelected ($Global:MenuSelection -eq 15)
-    Write-ColItem "PUA Edge" "SET_PUABlockDLs" $s_Edge -IsToggle -ToggleValue $Global:Toggle_PUABlockDLs -IsSelected ($Global:MenuSelection -eq 16)
-    Write-ColItem "Memory Integrity" "SET_MemoryInteg" $s_Mem -IsToggle -ToggleValue $Global:Toggle_MemoryInteg -IsSelected ($Global:MenuSelection -eq 17)
-    Write-ColItem "Kernel Stack" "SET_KernelMode" $s_Kern -IsToggle -ToggleValue $Global:Toggle_KernelMode -IsSelected ($Global:MenuSelection -eq 18)
-    Write-ColItem "LSA Protection" "SET_LocalSecurity" $s_LSA -IsToggle -ToggleValue $Global:Toggle_LocalSecurity -IsSelected ($Global:MenuSelection -eq 19)
-    Write-ColItem "Windows Firewall" "SET_FirewallON" $s_FW -IsToggle -ToggleValue $Global:Toggle_FirewallON -IsSelected ($Global:MenuSelection -eq 20)
-    Add-DashLine ("  ${FGDarkGray}$('-' * 52)${Reset}")
-
-    # --- USER INTERFACE SUBSECTION ---
-    Write-Centered "${Italic}User Interface${Reset}" -Width 52 -Color $cLabelColor
-    Write-ColItem "Classic Context Menu" "SET_ClassicMenu" $s_Ctx -IsToggle -ToggleValue $Global:Toggle_ClassicMenu -IsSelected ($Global:MenuSelection -eq 21)
-    Write-ColItem "Taskbar Search Box" "SET_TaskbarSearch" $s_Task -IsToggle -ToggleValue $Global:Toggle_TaskbarSearch -IsSelected ($Global:MenuSelection -eq 22)
-    Write-ColItem "Task View Toggle" "SET_TaskViewOFF" $s_View -IsToggle -ToggleValue $Global:Toggle_TaskView -IsSelected ($Global:MenuSelection -eq 23)
-    Write-ColItem "Show File Extensions" "SET_ShowExtensions" $s_ShowExt -IsToggle -ToggleValue $Global:Toggle_ShowExtensions -IsSelected ($Global:MenuSelection -eq 24)
-    Write-ColItem "Show Hidden Files" "SET_ShowHidden" $s_ShowHidden -IsToggle -ToggleValue $Global:Toggle_ShowHidden -IsSelected ($Global:MenuSelection -eq 25)
+    Write-LeftAligned "${Italic}${cLabelColor}Security${Reset}" -Indent 3
+    Write-ColItem "Virus Threat Prot (Reg)" "SET_VirusThreatReg" $s_RT -IsToggle -ToggleValue $Global:Toggle_VirusThreatReg -IsSelected ($Global:MenuSelection -eq 6)
+    Write-ColItem "Virus Threat Prot (UIA)" "SET_VirusThreatUIA" $s_RT -IsToggle -ToggleValue $Global:Toggle_VirusThreatUIA -IsSelected ($Global:MenuSelection -eq 7)
+    Write-ColItem "SmartScreen Filter (Reg)" "SET_SmartScreenReg" $s_SS -IsToggle -ToggleValue $Global:Toggle_SmartScreenReg -IsSelected ($Global:MenuSelection -eq 8)
+    Write-ColItem "SmartScreen Filter (UIA)" "SET_SmartScreenUIA" $s_SS -IsToggle -ToggleValue $Global:Toggle_SmartScreenUIA -IsSelected ($Global:MenuSelection -eq 9)
+    Write-ColItem "Kernel Stack Prot (Reg)"  "SET_KernelModeReg"  $s_Kern -IsToggle -ToggleValue $Global:Toggle_KernelModeReg  -IsSelected ($Global:MenuSelection -eq 10)
+    Write-ColItem "Kernel Stack Prot (UIA)"  "SET_KernelMode"     $s_Kern -IsToggle -ToggleValue $Global:Toggle_KernelModeUIA  -IsSelected ($Global:MenuSelection -eq 11)
+    
+    # --- LIVE WMI CHECKS ---
+    Write-ColItem "Real-Time Protection" "SET_RealTimeProt" $s_RT
+    Write-ColItem "PUA Protection" "SET_PUABlockApps" $s_PUA
+    Write-ColItem "PUA Protection (Edge)" "SET_PUABlockDLs" $s_Edge
+    Write-ColItem "Memory Integrity" "SET_MemoryInteg" $s_Mem
+    Write-ColItem "LSA Protection" "SET_LocalSecurity" $s_LSA
+    Write-ColItem "Windows Firewall" "SET_FirewallON" $s_FW
+    
+    Write-LeftAligned "${Italic}${cLabelColor}Automation${Reset}" -Indent 3
+    Write-ColItem "Microsoft Update Service" "SET_MicrosoftUpd" $s_MU
+    Write-ColItem "Restart Notifications" "SET_RestartIsReq" $s_Rest
+    Write-ColItem "App Restart Persistence" "SET_RestartApps" $s_Pers
+    
     Add-DashLine ""
+    
+    
+    
     
     # Maintenance sub-section (inline under MANUAL-MODE)
     Add-DashLine "  ${manualHeaderColor}$('_' * 52)${Reset}"
     $mHeaderColor = if ($Global:MenuSelection -ge 1 -or ($Global:MenuSelection -eq 0 -and $maintActive)) { $FGWhite } else { $FGDarkGray }
-    if ($Global:MenuSelection -eq 24) {
-        Add-DashLine (" " * 13 + "${FGYellow}> MAINTAIN OPERATING SYSTEM${Reset}")
+    if ($Global:MenuSelection -eq 12) {
+        Add-DashLine (" " * 13 + "${FGYellow}> Maintain Operating System${Reset}")
     } else {
-        Add-DashLine (" " * 15 + "${mHeaderColor}MAINTAIN OPERATING SYSTEM${Reset}")
+        Add-DashLine (" " * 15 + "${mHeaderColor}Maintain Operating System${Reset}")
     }
     Add-DashLine ""
     
     # Maintenance Details
     $Global:mDetailColorGlobal = if ($Global:MenuSelection -ge 1) { $FGGray } else { $FGDarkGray }
     
+
     $mTopColor = if ($Global:MenuSelection -ge 1 -or ($Global:MenuSelection -eq 0 -and $maintActive)) { $FGWhite } else { $FGDarkGray }
     $mLabelColor = if ($Global:MenuSelection -ge 1 -or ($Global:MenuSelection -eq 0 -and $maintActive)) { $FGWhite } else { $FGDarkGray }
-    Write-LeftAligned "${FGDarkGray}[${mTopColor}#${FGDarkGray}]${mLabelColor} Days Since Last Ran  ${FGDarkGray}|${mLabelColor} Atomic Script$Reset" -Indent 3
+    Write-LeftAligned "${FGDarkGray}[${mTopColor}#${FGDarkGray}]${mLabelColor} OF DAYS SINCE LAST RUN  ${FGDarkGray}|${mLabelColor} ATOMIC_SCRIPT$Reset" -Indent 3
     Add-DashLine ("  ${FGDarkGray}$('-' * 52)${Reset}")
-    Write-MaintItem "Get Updates" "RUN_UpdateSuite" "Maintenance_WinUpdate" -Threshold 1 -ToggleValue $Global:Toggle_MaintUpdate -IsSelected ($Global:MenuSelection -eq 25)
-    Write-MaintItem "Drive Optimization" "RUN_OptimizeDisks" "Maintenance_Disk" -Threshold 7 -ToggleValue $Global:Toggle_MaintDisk -IsSelected ($Global:MenuSelection -eq 26)
-    Write-MaintItem "Temp File Cleanup" "RUN_SystemCleanup" "Maintenance_Cleanup" -Threshold 7 -ToggleValue $Global:Toggle_MaintCleanup -IsSelected ($Global:MenuSelection -eq 27)
-    Write-MaintItem "SFC / DISM Repair" "RUN_WindowsRepair" "Maintenance_SFC" -Threshold 30 -ToggleValue $Global:Toggle_MaintSFC -IsSelected ($Global:MenuSelection -eq 28)
+    Write-MaintItem "Get Updates" "RUN_UpdateSuite" "Maintenance_WinUpdate" -Threshold 1 -ToggleValue $Global:Toggle_MaintUpdate -IsSelected ($Global:MenuSelection -eq 13)
+    Write-MaintItem "Drive Optimization" "RUN_OptimizeDisks" "Maintenance_Disk" -Threshold 7 -ToggleValue $Global:Toggle_MaintDisk -IsSelected ($Global:MenuSelection -eq 14)
+    Write-MaintItem "Temp File Cleanup" "RUN_SystemCleanup" "Maintenance_Cleanup" -Threshold 7 -ToggleValue $Global:Toggle_MaintCleanup -IsSelected ($Global:MenuSelection -eq 15)
+    Write-MaintItem "SFC / DISM Repair" "RUN_WindowsRepair" "Maintenance_SFC" -Threshold 30 -ToggleValue $Global:Toggle_MaintSFC -IsSelected ($Global:MenuSelection -eq 16)
     Add-DashLine ""
 
-    Write-Footer
+    Write-Boundary -Color $FGYellow
 
     if ($Global:DashboardBufferMode) {
-        Write-Host ($Global:DashboardBuffer -join "`n") -NoNewline
+        Write-Host ($Global:DashboardBuffer -join "`n")
         $Global:DashboardBufferMode = $false
     }
 
@@ -3099,7 +2812,7 @@ while ($true) {
         # Up
         $current = $Global:MenuSelection
         if ($current -eq 0) {
-            $Global:MenuSelection = 28
+            $Global:MenuSelection = 12
         }
         elseif ($current -eq 1) {
             $Global:MenuSelection = 0
@@ -3110,17 +2823,44 @@ while ($true) {
         elseif ($current -eq 3) {
             $Global:MenuSelection = 2
         }
-        elseif ($current -ge 4 -and $current -le 25) {
-            $Global:MenuSelection = $current - 1
+        elseif ($current -eq 4) {
+            $Global:MenuSelection = 3
         }
-        elseif ($current -eq 26) {
+        elseif ($current -eq 5) {
+            $Global:MenuSelection = 4
+        }
+        elseif ($current -eq 6) {
+            $Global:MenuSelection = 5
+        }
+        elseif ($current -eq 7) {
+            $Global:MenuSelection = 6
+        }
+        elseif ($current -eq 8) {
+            $Global:MenuSelection = 7
+        }
+        elseif ($current -eq 9) {
+            $Global:MenuSelection = 8
+        }
+        elseif ($current -eq 10) {
+            $Global:MenuSelection = 9
+        }
+        elseif ($current -eq 11) {
+            $Global:MenuSelection = 10
+        }
+        elseif ($current -eq 12) {
             $Global:MenuSelection = 2
         }
-        elseif ($current -eq 27) {
-            $Global:MenuSelection = 26
+        elseif ($current -eq 13) {
+            $Global:MenuSelection = 12
         }
-        elseif ($current -ge 28 -and $current -le 30) {
-            $Global:MenuSelection = $current - 1
+        elseif ($current -eq 14) {
+            $Global:MenuSelection = 13
+        }
+        elseif ($current -eq 15) {
+            $Global:MenuSelection = 14
+        }
+        elseif ($current -eq 16) {
+            $Global:MenuSelection = 15
         }
         continue
     }
@@ -3134,21 +2874,48 @@ while ($true) {
             $Global:MenuSelection = 2
         }
         elseif ($current -eq 2) {
-            $Global:MenuSelection = 26
+            $Global:MenuSelection = 12
         }
-        elseif ($current -ge 3 -and $current -le 24) {
-            $Global:MenuSelection = $current + 1
+        elseif ($current -eq 3) {
+            $Global:MenuSelection = 4
         }
-        elseif ($current -eq 25) {
-            $Global:MenuSelection = 26
+        elseif ($current -eq 4) {
+            $Global:MenuSelection = 5
         }
-        elseif ($current -eq 26) {
+        elseif ($current -eq 5) {
+            $Global:MenuSelection = 6
+        }
+        elseif ($current -eq 6) {
+            $Global:MenuSelection = 7
+        }
+        elseif ($current -eq 7) {
+            $Global:MenuSelection = 8
+        }
+        elseif ($current -eq 8) {
+            $Global:MenuSelection = 9
+        }
+        elseif ($current -eq 9) {
+            $Global:MenuSelection = 10
+        }
+        elseif ($current -eq 10) {
+            $Global:MenuSelection = 11
+        }
+        elseif ($current -eq 11) {
+            $Global:MenuSelection = 12
+        }
+        elseif ($current -eq 12) {
             $Global:MenuSelection = 0
         }
-        elseif ($current -ge 27 -and $current -le 29) {
-            $Global:MenuSelection = $current + 1
+        elseif ($current -eq 13) {
+            $Global:MenuSelection = 14
         }
-        elseif ($current -eq 30) {
+        elseif ($current -eq 14) {
+            $Global:MenuSelection = 15
+        }
+        elseif ($current -eq 15) {
+            $Global:MenuSelection = 16
+        }
+        elseif ($current -eq 16) {
             $Global:MenuSelection = 0
         }
         continue
@@ -3164,13 +2931,12 @@ while ($true) {
     
     if ($res.VirtualKeyCode -eq 27) {
         # Esc or X -> Exit
-        Write-Host ""
-        Write-LeftAligned "$FGGray Exiting..$Reset"
+        Write-LeftAligned "$FGGray Exiting - WinAuto -...$Reset"
         Start-Sleep -Seconds 1
         break
     }
     elseif ($res.VirtualKeyCode -eq 13) {
-        # Enter Action Logic (Runs SmartRun or ManualMode)
+        # Enter Action Logic (Runs SmartRUN or Manual Mode)
         $Target = $Global:MenuSelection
         if ($Target -eq 0) {
             # [S]mart Run -> EXECUTE
@@ -3191,29 +2957,7 @@ while ($true) {
         $AuditData = [PSCustomObject]@{
             Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
             Session   = "Interactive"
-            Config    = @{ 
-                MicrosoftUpdate = $Global:Toggle_MicrosoftUpd;
-                RestartNotifications = $Global:Toggle_RestartIsReq;
-                AppRestartPersist = $Global:Toggle_RestartApps;
-                PSTranscription = $Global:Toggle_PSTranscription;
-                Telemetry = $Global:Toggle_Telemetry;
-                LLMNR = $Global:Toggle_LLMNR;
-                PSScriptBlock = $Global:Toggle_PSScriptBlock;
-                PSModuleLogging = $Global:Toggle_PSModuleLogging;
-                NetBIOS = $Global:Toggle_NetBIOS;
-                RealTimeProt = $Global:Toggle_RealTimeProt;
-                PUABlockApps = $Global:Toggle_PUABlockApps;
-                PUABlockDLs = $Global:Toggle_PUABlockDLs;
-                MemoryInteg = $Global:Toggle_MemoryInteg;
-                KernelMode = $Global:Toggle_KernelMode;
-                LocalSecurity = $Global:Toggle_LocalSecurity;
-                FirewallON = $Global:Toggle_FirewallON;
-                ClassicMenu = $Global:Toggle_ClassicMenu; 
-                TaskbarSearch = $Global:Toggle_TaskbarSearch; 
-                TaskView = $Global:Toggle_TaskView; 
-                ShowExtensions = $Global:Toggle_ShowExtensions;
-                ShowHidden = $Global:Toggle_ShowHidden
-            }
+            Config    = @{ ClassicMenu = $Global:Toggle_ClassicMenu; TaskbarSearch = $Global:Toggle_TaskbarSearch; TaskView = $Global:Toggle_TaskView; VirusThreatReg = $Global:Toggle_VirusThreatReg; VirusThreatUIA = $Global:Toggle_VirusThreatUIA; SmartScreenReg = $Global:Toggle_SmartScreenReg; SmartScreenUIA = $Global:Toggle_SmartScreenUIA; KernelModeReg = $Global:Toggle_KernelModeReg; KernelModeUIA = $Global:Toggle_KernelModeUIA }
             Maint     = @{ Update = $Global:Toggle_MaintUpdate; Disk = $Global:Toggle_MaintDisk; Cleanup = $Global:Toggle_MaintCleanup; SFC = $Global:Toggle_MaintSFC }
         }
         $AuditData | ConvertTo-Json | Out-File "$Global:WinAutoLogDir\PostRunAudit.json"
@@ -3225,84 +2969,50 @@ while ($true) {
         $Target = $Global:MenuSelection
         
         if ($Target -eq 2) {
+            # Move cursor to first optional line (Classic Context Menu)
             $Global:MenuSelection = 3
         }
         elseif ($Target -eq 3) {
-            $Global:Toggle_MicrosoftUpd = if ($Global:Toggle_MicrosoftUpd -eq 1) { 0 } else { 1 }
-        }
-        elseif ($Target -eq 4) {
-            $Global:Toggle_RestartIsReq = if ($Global:Toggle_RestartIsReq -eq 1) { 0 } else { 1 }
-        }
-        elseif ($Target -eq 5) {
-            $Global:Toggle_RestartApps = if ($Global:Toggle_RestartApps -eq 1) { 0 } else { 1 }
-        }
-        elseif ($Target -eq 6) {
-            $Global:Toggle_PSTranscription = if ($Global:Toggle_PSTranscription -eq 1) { 0 } else { 1 }
-        }
-        elseif ($Target -eq 7) {
-            $Global:Toggle_Telemetry = if ($Global:Toggle_Telemetry -eq 1) { 0 } else { 1 }
-        }
-        elseif ($Target -eq 8) {
-            $Global:Toggle_LLMNR = if ($Global:Toggle_LLMNR -eq 1) { 0 } else { 1 }
-        }
-        elseif ($Target -eq 9) {
-            $Global:Toggle_PSScriptBlock = if ($Global:Toggle_PSScriptBlock -eq 1) { 0 } else { 1 }
-        }
-        elseif ($Target -eq 10) {
-            $Global:Toggle_PSModuleLogging = if ($Global:Toggle_PSModuleLogging -eq 1) { 0 } else { 1 }
-        }
-        elseif ($Target -eq 11) {
-            $Global:Toggle_NetBIOS = if ($Global:Toggle_NetBIOS -eq 1) { 0 } else { 1 }
-        }
-        elseif ($Target -eq 12) {
-            $Global:Toggle_RealTimeProt = if ($Global:Toggle_RealTimeProt -eq 1) { 0 } else { 1 }
-        }
-        elseif ($Target -eq 13) {
-            $Global:Toggle_PUABlockApps = if ($Global:Toggle_PUABlockApps -eq 1) { 0 } else { 1 }
-        }
-        elseif ($Target -eq 14) {
-            $Global:Toggle_PUABlockDLs = if ($Global:Toggle_PUABlockDLs -eq 1) { 0 } else { 1 }
-        }
-        elseif ($Target -eq 15) {
-            $Global:Toggle_MemoryInteg = if ($Global:Toggle_MemoryInteg -eq 1) { 0 } else { 1 }
-        }
-        elseif ($Target -eq 16) {
-            $Global:Toggle_KernelMode = if ($Global:Toggle_KernelMode -eq 1) { 0 } else { 1 }
-        }
-        elseif ($Target -eq 17) {
-            $Global:Toggle_LocalSecurity = if ($Global:Toggle_LocalSecurity -eq 1) { 0 } else { 1 }
-        }
-        elseif ($Target -eq 18) {
-            $Global:Toggle_FirewallON = if ($Global:Toggle_FirewallON -eq 1) { 0 } else { 1 }
-        }
-        elseif ($Target -eq 19) {
             $Global:Toggle_ClassicMenu = if ($Global:Toggle_ClassicMenu -eq 1) { 0 } else { 1 }
         }
-        elseif ($Target -eq 20) {
+        elseif ($Target -eq 4) {
             $Global:Toggle_TaskbarSearch = if ($Global:Toggle_TaskbarSearch -eq 1) { 0 } else { 1 }
         }
-        elseif ($Target -eq 21) {
+        elseif ($Target -eq 5) {
             $Global:Toggle_TaskView = if ($Global:Toggle_TaskView -eq 1) { 0 } else { 1 }
         }
-        elseif ($Target -eq 22) {
-            $Global:Toggle_ShowExtensions = if ($Global:Toggle_ShowExtensions -eq 1) { 0 } else { 1 }
+        elseif ($Target -eq 6) {
+            $Global:Toggle_VirusThreatReg = if ($Global:Toggle_VirusThreatReg -eq 1) { 0 } else { 1 }
         }
-        elseif ($Target -eq 23) {
-            $Global:Toggle_ShowHidden = if ($Global:Toggle_ShowHidden -eq 1) { 0 } else { 1 }
+        elseif ($Target -eq 7) {
+            $Global:Toggle_VirusThreatUIA = if ($Global:Toggle_VirusThreatUIA -eq 1) { 0 } else { 1 }
         }
-        elseif ($Target -eq 24) {
-            $Global:MenuSelection = 25
+        elseif ($Target -eq 8) {
+            $Global:Toggle_SmartScreenReg = if ($Global:Toggle_SmartScreenReg -eq 1) { 0 } else { 1 }
         }
-        elseif ($Target -eq 25) {
+        elseif ($Target -eq 9) {
+            $Global:Toggle_SmartScreenUIA = if ($Global:Toggle_SmartScreenUIA -eq 1) { 0 } else { 1 }
+        }
+        elseif ($Target -eq 10) {
+            $Global:Toggle_KernelModeReg = if ($Global:Toggle_KernelModeReg -eq 1) { 0 } else { 1 }
+        }
+        elseif ($Target -eq 11) {
+            $Global:Toggle_KernelModeUIA = if ($Global:Toggle_KernelModeUIA -eq 1) { 0 } else { 1 }
+        }
+        elseif ($Target -eq 12) {
+            # Move cursor to first optional line (Get Updates)
+            $Global:MenuSelection = 13
+        }
+        elseif ($Target -eq 13) {
             $Global:Toggle_MaintUpdate = if ($Global:Toggle_MaintUpdate -eq 1) { 0 } else { 1 }
         }
-        elseif ($Target -eq 26) {
+        elseif ($Target -eq 14) {
             $Global:Toggle_MaintDisk = if ($Global:Toggle_MaintDisk -eq 1) { 0 } else { 1 }
         }
-        elseif ($Target -eq 27) {
+        elseif ($Target -eq 15) {
             $Global:Toggle_MaintCleanup = if ($Global:Toggle_MaintCleanup -eq 1) { 0 } else { 1 }
         }
-        elseif ($Target -eq 28) {
+        elseif ($Target -eq 16) {
             $Global:Toggle_MaintSFC = if ($Global:Toggle_MaintSFC -eq 1) { 0 } else { 1 }
         }
         
@@ -3318,41 +3028,9 @@ while ($true) {
 }
 
 Write-Host ""
-$copyright = "© $(Get-Date -Format 'yyyy') aiit.support"
-Write-Centered "$FGCyan$copyright$Reset" -Width 52
+Write-Footer
 Write-Log "Interactive Execution Complete."
+# Invoke-AnimatedPause -ActionText "EXIT" -Timeout 0 | Out-Null
 Write-Host ""
-function Invoke-WA_SetGetMeUpToDate {
-    param([switch]$Reverse)
-    Write-Header "GET ME UP TO DATE"
-    $Path = "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings"
-    try {
-        if ($Reverse) {
-            Set-ItemProperty -Path $Path -Name "IsExpedited" -Value 0 -Type DWord -Force
-            Write-LeftAligned "$FGGreen$Char_HeavyCheck Disabled Get Me Up To Date.$Reset"
-        } else {
-            Set-ItemProperty -Path $Path -Name "IsExpedited" -Value 1 -Type DWord -Force
-            Write-LeftAligned "$FGGreen$Char_HeavyCheck Enabled Get Me Up To Date.$Reset"
-        }
-    } catch {
-        Write-WrappedError $_
-    }
-}
-function Invoke-WA_SetMeteredUpd {
-    param([switch]$Reverse)
-    Write-Header "METERED UPDATES"
-    $Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
-    try {
-        if ($Reverse) {
-            Remove-ItemProperty -Path $Path -Name "AllowAutoWindowsUpdateDownloadOverMeteredNetwork" -Force -ErrorAction SilentlyContinue
-            Write-LeftAligned "$FGGreen$Char_HeavyCheck Disabled Metered Updates.$Reset"
-        } else {
-            if (-not (Test-Path $Path)) { New-Item -Path $Path -Force | Out-Null }
-            Set-ItemProperty -Path $Path -Name "AllowAutoWindowsUpdateDownloadOverMeteredNetwork" -Value 1 -Type DWord -Force
-            Write-LeftAligned "$FGGreen$Char_HeavyCheck Enabled Metered Updates.$Reset"
-        }
-    } catch {
-        Write-WrappedError $_
-    }
-}
-
+Write-Centered ""
+Write-Host ""

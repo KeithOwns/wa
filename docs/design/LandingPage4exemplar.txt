@@ -1,0 +1,50 @@
+                   = ATOMIC SCRIPTS =
+                 -Configure | Maintain-
+  ____________________________________________________
+                     | Smart Run |
+  ____________________________________________________
+                    | Manual Mode |
+  ____________________________________________________
+               CONFIGURE OPERATING SYSTEM
+   [v] Enabled [ ] Disabled | Atomic Script
+  ____________________________________________________
+                       Automation
+   [v] Microsoft Update     | SET_MicrosoftUpd
+   [v] Restart Notifications| SET_RestartIsReq
+   [v] App Restart Persist  | SET_RestartApps
+  ____________________________________________________
+                        Security
+   [ ] PS Transcription     | SET_PSTranscription
+   [ ] Windows Telemetry    | SET_Telemetry
+   [ ] LLMNR Configuration  | SET_LLMNR
+   [ ] PS Script Block Log  | SET_PSScriptBlock
+   [ ] PS Module Logging    | SET_PSModuleLogging
+   [ ] NetBIOS over TCP/IP  | SET_NetBIOS
+   [v] Real-Time Protection | SET_RealTimeProt
+   [v] PUA Protection       | SET_PUABlockApps
+   [v] PUA Edge             | SET_PUABlockDLs
+   [v] Memory Integrity     | SET_MemoryInteg
+   [v] Kernel Stack         | SET_KernelMode
+   [v] LSA Protection       | SET_LocalSecurity
+   [v] Windows Firewall     | SET_FirewallON
+____________________________________________________
+                     User Interface
+   [ ] Classic Context Menu | SET_ClassicMenu
+   [ ] Taskbar Search Box   | SET_TaskbarSearch
+   [ ] Task View Toggle     | SET_TaskViewOFF
+   [ ] Show File Extensions | SET_ShowExtensions
+   [ ] Show Hidden Files    | SET_ShowHidden
+
+  ____________________________________________________
+               MAINTAIN OPERATING SYSTEM
+   [#] Days Since Last Ran  | Atomic Script
+  ____________________________________________________
+   [#] Get Updates          | RUN_UpdateSuite
+   [#] Drive Optimization   | RUN_OptimizeDisks
+   [#] Temp File Cleanup    | RUN_SystemCleanup
+   [#] SFC / DISM Repair    | RUN_WindowsRepair
+
+  ____________________________________________________
+                     NAVIGATION KEYS
+  Press Enter to Run        | Press Space to Toggle
+  Use arrow  ^ v  to select | Press  Esc to EXIT =>

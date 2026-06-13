@@ -1,0 +1,11 @@
+                       WinAuto
+                    WINDOWS FIREWALL
+  ____________________________________________________
+  x    Failed: Cannot process argument
+       transformation on parameter 'Enabled'. Cannot
+       convert value "True" to type
+       "Microsoft.PowerShell.Cmdletization.GeneratedTypes
+       .NetSecurity.GpoBoolean". Error: "Invalid cast
+       from 'System.Boolean' to
+       'Microsoft.PowerShell.Cmdletization.GeneratedTypes
+       .NetSecurity.GpoBoolean'."
