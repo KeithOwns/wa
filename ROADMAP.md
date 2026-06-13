@@ -32,3 +32,7 @@ This document outlines the planned improvements, bug fixes, UI tweaks, and archi
 - [ ] **Script Parity Review:** Review scripts in `C:\Users\admin\src\github.com\KeithOwns\as\Atomic Scripts` and compare them to the `wa.ps1` dashboard implementations to find unassigned scripts or logic drift.
 - [ ] **Hotkey Documentation:** Document which hotkeys are currently active in the script.
 - [ ] **Modifier Documentation:** Document which modifiers (like `-reverse`) are active in the `wa.ps1` script.
+
+## Phase 4: Future Vision (LifeOS Webapp)
+
+- [ ] **Launch "mylife" Web Application:** Develop a web application based on the "mylife" project structure to serve as scaffolding for a user-customizable LifeOS. This webapp will be designed to help users systematically organize, automate, and manage their personal life or business operations.

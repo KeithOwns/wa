@@ -759,7 +759,7 @@ function Write-WrappedError {
 }
 
 function Write-Boundary {
-    param([string]$Color = $FGCyan)
+    param([string]$Color = $FGDarkYellow)
     Add-DashLine ("  " + $Color + ([string]'_' * 52) + $Reset)
 }
 
@@ -794,7 +794,7 @@ function Write-Header {
     Clear-Host
     Write-Host ""
     $WinAutoTitle = "WinAuto"
-    Write-Centered "$Bold$FGCyan$WinAutoTitle$Reset" -Width 52
+    Write-Centered "$Bold$FGDarkYellow$WinAutoTitle$Reset" -Width 52
     Write-Centered "${Global:FGDarkYellow}$($Title.ToUpper())$Reset" -Width 52
     if (-not $NoBottom) {
         Write-Boundary
@@ -1125,7 +1125,7 @@ function Invoke-WA_SetSmartScreenReg {
     }
     catch {
         Write-WrappedError $_.Exception.Message
-        Write-LeftAligned "$FGCyan  Hint: Tamper Protection might be blocking this.$Reset"
+        Write-LeftAligned "$FGDarkYellow  Hint: Tamper Protection might be blocking this.$Reset"
     }
 }
 
@@ -1162,7 +1162,7 @@ function Invoke-WA_SetVirusThreatProtectReg {
     }
     catch {
         Write-WrappedError $_.Exception.Message
-        Write-LeftAligned "$FGCyan  Hint: Tamper Protection might be blocking this.$Reset"
+        Write-LeftAligned "$FGDarkYellow  Hint: Tamper Protection might be blocking this.$Reset"
     }
 }
 
@@ -1197,7 +1197,7 @@ function Invoke-WA_SetKernelModeReg {
     }
     catch {
         Write-WrappedError $_.Exception.Message
-        Write-LeftAligned "$FGCyan  Hint: Tamper Protection might be blocking this.$Reset"
+        Write-LeftAligned "$FGDarkYellow  Hint: Tamper Protection might be blocking this.$Reset"
     }
 }
 
@@ -1487,7 +1487,7 @@ function Invoke-WA_WindowsUpdate {
     }
 
     Write-Host ""
-    Write-Centered "$Global:Char_EnDash STORE & SETTINGS $Global:Char_EnDash" -Width 52 -Color "$Bold$FGCyan"
+    Write-Centered "$Global:Char_EnDash STORE & SETTINGS $Global:Char_EnDash" -Width 52 -Color "$Bold$FGDarkYellow"
 
     # 2. Windows Update Settings (UIA)
     Write-LeftAligned "Opening Windows Update Settings..."
@@ -1743,11 +1743,20 @@ function Invoke-WinAutoConfiguration {
             else { Invoke-WA_SetTaskViewOFF }
         }
     }
-    
     # Extra UI toggles (Show Extensions, Show Hidden)
-    Invoke-Smart { Invoke-WA_SetShowExtensions } $s_ShowExt $Global:Toggle_ShowExtensions
-    Invoke-Smart { Invoke-WA_SetShowHidden } $s_ShowHidden $Global:Toggle_ShowHidden
-
+    if (-not $SmartRun) {
+        if ($Global:Toggle_ShowExtensions -eq 1) {
+            if ($s_ShowExt) { Invoke-WA_SetShowExtensions -Reverse }
+            else { Invoke-WA_SetShowExtensions }
+        }
+        if ($Global:Toggle_ShowHidden -eq 1) {
+            if ($s_ShowHidden) { Invoke-WA_SetShowHidden -Reverse }
+            else { Invoke-WA_SetShowHidden }
+        }
+    } else {
+        Invoke-Smart { Invoke-WA_SetShowExtensions } $s_ShowExt $Global:Toggle_ShowExtensions
+        Invoke-Smart { Invoke-WA_SetShowHidden } $s_ShowHidden $Global:Toggle_ShowHidden
+    }
     # 4. Updates & Persistence
     Invoke-Smart { Invoke-WA_SetMicrosoftUpd } $s_MU $Global:Toggle_MicrosoftUpd
     Invoke-Smart { Invoke-WA_SetRestartIsReq } $s_Rest $Global:Toggle_RestartIsReq
@@ -1937,7 +1946,7 @@ function Invoke-WA_SetRealTimeProt {
                 
                 # Footer
                 Write-Host ""
-                $copyright = ""; $cPad = [Math]::Floor((60 - $copyright.Length) / 2); Write-Host (" " * $cPad + "$FGCyan$copyright$Reset"); Write-Host ""
+                $copyright = ""; $cPad = [Math]::Floor((60 - $copyright.Length) / 2); Write-Host (" " * $cPad + "${Global:FGWhite}$copyright$Reset"); Write-Host ""
                 return
             }
         }
@@ -2098,7 +2107,7 @@ function Invoke-WA_SetMemoryInteg {
     }
     catch {
         Write-WrappedError $_.Exception.Message
-        Write-LeftAligned "$FGCyan  Hint: Tamper Protection might be blocking this.$Reset"
+        Write-LeftAligned "$FGDarkYellow  Hint: Tamper Protection might be blocking this.$Reset"
     }
 
 }
@@ -2296,7 +2305,7 @@ function Invoke-WA_SetKernelMode {
         Write-Host ""
         $copyright = ""
         $cPad = [Math]::Floor((60 - $copyright.Length) / 2)
-        Write-Host (" " * $cPad + "$FGCyan$copyright$Reset")
+        Write-Host (" " * $cPad + "${Global:FGWhite}$copyright$Reset")
         Write-Host ""
 
     } @args
@@ -2959,7 +2968,7 @@ while ($true) {
         }
     }
 
-    $manualHeaderColor = if ($Global:MenuSelection -eq 0) { $FGDarkGray } else { $FGCyan }
+    $manualHeaderColor = if ($Global:MenuSelection -eq 0) { $FGDarkGray } else { $FGDarkYellow }
 
     $Global:DashboardBufferMode = $true
     $Global:DashboardBuffer = @()
@@ -2973,22 +2982,22 @@ while ($true) {
      Add-DashLine ""
     Write-Centered "${Global:FGWhite}= ATOMIC SCRIPTS =$Reset" -Width 52
     Write-Centered "${Global:FGDarkYellow}-Configure | Maintain-${Reset}" -Width 52
-    Write-Boundary -Color $FGCyan
+    Write-Boundary -Color $FGDarkYellow
     
     if ($Global:MenuSelection -eq 0) {
         # Align with 52-char block (2 space indent + 52 char block)
-        Add-DashLine "  ${FGBlack}${BGCyan}$(' ' * 19)| SmartRun |$(' ' * 21)${Reset}"
+        Add-DashLine "  ${FGBlack}${BGDarkYellow}$(' ' * 19)| SmartRun |$(' ' * 21)${Reset}"
     }
     else {
         Add-DashLine (" " * 21 + "${FGDarkGray}| SmartRun |${Reset}")
     }
     
-    Write-Boundary -Color $FGCyan
+    Write-Boundary -Color $FGDarkYellow
     
     # MANUAL-MODE Section
     if ($Global:MenuSelection -eq 1) {
         # Align with 52-char block (2 space indent + 52 char block)
-        Add-DashLine "  ${FGBlack}${BGCyan}$(' ' * 18)| ManualMode |$(' ' * 20)${Reset}"
+        Add-DashLine "  ${FGBlack}${BGDarkYellow}$(' ' * 18)| ManualMode |$(' ' * 20)${Reset}"
     }
     else {
         Add-DashLine (" " * 20 + "${manualHeaderColor}| ManualMode |${Reset}")
@@ -3319,7 +3328,7 @@ while ($true) {
 
 Write-Host ""
 $copyright = "© $(Get-Date -Format 'yyyy') aiit.support"
-Write-Centered "$FGCyan$copyright$Reset" -Width 52
+Write-Centered "${Global:FGWhite}$copyright$Reset" -Width 52
 Write-Log "Interactive Execution Complete."
 Write-Host ""
 function Invoke-WA_SetGetMeUpToDate {
