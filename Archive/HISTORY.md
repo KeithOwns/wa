@@ -175,3 +175,15 @@
   - Removed Next Steps: and Windows 11 Posture Audit Complete blocks from remote audit invocation by silencing them in-memory.
   - Renamed the output audit file from posture_audit.json to secrutity_score.json as requested.
   - Globally matched $FGDarkYellow by stripping out $Bold combinations across main headers, footers, and secondary pages.
+
+## 2026-06-13 (Navigation Logic, Metered Updates Removal, and UI/Footer Polish)
+- **Goal**: Reorder UI elements, eliminate dead code (Metered Updates), add missing hooks, and polish the interactive footer logic.
+- **Completed Changes**:
+  - Removed 'Metered Updates' globally and properly shifted the underlying menu array navigation logic to avoid index collision.
+  - Re-ordered 'Get Me Up To Date' to the top of the Automation UI.
+  - Wired 'Invoke-WA_SetGetMeUpToDate' into the SmartRun execution queue since it was previously dormant/omitted.
+  - Refactored the exit/footer string from 'Use arrow   ^ v   to select' to 'Use Up/Dn  ^ | v  to select'.
+  - Added contextual exit logic so pressing 'Esc' when navigated deep into a section safely prints 'Press Esc to go Back<-' instead of '<EXIT>'.
+  - Injected precise BGDarkYellow padding around the '^' and 'v' arrow indicator keys in the footer while preserving string width.
+  - Fully tested syntax passing PSParser validation with zero errors.
+

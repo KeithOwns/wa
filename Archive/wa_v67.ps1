@@ -821,9 +821,8 @@ function Write-Footer {
         $suffixText = "  ${Global:FGDarkYellow}Press ${Global:FGBlack}${Global:BGDarkYellow}Space${Global:Reset}${Global:FGDarkYellow} to Toggle "
     }
 
-    $escAction = if ($Global:MenuSelection -ge 2) { "go ${Global:BGGray}${Global:FGDarkRed}Back<-${Global:Reset}" } else { "${Global:BGGray}${Global:FGDarkRed}<EXIT>${Global:Reset}" }
     Add-DashLine "  ${Global:FGDarkYellow}$enterText$suffixText${Global:Reset}"
-    Add-DashLine "  ${Global:FGDarkYellow}Use Up/Dn ${Global:FGBlack}${Global:BGDarkYellow} ^ ${Global:Reset}${Global:FGDarkYellow}|${Global:FGBlack}${Global:BGDarkYellow} v ${Global:Reset}${Global:FGDarkYellow} to select | Press  ${Global:FGBlack}${Global:BGDarkYellow}Esc${Global:Reset}${Global:FGDarkYellow} to $escAction"
+    Add-DashLine "  ${Global:FGDarkYellow}Use Up/Dn  ${Global:FGBlack}${Global:BGDarkYellow}^${Global:Reset}${Global:FGDarkYellow} | ${Global:FGBlack}${Global:BGDarkYellow}v${Global:Reset}${Global:FGDarkYellow}  to select | Press  ${Global:FGBlack}${Global:BGDarkYellow}Esc${Global:Reset}${Global:FGDarkYellow} to ${Global:BGGray}${Global:FGDarkRed}<EXIT>${Global:Reset}"
     Write-Boundary -Color $Global:FGDarkYellow
     Write-Centered "${Global:FGDarkYellow}->|NAVIGATION ${Global:FGBlack}${Global:BGDarkYellow}Keys${Global:Reset}${Global:FGDarkYellow}|<-${Global:Reset}" -Width 52
 }

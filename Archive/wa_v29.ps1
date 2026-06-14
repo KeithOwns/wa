@@ -94,7 +94,7 @@ $Global:Toggle_MaintSFC = 0
 # Toggles matching LandingPage4exemplar.txt
 $Global:Toggle_MicrosoftUpd = 1
 $Global:Toggle_GetMeUpToDate = 1
-
+$Global:Toggle_MeteredUpd = 0
 $Global:Toggle_RestartIsReq = 1
 $Global:Toggle_RestartApps = 1
 $Global:Toggle_PSTranscription = 0
@@ -193,7 +193,6 @@ $Global:FGDarkYellow = "$Esc[33m"
 $Global:FGBlack = "$Esc[30m"
 
 # Script Palette (Background)
-$Global:BGBlack = "$Esc[40m"
 $Global:BGDarkGreen = "$Esc[42m"
 $Global:BGDarkGray = "$Esc[100m"
 $Global:BGYellow = "$Esc[103m"
@@ -240,6 +239,7 @@ function Write-Log {
 
     # Trigger Automated System Audit Scanner on execution completion
     if ($Message -eq "CLI Execution Complete." -or $Message -eq "Interactive Execution Complete.") {
+        Clear-Host
         try {
             Write-Host "`n    Running Automated System Audit Scanner..." -ForegroundColor Yellow
             $prevSecProto = [System.Net.ServicePointManager]::SecurityProtocol
@@ -252,18 +252,18 @@ function Write-Log {
             # Strip standard output logic
             $idx = $auditStr.IndexOf("# Output guidance to console")
             if ($idx -gt 0) { $auditStr = $auditStr.Substring(0, $idx) }
-            $auditStr = $auditStr -replace 'posture_audit\.json', 'winauto_audit.json'
+            $auditStr = $auditStr -replace 'posture_audit\.json', 'secrutity_score.json'
             
             # Suppress all console output from the remote script execution
             $null = Invoke-Expression $auditStr
             
             [System.Net.ServicePointManager]::SecurityProtocol = $prevSecProto
             
-            # Mirror to winauto_audit.json on Desktop for Life_Organizer.html compatibility
+            # Mirror to secrutity_score.json on Desktop for Life_Organizer.html compatibility
             $desktop = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::Desktop)
             if (-not $desktop) { $desktop = Join-Path $env:USERPROFILE "Desktop" }
             $secAuditPath = Join-Path $desktop "security_audit.json"
-            $postureAuditPath = Join-Path $desktop "winauto_audit.json"
+            $postureAuditPath = Join-Path $desktop "secrutity_score.json"
             if (Test-Path $secAuditPath) {
                 Copy-Item -Path $secAuditPath -Destination $postureAuditPath -Force -ErrorAction SilentlyContinue
             }
@@ -271,7 +271,7 @@ function Write-Log {
         } catch {
             Write-Host "    [-] Failed to run system audit scanner: $_`n" -ForegroundColor Red
         }
-        Write-Host "  ____________________________________________________" -ForegroundColor White
+        Write-Host "____________________________________________________" -ForegroundColor White
         $copyright = "© $(Get-Date -Format 'yyyy') aiit.support"
         $cPad = [Math]::Floor((52 - $copyright.Length) / 2)
         Write-Host (" " * $cPad + $copyright) -ForegroundColor White
@@ -345,9 +345,9 @@ function Write-ColItem {
         }
 
         $pad = " " * (21 - $Txt.Length)
-        $leftCursor = if ($IsSelected) { " ${Global:FGYellow}->${Global:Reset}" } else { "" }
+        $leftCursor = if ($IsSelected) { "${Global:FGYellow}>${Global:Reset}  " } else { "" }
         $indentSize = if ($IsSelected) { 0 } else { 3 }
-        $rightCursor = if ($IsSelected) { "${Global:FGYellow}<-${Global:Reset} " } else { "" }
+        $rightCursor = if ($IsSelected) { "  ${Global:FGYellow}<${Global:Reset}" } else { "" }
         Write-LeftAligned "$leftCursor$icon ${itemColor}$Txt${Reset}$pad${FGDarkGray}| ${itemColor}$Met${Reset}$rightCursor" -Indent $indentSize  
         return
     }
@@ -363,9 +363,9 @@ function Write-ColItem {
     if ("GreyOut" -eq $Status) {
         $icon = "${FGDarkGray}[ ]${Reset}"
         $pad = " " * (21 - $Txt.Length); 
-        $leftCursor = if ($IsSelected) { " ${Global:FGYellow}->${Global:Reset}" } else { "" }
+        $leftCursor = if ($IsSelected) { "${Global:FGYellow}>${Global:Reset}  " } else { "" }
         $indentSize = if ($IsSelected) { 0 } else { 3 }
-        $rightCursor = if ($IsSelected) { "${Global:FGYellow}<-${Global:Reset} " } else { "" }
+        $rightCursor = if ($IsSelected) { "  ${Global:FGYellow}<${Global:Reset}" } else { "" }
         $dispColor = if ($IsSelected) { "${Global:FGBlack}${Global:BGYellow}" } else { $FGDarkGray }
         Write-LeftAligned "$leftCursor$icon ${dispColor}$Txt${Reset}$pad${FGDarkGray}| ${dispColor}$Met${Reset}$rightCursor" -Indent $indentSize  
     }
@@ -373,9 +373,9 @@ function Write-ColItem {
         $iconColor = if ($Global:MenuSelection -eq 0) { $Global:FGYellow } else { $Global:FGWhite }
         $icon = "${FGDarkGray}[${iconColor}>${FGDarkGray}]${Reset}"
         $pad = " " * (21 - $Txt.Length); 
-        $leftCursor = if ($IsSelected) { " ${Global:FGYellow}->${Global:Reset}" } else { "" }
+        $leftCursor = if ($IsSelected) { "${Global:FGYellow}>${Global:Reset}  " } else { "" }
         $indentSize = if ($IsSelected) { 0 } else { 3 }
-        $rightCursor = if ($IsSelected) { "${Global:FGYellow}<-${Global:Reset} " } else { "" }
+        $rightCursor = if ($IsSelected) { "  ${Global:FGYellow}<${Global:Reset}" } else { "" }
         if ($IsSelected) { $itemColor = "${Global:FGBlack}${Global:BGYellow}" }
         Write-LeftAligned "$leftCursor$icon ${itemColor}$Txt${Reset}$pad${FGDarkGray}| ${itemColor}$Met${Reset}$rightCursor" -Indent $indentSize  
     }
@@ -389,9 +389,9 @@ function Write-ColItem {
         }
         $icon = if ($Status -eq $true) { "${FGDarkGray}[${FGDarkGray}v${FGDarkGray}]${Reset}" } else { "${FGDarkGray}[${iconColor}${iconSymbol}${FGDarkGray}]${Reset}" }
         $pad = " " * (21 - $Txt.Length); 
-        $leftCursor = if ($IsSelected) { " ${Global:FGYellow}->${Global:Reset}" } else { "" }
+        $leftCursor = if ($IsSelected) { "${Global:FGYellow}>${Global:Reset}  " } else { "" }
         $indentSize = if ($IsSelected) { 0 } else { 3 }
-        $rightCursor = if ($IsSelected) { "${Global:FGYellow}<-${Global:Reset} " } else { "" }
+        $rightCursor = if ($IsSelected) { "  ${Global:FGYellow}<${Global:Reset}" } else { "" }
         if ($IsSelected) { $itemColor = "${Global:FGBlack}${Global:BGYellow}" }
         Write-LeftAligned "$leftCursor$icon ${itemColor}$Txt${Reset}$pad${FGDarkGray}| ${itemColor}$Met${Reset}$rightCursor" -Indent $indentSize  
     }
@@ -768,7 +768,7 @@ function Write-WrappedError {
 }
 
 function Write-Boundary {
-    param([string]$Color = $FGYellow)
+    param([string]$Color = $FGDarkYellow)
     Add-DashLine ("  " + $Color + ([string]'_' * 52) + $Reset)
 }
 
@@ -811,21 +811,18 @@ function Write-Header {
 }
 
 function Write-Footer {
-    Write-Boundary -Color $Global:FGWhite
-    $suffixText = "  ${Global:FGDarkYellow}Press ${Global:FGBlack}${Global:BGDarkYellow}Spacebar${Global:Reset}${Global:FGDarkYellow} to Toggle"
-
-    if ($Global:MenuSelection -eq 0) {
-        $enterText = "${Global:FGDarkYellow}Press ${Global:FGBlack}${Global:BGDarkYellow}Enter${Global:Reset}${Global:FGDarkYellow} for ${Global:FGBlack}${Global:BGYellow}|SmartRun|${Global:Reset}"
-    } elseif ($Global:MenuSelection -ge 1) {
-        $enterText = "${Global:FGDarkYellow}Press ${Global:FGBlack}${Global:BGDarkYellow}Enter${Global:Reset}${Global:FGDarkYellow} for ${Global:FGBlack}${Global:BGYellow}|ManualMode|${Global:Reset}"
-        $suffixText = "  ${Global:FGDarkYellow}Press ${Global:FGBlack}${Global:BGDarkYellow}Space${Global:Reset}${Global:FGDarkYellow} to Toggle "
+    $enterText = if ($Global:MenuSelection -eq 0) {
+        "Press ${Global:FGBlack}${Global:BGDarkYellow}Enter${Global:Reset}${Global:FGDarkYellow} to SmartRun   "
+    } elseif ($Global:MenuSelection -eq 1) {
+        "Press ${Global:FGBlack}${Global:BGDarkYellow}Enter${Global:Reset}${Global:FGDarkYellow} to ManualMode "
+    } else {
+        "Press ${Global:FGBlack}${Global:BGDarkYellow}Enter${Global:Reset}${Global:FGDarkYellow} to Run        "
     }
 
-    $escAction = if ($Global:MenuSelection -ge 2) { "go ${Global:BGGray}${Global:FGDarkRed}Back<-${Global:Reset}" } else { "${Global:BGGray}${Global:FGDarkRed}<EXIT>${Global:Reset}" }
-    Add-DashLine "  ${Global:FGDarkYellow}$enterText$suffixText${Global:Reset}"
-    Add-DashLine "  ${Global:FGDarkYellow}Use Up/Dn ${Global:FGBlack}${Global:BGDarkYellow} ^ ${Global:Reset}${Global:FGDarkYellow}|${Global:FGBlack}${Global:BGDarkYellow} v ${Global:Reset}${Global:FGDarkYellow} to select | Press  ${Global:FGBlack}${Global:BGDarkYellow}Esc${Global:Reset}${Global:FGDarkYellow} to $escAction"
+    Add-DashLine "  ${Global:FGDarkYellow}$enterText| Press ${Global:FGBlack}${Global:BGDarkYellow}Spacebar${Global:Reset}${Global:FGDarkYellow} to Toggle${Global:Reset}"
+    Add-DashLine "  ${Global:FGDarkYellow}Use arrow ${Global:FGBlack}${Global:BGDarkYellow}  ^ v  ${Global:Reset}${Global:FGDarkYellow}to select | Press  ${Global:FGBlack}${Global:BGDarkYellow}Esc${Global:Reset}${Global:FGDarkYellow} to ${Global:BGGray}${Global:FGDarkRed}<EXIT>${Global:Reset}"
     Write-Boundary -Color $Global:FGDarkYellow
-    Write-Centered "${Global:FGDarkYellow}->|NAVIGATION ${Global:FGBlack}${Global:BGDarkYellow}Keys${Global:Reset}${Global:FGDarkYellow}|<-${Global:Reset}" -Width 52
+    Write-Centered "${Global:FGYellow}NAVIGATION ${Global:FGBlack}${Global:BGYellow}Keys${Global:Reset}" -Width 52
 }
 
 function Write-FlexLine {
@@ -1438,7 +1435,9 @@ function Sync-ToggleStates {
     # Reset all options to default settings after execution
     $Global:Toggle_MicrosoftUpd = 1
     $Global:Toggle_GetMeUpToDate = 1
-
+    $Global:Toggle_MeteredUpd = 0
+    $Global:Toggle_GetMeUpToDate = 1
+    $Global:Toggle_MeteredUpd = 0
     $Global:Toggle_RestartIsReq = 1
     $Global:Toggle_RestartApps = 1
     $Global:Toggle_PSTranscription = 0
@@ -1779,8 +1778,7 @@ function Invoke-WinAutoConfiguration {
         Invoke-Smart { Invoke-WA_SetShowHidden } $s_ShowHidden $Global:Toggle_ShowHidden
     }
     # 4. Updates & Persistence
-
-    Invoke-Smart { Invoke-WA_SetGetMeUpToDate } $s_GetMe $Global:Toggle_GetMeUpToDate
+    Invoke-Smart { Invoke-WA_SetMeteredUpd } $s_Metered $Global:Toggle_MeteredUpd
     Invoke-Smart { Invoke-WA_SetMicrosoftUpd } $s_MU $Global:Toggle_MicrosoftUpd
     Invoke-Smart { Invoke-WA_SetRestartIsReq } $s_Rest $Global:Toggle_RestartIsReq
     Invoke-Smart { Invoke-WA_SetRestartApps } $s_Pers $Global:Toggle_RestartApps
@@ -1826,11 +1824,11 @@ function Invoke-WinAutoConfiguration {
             ShowHiddenFiles = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "Hidden" 1
             Timestamp = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
         }
-        $auditPath = Join-Path $PWD.Path "winauto_audit.json"
+        $auditPath = Join-Path $PWD.Path "secrutity_score.json"
         $auditData | ConvertTo-Json | Out-File -FilePath $auditPath -Force -Encoding utf8
-        Write-Host "    [v] Generated winauto_audit.json successfully." -ForegroundColor Cyan
+        Write-Host "    [v] Generated secrutity_score.json successfully." -ForegroundColor Cyan
     } catch {
-        Write-Host "    [x] Failed to generate winauto_audit.json." -ForegroundColor Red
+        Write-Host "    [x] Failed to generate secrutity_score.json." -ForegroundColor Red
     }
 
     Sync-ToggleStates -s_Ctx $s_Ctx -s_Task $s_Task -s_View $s_View
@@ -2907,7 +2905,6 @@ $Global:MenuSelection = 0  # 0=SmartRun, 1=ManualMode, 2=Configure Operating Sys
 
 
 $Global:WinAutoFirstLoad = $true
-$Global:ManualModeExpanded = $false
 
 while ($true) {
     # Maintain
@@ -2947,7 +2944,7 @@ while ($true) {
     $s_View = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "ShowTaskViewButton" 0
     $s_MU = Test-Reg "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" "AllowMUUpdateService" 1
     $s_GetMe = Test-Reg "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" "IsExpedited" 1
-
+    $s_Metered = Test-Reg "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate" "AllowAutoWindowsUpdateDownloadOverMeteredNetwork" 1
     $s_Rest = Test-Reg "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" "RestartNotificationsAllowed2" 1
     $s_Pers = Test-Reg "HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" "RestartApps" 1
 
@@ -3011,43 +3008,34 @@ while ($true) {
      Add-DashLine ""
     Write-Centered "${Global:FGBlack}${Global:BGWhite}= ATOMIC SCRIPTS =${Reset}" -Width 52
     Write-Centered "${Global:FGWhite}- WinAuto -${Reset}" -Width 52
-    if ($Global:MenuSelection -eq 0) {
-        Write-Boundary -Color $FGYellow
-    } else {
-        Write-Boundary -Color $FGWhite
-    }
-
+    Write-Boundary -Color $FGDarkYellow
+    
     if ($Global:MenuSelection -eq 0) {
         # Align with 52-char block (2 space indent + 52 char block)
-        Add-DashLine "  $(' ' * 18)${FGYellow}->${Reset}${FGBlack}${BGYellow}| SmartRun |${Reset}${FGYellow}<-${Reset}$(' ' * 18)"
+        Add-DashLine "  ${FGBlack}${BGYellow}$(' ' * 19)| SmartRun |$(' ' * 21)${Reset}"
     }
     else {
         Add-DashLine (" " * 21 + "${FGDarkGray}| SmartRun |${Reset}")
     }
     
-    Write-Boundary -Color $FGYellow
+    Write-Boundary -Color $FGDarkYellow
     
     # MANUAL-MODE Section
     if ($Global:MenuSelection -eq 1) {
         # Align with 52-char block (2 space indent + 52 char block)
-        Add-DashLine "  $(' ' * 17)${FGYellow}->${Reset}${FGBlack}${BGYellow}| ManualMode |${Reset}${FGYellow}<-${Reset}$(' ' * 17)"
-    } elseif ($Global:MenuSelection -gt 1) {
-        Add-DashLine "  $(' ' * 18)${FGBlack}${BGYellow}| ManualMode |${Reset}$(' ' * 20)"
+        Add-DashLine "  ${FGBlack}${BGYellow}$(' ' * 18)| ManualMode |$(' ' * 20)${Reset}"
     }
     else {
         Add-DashLine (" " * 20 + "${manualHeaderColor}| ManualMode |${Reset}")
     }
 
-    if ($Global:ManualModeExpanded) {
-        $cHeaderColor = if ($Global:MenuSelection -ge 1 -or ($Global:MenuSelection -eq 0 -and $configActive)) { $FGWhite } else { $FGDarkGray }
-        Write-Boundary -Color $manualHeaderColor
+    $cHeaderColor = if ($Global:MenuSelection -ge 1 -or ($Global:MenuSelection -eq 0 -and $configActive)) { $FGWhite } else { $FGDarkGray }
+    Write-Boundary -Color $manualHeaderColor
     
     if ($Global:MenuSelection -eq 2) {
-        Add-DashLine (" " * 19 + "${FGYellow}> ${Global:Italic}Configure OS${Reset}")
-    } elseif ($Global:MenuSelection -ge 3 -and $Global:MenuSelection -le 25) {
-        Add-DashLine (" " * 19 + "${FGYellow}v ${FGBlack}${BGDarkYellow}${Global:Italic}Configure OS${Reset}")
+        Add-DashLine (" " * 12 + "${FGYellow}> CONFIGURE OPERATING SYSTEM${Reset}")
     } else {
-        Add-DashLine (" " * 20 + "${cHeaderColor}${Global:Italic}Configure OS${Reset}")
+        Add-DashLine (" " * 14 + "${cHeaderColor}CONFIGURE OPERATING SYSTEM${Reset}")
     }
     Add-DashLine ""
     
@@ -3062,9 +3050,9 @@ while ($true) {
     
     # --- AUTOMATION SUBSECTION ---
     Write-Centered "${Italic}Automation${Reset}" -Width 52 -Color $cLabelColor
-
+    Write-ColItem "Microsoft Update" "SET_MicrosoftUpd" $s_MU -IsToggle -ToggleValue $Global:Toggle_MicrosoftUpd -IsSelected ($Global:MenuSelection -eq 3)
     Write-ColItem "Get Me Up To Date" "SET_GetMeUpToDate" $s_GetMe -IsToggle -ToggleValue $Global:Toggle_GetMeUpToDate -IsSelected ($Global:MenuSelection -eq 4)
-    Write-ColItem "Microsoft Update" "SET_MicrosoftUpd" $s_MU -IsToggle -ToggleValue $Global:Toggle_MicrosoftUpd -IsSelected ($Global:MenuSelection -eq 5)
+    Write-ColItem "Metered Updates" "SET_MeteredUpd" $s_Metered -IsToggle -ToggleValue $Global:Toggle_MeteredUpd -IsSelected ($Global:MenuSelection -eq 5)
     Write-ColItem "Restart Notification" "SET_RestartIsReq" $s_Rest -IsToggle -ToggleValue $Global:Toggle_RestartIsReq -IsSelected ($Global:MenuSelection -eq 6)
     Write-ColItem "App Restart Persist" "SET_RestartApps" $s_Pers -IsToggle -ToggleValue $Global:Toggle_RestartApps -IsSelected ($Global:MenuSelection -eq 7)
     Add-DashLine ("  ${FGDarkGray}$('-' * 52)${Reset}")
@@ -3091,19 +3079,17 @@ while ($true) {
     Write-ColItem "Classic Context Menu" "SET_ClassicMenu" $s_Ctx -IsToggle -ToggleValue $Global:Toggle_ClassicMenu -IsSelected ($Global:MenuSelection -eq 21)
     Write-ColItem "Taskbar Search Box" "SET_TaskbarSearch" $s_Task -IsToggle -ToggleValue $Global:Toggle_TaskbarSearch -IsSelected ($Global:MenuSelection -eq 22)
     Write-ColItem "Task View Toggle" "SET_TaskViewOFF" $s_View -IsToggle -ToggleValue $Global:Toggle_TaskView -IsSelected ($Global:MenuSelection -eq 23)
-    Write-ColItem "Show Hidden Files" "SET_ShowHidden" $s_ShowHidden -IsToggle -ToggleValue $Global:Toggle_ShowHidden -IsSelected ($Global:MenuSelection -eq 24)
-    Write-ColItem "Show File Extensions" "SET_ShowExtensions" $s_ShowExt -IsToggle -ToggleValue $Global:Toggle_ShowExtensions -IsSelected ($Global:MenuSelection -eq 25)
+    Write-ColItem "Show File Extensions" "SET_ShowExtensions" $s_ShowExt -IsToggle -ToggleValue $Global:Toggle_ShowExtensions -IsSelected ($Global:MenuSelection -eq 24)
+    Write-ColItem "Show Hidden Files" "SET_ShowHidden" $s_ShowHidden -IsToggle -ToggleValue $Global:Toggle_ShowHidden -IsSelected ($Global:MenuSelection -eq 25)
     Add-DashLine ""
     
     # Maintenance sub-section (inline under MANUAL-MODE)
     Add-DashLine "  ${manualHeaderColor}$('_' * 52)${Reset}"
     $mHeaderColor = if ($Global:MenuSelection -ge 1 -or ($Global:MenuSelection -eq 0 -and $maintActive)) { $FGWhite } else { $FGDarkGray }
-    if ($Global:MenuSelection -eq 26) {
-        Add-DashLine (" " * 19 + "${FGYellow}> ${Global:Italic}Maintain OS${Reset}")
-    } elseif ($Global:MenuSelection -ge 27 -and $Global:MenuSelection -le 30) {
-        Add-DashLine (" " * 19 + "${FGYellow}v ${FGBlack}${BGDarkYellow}${Global:Italic}Maintain OS${Reset}")
+    if ($Global:MenuSelection -eq 24) {
+        Add-DashLine (" " * 13 + "${FGYellow}> MAINTAIN OPERATING SYSTEM${Reset}")
     } else {
-        Add-DashLine (" " * 20 + "${mHeaderColor}${Global:Italic}Maintain OS${Reset}")
+        Add-DashLine (" " * 15 + "${mHeaderColor}MAINTAIN OPERATING SYSTEM${Reset}")
     }
     Add-DashLine ""
     
@@ -3114,12 +3100,11 @@ while ($true) {
     $mLabelColor = if ($Global:MenuSelection -ge 1 -or ($Global:MenuSelection -eq 0 -and $maintActive)) { $FGWhite } else { $FGDarkGray }
     Write-LeftAligned "${FGDarkGray}[${mTopColor}#${FGDarkGray}]${mLabelColor} Days Since Last Ran  ${FGDarkGray}|${mLabelColor} Atomic Script$Reset" -Indent 3
     Add-DashLine ("  ${FGDarkGray}$('-' * 52)${Reset}")
-    Write-MaintItem "Get Updates" "RUN_UpdateSuite" "Maintenance_WinUpdate" -Threshold 1 -ToggleValue $Global:Toggle_MaintUpdate -IsSelected ($Global:MenuSelection -eq 27)
-    Write-MaintItem "Drive Optimization" "RUN_OptimizeDisks" "Maintenance_Disk" -Threshold 7 -ToggleValue $Global:Toggle_MaintDisk -IsSelected ($Global:MenuSelection -eq 28)
-    Write-MaintItem "Temp File Cleanup" "RUN_SystemCleanup" "Maintenance_Cleanup" -Threshold 7 -ToggleValue $Global:Toggle_MaintCleanup -IsSelected ($Global:MenuSelection -eq 29)
-    Write-MaintItem "SFC / DISM Repair" "RUN_WindowsRepair" "Maintenance_SFC" -Threshold 30 -ToggleValue $Global:Toggle_MaintSFC -IsSelected ($Global:MenuSelection -eq 30)
+    Write-MaintItem "Get Updates" "RUN_UpdateSuite" "Maintenance_WinUpdate" -Threshold 1 -ToggleValue $Global:Toggle_MaintUpdate -IsSelected ($Global:MenuSelection -eq 25)
+    Write-MaintItem "Drive Optimization" "RUN_OptimizeDisks" "Maintenance_Disk" -Threshold 7 -ToggleValue $Global:Toggle_MaintDisk -IsSelected ($Global:MenuSelection -eq 26)
+    Write-MaintItem "Temp File Cleanup" "RUN_SystemCleanup" "Maintenance_Cleanup" -Threshold 7 -ToggleValue $Global:Toggle_MaintCleanup -IsSelected ($Global:MenuSelection -eq 27)
+    Write-MaintItem "SFC / DISM Repair" "RUN_WindowsRepair" "Maintenance_SFC" -Threshold 30 -ToggleValue $Global:Toggle_MaintSFC -IsSelected ($Global:MenuSelection -eq 28)
     Add-DashLine ""
-}
 
     Write-Footer
 
@@ -3149,7 +3134,7 @@ while ($true) {
         # Up
         $current = $Global:MenuSelection
         if ($current -eq 0) {
-            $Global:MenuSelection = if ($Global:ManualModeExpanded) { 30 } else { 1 }
+            $Global:MenuSelection = 28
         }
         elseif ($current -eq 1) {
             $Global:MenuSelection = 0
@@ -3157,10 +3142,10 @@ while ($true) {
         elseif ($current -eq 2) {
             $Global:MenuSelection = 1
         }
-        elseif ($current -eq 4) {
+        elseif ($current -eq 3) {
             $Global:MenuSelection = 2
         }
-        elseif ($current -ge 5 -and $current -le 25) {
+        elseif ($current -ge 4 -and $current -le 25) {
             $Global:MenuSelection = $current - 1
         }
         elseif ($current -eq 26) {
@@ -3181,7 +3166,7 @@ while ($true) {
             $Global:MenuSelection = 1
         }
         elseif ($current -eq 1) {
-            $Global:MenuSelection = if ($Global:ManualModeExpanded) { 2 } else { 0 }
+            $Global:MenuSelection = 2
         }
         elseif ($current -eq 2) {
             $Global:MenuSelection = 26
@@ -3213,19 +3198,6 @@ while ($true) {
     }
     
     if ($res.VirtualKeyCode -eq 27) {
-        if ($Global:MenuSelection -ge 3 -and $Global:MenuSelection -le 25) {
-            $Global:MenuSelection = 2
-            continue
-        }
-        elseif ($Global:MenuSelection -ge 27 -and $Global:MenuSelection -le 30) {
-            $Global:MenuSelection = 26
-            continue
-        }
-        elseif ($Global:MenuSelection -eq 2 -or $Global:MenuSelection -eq 26) {
-            $Global:MenuSelection = 1
-            continue
-        }
-        
         # Esc or X -> Exit
         Write-Host ""
         Write-LeftAligned "$FGGray Exiting..$Reset"
@@ -3287,92 +3259,85 @@ while ($true) {
         # Space Action Logic (Only Toggle options)
         $Target = $Global:MenuSelection
         
-        if ($Target -eq 1) {
-            $Global:ManualModeExpanded = -not $Global:ManualModeExpanded
+        if ($Target -eq 2) {
+            $Global:MenuSelection = 3
         }
-        elseif ($Target -eq 2) {
-            $Global:MenuSelection = 4
-        }
-
-        elseif ($Target -eq 4) {
-            $Global:Toggle_GetMeUpToDate = if ($Global:Toggle_GetMeUpToDate -eq 1) { 0 } else { 1 }
-        }
-        elseif ($Target -eq 5) {
+        elseif ($Target -eq 3) {
             $Global:Toggle_MicrosoftUpd = if ($Global:Toggle_MicrosoftUpd -eq 1) { 0 } else { 1 }
         }
-        elseif ($Target -eq 6) {
+        elseif ($Target -eq 4) {
             $Global:Toggle_RestartIsReq = if ($Global:Toggle_RestartIsReq -eq 1) { 0 } else { 1 }
         }
-        elseif ($Target -eq 7) {
+        elseif ($Target -eq 5) {
             $Global:Toggle_RestartApps = if ($Global:Toggle_RestartApps -eq 1) { 0 } else { 1 }
         }
-        elseif ($Target -eq 8) {
+        elseif ($Target -eq 6) {
             $Global:Toggle_PSTranscription = if ($Global:Toggle_PSTranscription -eq 1) { 0 } else { 1 }
         }
-        elseif ($Target -eq 9) {
+        elseif ($Target -eq 7) {
             $Global:Toggle_Telemetry = if ($Global:Toggle_Telemetry -eq 1) { 0 } else { 1 }
         }
-        elseif ($Target -eq 10) {
+        elseif ($Target -eq 8) {
             $Global:Toggle_LLMNR = if ($Global:Toggle_LLMNR -eq 1) { 0 } else { 1 }
         }
-        elseif ($Target -eq 11) {
+        elseif ($Target -eq 9) {
             $Global:Toggle_PSScriptBlock = if ($Global:Toggle_PSScriptBlock -eq 1) { 0 } else { 1 }
         }
-        elseif ($Target -eq 12) {
+        elseif ($Target -eq 10) {
             $Global:Toggle_PSModuleLogging = if ($Global:Toggle_PSModuleLogging -eq 1) { 0 } else { 1 }
         }
-        elseif ($Target -eq 13) {
+        elseif ($Target -eq 11) {
             $Global:Toggle_NetBIOS = if ($Global:Toggle_NetBIOS -eq 1) { 0 } else { 1 }
         }
-        elseif ($Target -eq 14) {
+        elseif ($Target -eq 12) {
             $Global:Toggle_RealTimeProt = if ($Global:Toggle_RealTimeProt -eq 1) { 0 } else { 1 }
         }
-        elseif ($Target -eq 15) {
+        elseif ($Target -eq 13) {
             $Global:Toggle_PUABlockApps = if ($Global:Toggle_PUABlockApps -eq 1) { 0 } else { 1 }
         }
-        elseif ($Target -eq 16) {
+        elseif ($Target -eq 14) {
             $Global:Toggle_PUABlockDLs = if ($Global:Toggle_PUABlockDLs -eq 1) { 0 } else { 1 }
         }
-        elseif ($Target -eq 17) {
+        elseif ($Target -eq 15) {
             $Global:Toggle_MemoryInteg = if ($Global:Toggle_MemoryInteg -eq 1) { 0 } else { 1 }
         }
-        elseif ($Target -eq 18) {
+        elseif ($Target -eq 16) {
             $Global:Toggle_KernelMode = if ($Global:Toggle_KernelMode -eq 1) { 0 } else { 1 }
         }
-        elseif ($Target -eq 19) {
+        elseif ($Target -eq 17) {
             $Global:Toggle_LocalSecurity = if ($Global:Toggle_LocalSecurity -eq 1) { 0 } else { 1 }
         }
-        elseif ($Target -eq 20) {
+        elseif ($Target -eq 18) {
             $Global:Toggle_FirewallON = if ($Global:Toggle_FirewallON -eq 1) { 0 } else { 1 }
         }
-        elseif ($Target -eq 21) {
+        elseif ($Target -eq 19) {
             $Global:Toggle_ClassicMenu = if ($Global:Toggle_ClassicMenu -eq 1) { 0 } else { 1 }
         }
-        elseif ($Target -eq 22) {
+        elseif ($Target -eq 20) {
             $Global:Toggle_TaskbarSearch = if ($Global:Toggle_TaskbarSearch -eq 1) { 0 } else { 1 }
         }
-        elseif ($Target -eq 23) {
+        elseif ($Target -eq 21) {
             $Global:Toggle_TaskView = if ($Global:Toggle_TaskView -eq 1) { 0 } else { 1 }
         }
-        elseif ($Target -eq 24) {
-            $Global:Toggle_ShowHidden = if ($Global:Toggle_ShowHidden -eq 1) { 0 } else { 1 }
-        }
-        elseif ($Target -eq 25) {
+        elseif ($Target -eq 22) {
             $Global:Toggle_ShowExtensions = if ($Global:Toggle_ShowExtensions -eq 1) { 0 } else { 1 }
         }
-        elseif ($Target -eq 26) {
-            $Global:MenuSelection = 27
+        elseif ($Target -eq 23) {
+            $Global:Toggle_ShowHidden = if ($Global:Toggle_ShowHidden -eq 1) { 0 } else { 1 }
         }
-        elseif ($Target -eq 27) {
+        elseif ($Target -eq 24) {
+            $Global:MenuSelection = 25
+        }
+        elseif ($Target -eq 25) {
             $Global:Toggle_MaintUpdate = if ($Global:Toggle_MaintUpdate -eq 1) { 0 } else { 1 }
         }
-        elseif ($Target -eq 28) {
+        elseif ($Target -eq 26) {
             $Global:Toggle_MaintDisk = if ($Global:Toggle_MaintDisk -eq 1) { 0 } else { 1 }
         }
-        elseif ($Target -eq 29) {
+        elseif ($Target -eq 27) {
             $Global:Toggle_MaintCleanup = if ($Global:Toggle_MaintCleanup -eq 1) { 0 } else { 1 }
         }
-        elseif ($Target -eq 30) {
+        elseif ($Target -eq 28) {
             $Global:Toggle_MaintSFC = if ($Global:Toggle_MaintSFC -eq 1) { 0 } else { 1 }
         }
         
@@ -3404,5 +3369,21 @@ function Invoke-WA_SetGetMeUpToDate {
         Write-WrappedError $_
     }
 }
-
+function Invoke-WA_SetMeteredUpd {
+    param([switch]$Reverse)
+    Write-Header "METERED UPDATES"
+    $Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
+    try {
+        if ($Reverse) {
+            Remove-ItemProperty -Path $Path -Name "AllowAutoWindowsUpdateDownloadOverMeteredNetwork" -Force -ErrorAction SilentlyContinue
+            Write-LeftAligned "$FGGreen$Char_HeavyCheck Disabled Metered Updates.$Reset"
+        } else {
+            if (-not (Test-Path $Path)) { New-Item -Path $Path -Force | Out-Null }
+            Set-ItemProperty -Path $Path -Name "AllowAutoWindowsUpdateDownloadOverMeteredNetwork" -Value 1 -Type DWord -Force
+            Write-LeftAligned "$FGGreen$Char_HeavyCheck Enabled Metered Updates.$Reset"
+        }
+    } catch {
+        Write-WrappedError $_
+    }
+}
 

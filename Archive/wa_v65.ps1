@@ -821,9 +821,8 @@ function Write-Footer {
         $suffixText = "  ${Global:FGDarkYellow}Press ${Global:FGBlack}${Global:BGDarkYellow}Space${Global:Reset}${Global:FGDarkYellow} to Toggle "
     }
 
-    $escAction = if ($Global:MenuSelection -ge 2) { "go ${Global:BGGray}${Global:FGDarkRed}Back<-${Global:Reset}" } else { "${Global:BGGray}${Global:FGDarkRed}<EXIT>${Global:Reset}" }
     Add-DashLine "  ${Global:FGDarkYellow}$enterText$suffixText${Global:Reset}"
-    Add-DashLine "  ${Global:FGDarkYellow}Use Up/Dn ${Global:FGBlack}${Global:BGDarkYellow} ^ ${Global:Reset}${Global:FGDarkYellow}|${Global:FGBlack}${Global:BGDarkYellow} v ${Global:Reset}${Global:FGDarkYellow} to select | Press  ${Global:FGBlack}${Global:BGDarkYellow}Esc${Global:Reset}${Global:FGDarkYellow} to $escAction"
+    Add-DashLine "  ${Global:FGDarkYellow}Use arrow   ${Global:FGBlack}${Global:BGDarkYellow}^${Global:BGBlack} ${Global:BGDarkYellow}v${Global:Reset}${Global:FGDarkYellow}   to select | Press  ${Global:FGBlack}${Global:BGDarkYellow}Esc${Global:Reset}${Global:FGDarkYellow} to ${Global:BGGray}${Global:FGDarkRed}<EXIT>${Global:Reset}"
     Write-Boundary -Color $Global:FGDarkYellow
     Write-Centered "${Global:FGDarkYellow}->|NAVIGATION ${Global:FGBlack}${Global:BGDarkYellow}Keys${Global:Reset}${Global:FGDarkYellow}|<-${Global:Reset}" -Width 52
 }
@@ -1780,7 +1779,6 @@ function Invoke-WinAutoConfiguration {
     }
     # 4. Updates & Persistence
 
-    Invoke-Smart { Invoke-WA_SetGetMeUpToDate } $s_GetMe $Global:Toggle_GetMeUpToDate
     Invoke-Smart { Invoke-WA_SetMicrosoftUpd } $s_MU $Global:Toggle_MicrosoftUpd
     Invoke-Smart { Invoke-WA_SetRestartIsReq } $s_Rest $Global:Toggle_RestartIsReq
     Invoke-Smart { Invoke-WA_SetRestartApps } $s_Pers $Global:Toggle_RestartApps
@@ -3063,8 +3061,8 @@ while ($true) {
     # --- AUTOMATION SUBSECTION ---
     Write-Centered "${Italic}Automation${Reset}" -Width 52 -Color $cLabelColor
 
-    Write-ColItem "Get Me Up To Date" "SET_GetMeUpToDate" $s_GetMe -IsToggle -ToggleValue $Global:Toggle_GetMeUpToDate -IsSelected ($Global:MenuSelection -eq 4)
-    Write-ColItem "Microsoft Update" "SET_MicrosoftUpd" $s_MU -IsToggle -ToggleValue $Global:Toggle_MicrosoftUpd -IsSelected ($Global:MenuSelection -eq 5)
+    Write-ColItem "Microsoft Update" "SET_MicrosoftUpd" $s_MU -IsToggle -ToggleValue $Global:Toggle_MicrosoftUpd -IsSelected ($Global:MenuSelection -eq 4)
+    Write-ColItem "Get Me Up To Date" "SET_GetMeUpToDate" $s_GetMe -IsToggle -ToggleValue $Global:Toggle_GetMeUpToDate -IsSelected ($Global:MenuSelection -eq 5)
     Write-ColItem "Restart Notification" "SET_RestartIsReq" $s_Rest -IsToggle -ToggleValue $Global:Toggle_RestartIsReq -IsSelected ($Global:MenuSelection -eq 6)
     Write-ColItem "App Restart Persist" "SET_RestartApps" $s_Pers -IsToggle -ToggleValue $Global:Toggle_RestartApps -IsSelected ($Global:MenuSelection -eq 7)
     Add-DashLine ("  ${FGDarkGray}$('-' * 52)${Reset}")
@@ -3295,10 +3293,10 @@ while ($true) {
         }
 
         elseif ($Target -eq 4) {
-            $Global:Toggle_GetMeUpToDate = if ($Global:Toggle_GetMeUpToDate -eq 1) { 0 } else { 1 }
+            $Global:Toggle_MicrosoftUpd = if ($Global:Toggle_MicrosoftUpd -eq 1) { 0 } else { 1 }
         }
         elseif ($Target -eq 5) {
-            $Global:Toggle_MicrosoftUpd = if ($Global:Toggle_MicrosoftUpd -eq 1) { 0 } else { 1 }
+            $Global:Toggle_GetMeUpToDate = if ($Global:Toggle_GetMeUpToDate -eq 1) { 0 } else { 1 }
         }
         elseif ($Target -eq 6) {
             $Global:Toggle_RestartIsReq = if ($Global:Toggle_RestartIsReq -eq 1) { 0 } else { 1 }

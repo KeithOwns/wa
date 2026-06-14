@@ -22,20 +22,6 @@ iex (irm https://www.aiit.support/mylife)
 -   **Automated Maintenance:** One-touch system repair (SFC/DISM), drive optimization, and temp file cleanup.
 -   **UI Automation:** Robust handling of Windows Settings that cannot be managed via the registry alone.
 
-## 🧠 Execution Modes
-
-### 1. State-Aware Remediation (Configuration)
-
--   **SmartRun**: Performs a "drift audit" first. It only executes configuration changes for settings that are currently detected as non-compliant or out of the desired state. If all enabled settings are already perfectly configured, it completely skips the Configuration phase.
--   **ManualMode**: Operates blindly. It forces the execution and re-application of all enabled Configuration settings, regardless of whether the system is already in compliance.
-
-### 2. Time-Based Thresholds (Maintenance)
-
--   **SmartRun**: Respects the built-in cool-down thresholds for maintenance tasks. For example, it checks the local registry history and skips Windows Updates if they were run within the last 1 day, or skips Disk Optimization/Temp Cleanup if they were run within the last 7 days. If all tasks are within their thresholds, it skips the Maintenance phase entirely.
--   **ManualMode**: Completely ignores all time-based thresholds and forces every selected Maintenance task to execute immediately.
-
-**In summary:** `SmartRun` acts as a surgical, idempotent desired-state engine (only fixing what is broken and running what is due), whereas `ManualMode` acts as a heavy-handed override that forcefully re-applies everything you have toggled on.
-
 ## 🛠️ Usage
 
 1.  **Elevate:** Open a PowerShell window as **Administrator**.

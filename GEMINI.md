@@ -8,7 +8,7 @@ AtomicScripts (WA) is a high-performance, single-file PowerShell automation suit
 - **Remediation Strategy:** 
     - **Registry Fallbacks (UIA):** Always attempt background registry edits first. Fall back to UI Automation (UIA) only when settings are not manageable via the registry (e.g., SmartScreen, Virus Protection).
     - **Audit-First:** Every action must be preceded by a system state audit to ensure changes are only applied when drift is detected.
-- **Reporting:** Post-execution audits must generate `AtomicScripts_Audit.json`. Confirmation messages should be indented (4 spaces) and Cyan-colored.
+- **Reporting:** Post-execution audits must generate `winauto_audit.json`. Confirmation messages should be indented (4 spaces) and Cyan-colored.
 
 ## 3. UI/UX Standards
 Adhere strictly to the **AtomicScripts Visual Identity** defined in `BRANDING.md`:

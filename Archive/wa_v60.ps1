@@ -94,7 +94,7 @@ $Global:Toggle_MaintSFC = 0
 # Toggles matching LandingPage4exemplar.txt
 $Global:Toggle_MicrosoftUpd = 1
 $Global:Toggle_GetMeUpToDate = 1
-
+$Global:Toggle_MeteredUpd = 0
 $Global:Toggle_RestartIsReq = 1
 $Global:Toggle_RestartApps = 1
 $Global:Toggle_PSTranscription = 0
@@ -821,9 +821,8 @@ function Write-Footer {
         $suffixText = "  ${Global:FGDarkYellow}Press ${Global:FGBlack}${Global:BGDarkYellow}Space${Global:Reset}${Global:FGDarkYellow} to Toggle "
     }
 
-    $escAction = if ($Global:MenuSelection -ge 2) { "go ${Global:BGGray}${Global:FGDarkRed}Back<-${Global:Reset}" } else { "${Global:BGGray}${Global:FGDarkRed}<EXIT>${Global:Reset}" }
     Add-DashLine "  ${Global:FGDarkYellow}$enterText$suffixText${Global:Reset}"
-    Add-DashLine "  ${Global:FGDarkYellow}Use Up/Dn ${Global:FGBlack}${Global:BGDarkYellow} ^ ${Global:Reset}${Global:FGDarkYellow}|${Global:FGBlack}${Global:BGDarkYellow} v ${Global:Reset}${Global:FGDarkYellow} to select | Press  ${Global:FGBlack}${Global:BGDarkYellow}Esc${Global:Reset}${Global:FGDarkYellow} to $escAction"
+    Add-DashLine "  ${Global:FGDarkYellow}Use arrow   ${Global:FGBlack}${Global:BGDarkYellow}^${Global:BGBlack} ${Global:BGDarkYellow}v${Global:Reset}${Global:FGDarkYellow}   to select | Press  ${Global:FGBlack}${Global:BGDarkYellow}Esc${Global:Reset}${Global:FGDarkYellow} to ${Global:BGGray}${Global:FGDarkRed}<EXIT>${Global:Reset}"
     Write-Boundary -Color $Global:FGDarkYellow
     Write-Centered "${Global:FGDarkYellow}->|NAVIGATION ${Global:FGBlack}${Global:BGDarkYellow}Keys${Global:Reset}${Global:FGDarkYellow}|<-${Global:Reset}" -Width 52
 }
@@ -1438,7 +1437,9 @@ function Sync-ToggleStates {
     # Reset all options to default settings after execution
     $Global:Toggle_MicrosoftUpd = 1
     $Global:Toggle_GetMeUpToDate = 1
-
+    $Global:Toggle_MeteredUpd = 0
+    $Global:Toggle_GetMeUpToDate = 1
+    $Global:Toggle_MeteredUpd = 0
     $Global:Toggle_RestartIsReq = 1
     $Global:Toggle_RestartApps = 1
     $Global:Toggle_PSTranscription = 0
@@ -1779,8 +1780,7 @@ function Invoke-WinAutoConfiguration {
         Invoke-Smart { Invoke-WA_SetShowHidden } $s_ShowHidden $Global:Toggle_ShowHidden
     }
     # 4. Updates & Persistence
-
-    Invoke-Smart { Invoke-WA_SetGetMeUpToDate } $s_GetMe $Global:Toggle_GetMeUpToDate
+    Invoke-Smart { Invoke-WA_SetMeteredUpd } $s_Metered $Global:Toggle_MeteredUpd
     Invoke-Smart { Invoke-WA_SetMicrosoftUpd } $s_MU $Global:Toggle_MicrosoftUpd
     Invoke-Smart { Invoke-WA_SetRestartIsReq } $s_Rest $Global:Toggle_RestartIsReq
     Invoke-Smart { Invoke-WA_SetRestartApps } $s_Pers $Global:Toggle_RestartApps
@@ -2947,7 +2947,7 @@ while ($true) {
     $s_View = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "ShowTaskViewButton" 0
     $s_MU = Test-Reg "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" "AllowMUUpdateService" 1
     $s_GetMe = Test-Reg "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" "IsExpedited" 1
-
+    $s_Metered = Test-Reg "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate" "AllowAutoWindowsUpdateDownloadOverMeteredNetwork" 1
     $s_Rest = Test-Reg "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" "RestartNotificationsAllowed2" 1
     $s_Pers = Test-Reg "HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" "RestartApps" 1
 
@@ -3043,9 +3043,7 @@ while ($true) {
         Write-Boundary -Color $manualHeaderColor
     
     if ($Global:MenuSelection -eq 2) {
-        Add-DashLine (" " * 19 + "${FGYellow}> ${Global:Italic}Configure OS${Reset}")
-    } elseif ($Global:MenuSelection -ge 3 -and $Global:MenuSelection -le 25) {
-        Add-DashLine (" " * 19 + "${FGYellow}v ${FGBlack}${BGDarkYellow}${Global:Italic}Configure OS${Reset}")
+        Add-DashLine (" " * 18 + "${FGYellow}->${Global:Italic}Configure OS${Reset}")
     } else {
         Add-DashLine (" " * 20 + "${cHeaderColor}${Global:Italic}Configure OS${Reset}")
     }
@@ -3062,9 +3060,9 @@ while ($true) {
     
     # --- AUTOMATION SUBSECTION ---
     Write-Centered "${Italic}Automation${Reset}" -Width 52 -Color $cLabelColor
-
-    Write-ColItem "Get Me Up To Date" "SET_GetMeUpToDate" $s_GetMe -IsToggle -ToggleValue $Global:Toggle_GetMeUpToDate -IsSelected ($Global:MenuSelection -eq 4)
-    Write-ColItem "Microsoft Update" "SET_MicrosoftUpd" $s_MU -IsToggle -ToggleValue $Global:Toggle_MicrosoftUpd -IsSelected ($Global:MenuSelection -eq 5)
+    Write-ColItem "Metered Updates" "SET_MeteredUpd" $s_Metered -IsToggle -ToggleValue $Global:Toggle_MeteredUpd -IsSelected ($Global:MenuSelection -eq 3)
+    Write-ColItem "Microsoft Update" "SET_MicrosoftUpd" $s_MU -IsToggle -ToggleValue $Global:Toggle_MicrosoftUpd -IsSelected ($Global:MenuSelection -eq 4)
+    Write-ColItem "Get Me Up To Date" "SET_GetMeUpToDate" $s_GetMe -IsToggle -ToggleValue $Global:Toggle_GetMeUpToDate -IsSelected ($Global:MenuSelection -eq 5)
     Write-ColItem "Restart Notification" "SET_RestartIsReq" $s_Rest -IsToggle -ToggleValue $Global:Toggle_RestartIsReq -IsSelected ($Global:MenuSelection -eq 6)
     Write-ColItem "App Restart Persist" "SET_RestartApps" $s_Pers -IsToggle -ToggleValue $Global:Toggle_RestartApps -IsSelected ($Global:MenuSelection -eq 7)
     Add-DashLine ("  ${FGDarkGray}$('-' * 52)${Reset}")
@@ -3091,17 +3089,15 @@ while ($true) {
     Write-ColItem "Classic Context Menu" "SET_ClassicMenu" $s_Ctx -IsToggle -ToggleValue $Global:Toggle_ClassicMenu -IsSelected ($Global:MenuSelection -eq 21)
     Write-ColItem "Taskbar Search Box" "SET_TaskbarSearch" $s_Task -IsToggle -ToggleValue $Global:Toggle_TaskbarSearch -IsSelected ($Global:MenuSelection -eq 22)
     Write-ColItem "Task View Toggle" "SET_TaskViewOFF" $s_View -IsToggle -ToggleValue $Global:Toggle_TaskView -IsSelected ($Global:MenuSelection -eq 23)
-    Write-ColItem "Show Hidden Files" "SET_ShowHidden" $s_ShowHidden -IsToggle -ToggleValue $Global:Toggle_ShowHidden -IsSelected ($Global:MenuSelection -eq 24)
-    Write-ColItem "Show File Extensions" "SET_ShowExtensions" $s_ShowExt -IsToggle -ToggleValue $Global:Toggle_ShowExtensions -IsSelected ($Global:MenuSelection -eq 25)
+    Write-ColItem "Show File Extensions" "SET_ShowExtensions" $s_ShowExt -IsToggle -ToggleValue $Global:Toggle_ShowExtensions -IsSelected ($Global:MenuSelection -eq 24)
+    Write-ColItem "Show Hidden Files" "SET_ShowHidden" $s_ShowHidden -IsToggle -ToggleValue $Global:Toggle_ShowHidden -IsSelected ($Global:MenuSelection -eq 25)
     Add-DashLine ""
     
     # Maintenance sub-section (inline under MANUAL-MODE)
     Add-DashLine "  ${manualHeaderColor}$('_' * 52)${Reset}"
     $mHeaderColor = if ($Global:MenuSelection -ge 1 -or ($Global:MenuSelection -eq 0 -and $maintActive)) { $FGWhite } else { $FGDarkGray }
     if ($Global:MenuSelection -eq 26) {
-        Add-DashLine (" " * 19 + "${FGYellow}> ${Global:Italic}Maintain OS${Reset}")
-    } elseif ($Global:MenuSelection -ge 27 -and $Global:MenuSelection -le 30) {
-        Add-DashLine (" " * 19 + "${FGYellow}v ${FGBlack}${BGDarkYellow}${Global:Italic}Maintain OS${Reset}")
+        Add-DashLine (" " * 18 + "${FGYellow}->${Global:Italic}Maintain OS${Reset}")
     } else {
         Add-DashLine (" " * 20 + "${mHeaderColor}${Global:Italic}Maintain OS${Reset}")
     }
@@ -3157,10 +3153,10 @@ while ($true) {
         elseif ($current -eq 2) {
             $Global:MenuSelection = 1
         }
-        elseif ($current -eq 4) {
+        elseif ($current -eq 3) {
             $Global:MenuSelection = 2
         }
-        elseif ($current -ge 5 -and $current -le 25) {
+        elseif ($current -ge 4 -and $current -le 25) {
             $Global:MenuSelection = $current - 1
         }
         elseif ($current -eq 26) {
@@ -3291,14 +3287,16 @@ while ($true) {
             $Global:ManualModeExpanded = -not $Global:ManualModeExpanded
         }
         elseif ($Target -eq 2) {
-            $Global:MenuSelection = 4
+            $Global:MenuSelection = 3
         }
-
+        elseif ($Target -eq 3) {
+            $Global:Toggle_MeteredUpd = if ($Global:Toggle_MeteredUpd -eq 1) { 0 } else { 1 }
+        }
         elseif ($Target -eq 4) {
-            $Global:Toggle_GetMeUpToDate = if ($Global:Toggle_GetMeUpToDate -eq 1) { 0 } else { 1 }
+            $Global:Toggle_MicrosoftUpd = if ($Global:Toggle_MicrosoftUpd -eq 1) { 0 } else { 1 }
         }
         elseif ($Target -eq 5) {
-            $Global:Toggle_MicrosoftUpd = if ($Global:Toggle_MicrosoftUpd -eq 1) { 0 } else { 1 }
+            $Global:Toggle_GetMeUpToDate = if ($Global:Toggle_GetMeUpToDate -eq 1) { 0 } else { 1 }
         }
         elseif ($Target -eq 6) {
             $Global:Toggle_RestartIsReq = if ($Global:Toggle_RestartIsReq -eq 1) { 0 } else { 1 }
@@ -3355,10 +3353,10 @@ while ($true) {
             $Global:Toggle_TaskView = if ($Global:Toggle_TaskView -eq 1) { 0 } else { 1 }
         }
         elseif ($Target -eq 24) {
-            $Global:Toggle_ShowHidden = if ($Global:Toggle_ShowHidden -eq 1) { 0 } else { 1 }
+            $Global:Toggle_ShowExtensions = if ($Global:Toggle_ShowExtensions -eq 1) { 0 } else { 1 }
         }
         elseif ($Target -eq 25) {
-            $Global:Toggle_ShowExtensions = if ($Global:Toggle_ShowExtensions -eq 1) { 0 } else { 1 }
+            $Global:Toggle_ShowHidden = if ($Global:Toggle_ShowHidden -eq 1) { 0 } else { 1 }
         }
         elseif ($Target -eq 26) {
             $Global:MenuSelection = 27
@@ -3404,5 +3402,21 @@ function Invoke-WA_SetGetMeUpToDate {
         Write-WrappedError $_
     }
 }
-
+function Invoke-WA_SetMeteredUpd {
+    param([switch]$Reverse)
+    Write-Header "METERED UPDATES"
+    $Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
+    try {
+        if ($Reverse) {
+            Remove-ItemProperty -Path $Path -Name "AllowAutoWindowsUpdateDownloadOverMeteredNetwork" -Force -ErrorAction SilentlyContinue
+            Write-LeftAligned "$FGGreen$Char_HeavyCheck Disabled Metered Updates.$Reset"
+        } else {
+            if (-not (Test-Path $Path)) { New-Item -Path $Path -Force | Out-Null }
+            Set-ItemProperty -Path $Path -Name "AllowAutoWindowsUpdateDownloadOverMeteredNetwork" -Value 1 -Type DWord -Force
+            Write-LeftAligned "$FGGreen$Char_HeavyCheck Enabled Metered Updates.$Reset"
+        }
+    } catch {
+        Write-WrappedError $_
+    }
+}
 
