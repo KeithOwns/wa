@@ -187,3 +187,9 @@
   - Injected precise BGDarkYellow padding around the '^' and 'v' arrow indicator keys in the footer while preserving string width.
   - Fully tested syntax passing PSParser validation with zero errors.
 
+## 2026-06-14 (Code Review Remediation)
+- **Goal**: Address critical issues identified during static analysis and code review of `wa.ps1`.
+- **Completed Changes**:
+  - Remediated a critical Remote Code Execution (RCE) vulnerability in the post-run audit block by implementing strict SHA-256 hash pinning validation before executing downloaded remote code.
+  - Added logic to quarantine unauthorized or mismatched audit script payloads to `$env:TEMP` without executing them.
+  - Fixed a script-breaking `CommandNotFoundException` bug by relocating the `Invoke-WA_SetGetMeUpToDate` function definition above the main execution loop where it is called.

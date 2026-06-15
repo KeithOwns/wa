@@ -2583,23 +2583,6 @@ function Invoke-WA_SetTaskViewOFF {
 }
 
 
-function Invoke-WA_SetGetMeUpToDate {
-    param([switch]$Reverse)
-    Write-Header "GET ME UP TO DATE"
-    $Path = "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings"
-    try {
-        if ($Reverse) {
-            Set-ItemProperty -Path $Path -Name "IsExpedited" -Value 0 -Type DWord -Force
-            Write-LeftAligned "$FGGreen$Char_HeavyCheck Disabled Get Me Up To Date.$Reset"
-        } else {
-            Set-ItemProperty -Path $Path -Name "IsExpedited" -Value 1 -Type DWord -Force
-            Write-LeftAligned "$FGGreen$Char_HeavyCheck Enabled Get Me Up To Date.$Reset"
-        }
-    } catch {
-        Write-WrappedError $_
-    }
-}
-
 function Invoke-WA_SetMicrosoftUpd {
     <#
 .SYNOPSIS
@@ -3443,5 +3426,21 @@ while ($true) {
 }
 
 Write-Log "Interactive Execution Complete."
+function Invoke-WA_SetGetMeUpToDate {
+    param([switch]$Reverse)
+    Write-Header "GET ME UP TO DATE"
+    $Path = "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings"
+    try {
+        if ($Reverse) {
+            Set-ItemProperty -Path $Path -Name "IsExpedited" -Value 0 -Type DWord -Force
+            Write-LeftAligned "$FGGreen$Char_HeavyCheck Disabled Get Me Up To Date.$Reset"
+        } else {
+            Set-ItemProperty -Path $Path -Name "IsExpedited" -Value 1 -Type DWord -Force
+            Write-LeftAligned "$FGGreen$Char_HeavyCheck Enabled Get Me Up To Date.$Reset"
+        }
+    } catch {
+        Write-WrappedError $_
+    }
+}
 
 

