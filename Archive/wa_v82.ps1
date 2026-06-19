@@ -386,9 +386,9 @@ function Write-ColItem {
         if ($IsSelected) { $metColor = "${Global:FGBlack}${Global:BGCyan}" }
 
         $pad = " " * (21 - $Txt.Length)
-        $leftCursor = "  "
+        $leftCursor = if ($IsSelected) { "${Global:FGCyan}->${Global:Reset}" } else { "  " }
         $indentSize = 0
-        $rightCursor = ""
+        $rightCursor = if ($IsSelected) { " ${Global:FGCyan}<-${Global:Reset}" } else { "" }
         Write-LeftAligned "$leftCursor$icon ${itemColor}$Txt${Reset}$pad${Global:FGGray}| ${metColor}$Met${Reset}$rightCursor" -Indent $indentSize  
         return
     }
@@ -397,8 +397,8 @@ function Write-ColItem {
     $itemColor = if ($IsSelected) { "${Global:FGBlack}${Global:BGCyan}" } else { $Global:FGGray }
     $icon = "${Global:FGGray}[ ]${Reset}"
     $pad = " " * (21 - $Txt.Length)
-    $leftCursor = "  "
-    $rightCursor = ""
+    $leftCursor = if ($IsSelected) { "${Global:FGCyan}->${Global:Reset}" } else { "  " }
+    $rightCursor = if ($IsSelected) { " ${Global:FGCyan}<-${Global:Reset}" } else { "" }
     Write-LeftAligned "$leftCursor$icon ${itemColor}$Txt${Reset}$pad${Global:FGGray}| ${itemColor}$Met${Reset}$rightCursor" -Indent 0
 }
 
@@ -443,8 +443,8 @@ function Write-MaintItem {
     }
 
     $pad = " " * (21 - $Txt.Length);
-    $leftCursor = "  "
-    $rightCursor = ""
+    $leftCursor = if ($IsSelected) { "${Global:FGCyan}->${Global:Reset}" } else { "  " }
+    $rightCursor = if ($IsSelected) { " ${Global:FGCyan}<-${Global:Reset}" } else { "" }
     Write-LeftAligned "$leftCursor${bracketColor}[${statusColor}$prefix${bracketColor}]${itemColor} $Txt${Reset}$pad${Global:FGGray}| ${metColor}$Met${Reset}$rightCursor" -Indent 0
 }
 
