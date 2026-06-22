@@ -1,15 +1,13 @@
 param([switch]$Reverse)
 
-# Drives the "Send optional diagnostic data" toggle on Settings > Privacy &
-# Security > Diagnostics & feedback, instead of writing the Policies\Microsoft\
-# Windows\DataCollection\AllowTelemetry key, which would lock that page as
-# "managed by your organization." The consumer UI can only choose between
-# Required and Optional diagnostic data — it cannot reach the stricter
-# Enterprise-only Security/Off level the old registry-only approach targeted.
+# Drives the "Get updates over metered connections" toggle on Windows Update's
+# Advanced options page, instead of writing Policies\Microsoft\Windows\
+# WindowsUpdate\AllowAutoWindowsUpdateDownloadOverMeteredNetwork, which would
+# lock that page as "managed by your organization."
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 
-try { Start-Process "ms-settings:privacy-feedback" -ErrorAction Stop } catch {}
+try { Start-Process "ms-settings:windowsupdate-options" -ErrorAction Stop } catch {}
 Start-Sleep -Seconds 2
 
 $desktop = [System.Windows.Automation.AutomationElement]::RootElement
@@ -26,7 +24,7 @@ if ($window) {
     $toggle = $null
     $allElements = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
     foreach ($el in $allElements) {
-        if ($el.Current.Name -like "*optional diagnostic data*") { $toggle = $el; break }
+        if ($el.Current.Name -like "*metered connection*") { $toggle = $el; break }
     }
 
     if ($toggle) {
@@ -34,10 +32,10 @@ if ($window) {
         $current = $togglePattern.Current.ToggleState
         $targetState = if ($Reverse) { [System.Windows.Automation.ToggleState]::On } else { [System.Windows.Automation.ToggleState]::Off }
         if ($current -ne $targetState) { $togglePattern.Toggle() }
-        if ($Reverse) { Remove-ItemProperty -Path "HKLM:\SOFTWARE\WinAuto" -Name "LastRun_Telemetry" -Force -ErrorAction SilentlyContinue }
+        if ($Reverse) { Remove-ItemProperty -Path "HKLM:\SOFTWARE\WinAuto" -Name "LastRun_MeteredUpdates" -Force -ErrorAction SilentlyContinue }
         else {
             if (-not (Test-Path "HKLM:\SOFTWARE\WinAuto")) { New-Item -Path "HKLM:\SOFTWARE\WinAuto" -Force | Out-Null }
-            Set-ItemProperty -Path "HKLM:\SOFTWARE\WinAuto" -Name "LastRun_Telemetry" -Value (Get-Date).ToString() -Force
+            Set-ItemProperty -Path "HKLM:\SOFTWARE\WinAuto" -Name "LastRun_MeteredUpdates" -Value (Get-Date).ToString() -Force
         }
     }
 

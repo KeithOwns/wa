@@ -1,15 +1,13 @@
 param([switch]$Reverse)
 
-# Drives the "Send optional diagnostic data" toggle on Settings > Privacy &
-# Security > Diagnostics & feedback, instead of writing the Policies\Microsoft\
-# Windows\DataCollection\AllowTelemetry key, which would lock that page as
-# "managed by your organization." The consumer UI can only choose between
-# Required and Optional diagnostic data — it cannot reach the stricter
-# Enterprise-only Security/Off level the old registry-only approach targeted.
+# Auto Restart Sign-On (ARSO) via the Settings app UI (UI Automation).
+# Drives the actual toggle on Settings > Accounts > Sign-in options instead of
+# writing HKLM Policies\System\DisableAutomaticRestartSignOn, which would lock
+# the toggle in a "managed by your organization" state.
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 
-try { Start-Process "ms-settings:privacy-feedback" -ErrorAction Stop } catch {}
+try { Start-Process "ms-settings:signinoptions" -ErrorAction Stop } catch {}
 Start-Sleep -Seconds 2
 
 $desktop = [System.Windows.Automation.AutomationElement]::RootElement
@@ -23,10 +21,16 @@ do {
 } while ((Get-Date) -lt $deadline)
 
 if ($window) {
+    try {
+        Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue
+        [System.Windows.Forms.SendKeys]::SendWait("{END}")
+        Start-Sleep -Milliseconds 500
+    } catch {}
+
     $toggle = $null
     $allElements = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
     foreach ($el in $allElements) {
-        if ($el.Current.Name -like "*optional diagnostic data*") { $toggle = $el; break }
+        if ($el.Current.Name -like "*automatically finish setting up*") { $toggle = $el; break }
     }
 
     if ($toggle) {
@@ -34,10 +38,10 @@ if ($window) {
         $current = $togglePattern.Current.ToggleState
         $targetState = if ($Reverse) { [System.Windows.Automation.ToggleState]::On } else { [System.Windows.Automation.ToggleState]::Off }
         if ($current -ne $targetState) { $togglePattern.Toggle() }
-        if ($Reverse) { Remove-ItemProperty -Path "HKLM:\SOFTWARE\WinAuto" -Name "LastRun_Telemetry" -Force -ErrorAction SilentlyContinue }
+        if ($Reverse) { Remove-ItemProperty -Path "HKLM:\SOFTWARE\WinAuto" -Name "LastRun_ARSOOptOut" -Force -ErrorAction SilentlyContinue }
         else {
             if (-not (Test-Path "HKLM:\SOFTWARE\WinAuto")) { New-Item -Path "HKLM:\SOFTWARE\WinAuto" -Force | Out-Null }
-            Set-ItemProperty -Path "HKLM:\SOFTWARE\WinAuto" -Name "LastRun_Telemetry" -Value (Get-Date).ToString() -Force
+            Set-ItemProperty -Path "HKLM:\SOFTWARE\WinAuto" -Name "LastRun_ARSOOptOut" -Value (Get-Date).ToString() -Force
         }
     }
 

@@ -1,7 +1,5 @@
 param([switch]$Reverse)
 
-if ($Reverse) {
-    Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "ShowTaskViewButton" -Value 1 -Type DWord -Force
-} else {
-    Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "ShowTaskViewButton" -Value 0 -Type DWord -Force
-}
+$Value = if ($Reverse) { 1 } else { 0 }
+Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "ShowTaskViewButton" -Value $Value -Type DWord -Force
+Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
