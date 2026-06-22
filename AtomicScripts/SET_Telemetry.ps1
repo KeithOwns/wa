@@ -6,6 +6,11 @@ param([switch]$Reverse)
 # "managed by your organization." The consumer UI can only choose between
 # Required and Optional diagnostic data — it cannot reach the stricter
 # Enterprise-only Security/Off level the old registry-only approach targeted.
+# A prior run of the old registry-based version may have already left that
+# value behind, which locks the control regardless of what this script does —
+# remove it first so the toggle is actually interactive.
+Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" -Name "AllowTelemetry" -Force -ErrorAction SilentlyContinue
+
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 
@@ -23,10 +28,18 @@ do {
 } while ((Get-Date) -lt $deadline)
 
 if ($window) {
+    # Match on name AND verify the element actually supports TogglePattern —
+    # a heading/label Text control can also match the name search.
     $toggle = $null
     $allElements = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
     foreach ($el in $allElements) {
-        if ($el.Current.Name -like "*optional diagnostic data*") { $toggle = $el; break }
+        if ($el.Current.Name -like "*optional diagnostic data*") {
+            try {
+                $el.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern) | Out-Null
+                $toggle = $el
+                break
+            } catch { continue }
+        }
     }
 
     if ($toggle) {

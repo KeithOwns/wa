@@ -8,7 +8,7 @@ This document outlines the visual standards and UI conventions for the **AtomicS
 | :--- | :--- | :--- |
 | **Cyan** | `$Global:FGCyan` | **Action & Pending Execution.** Used for cursors (`>`, `<`), the active `v` icon, and the "Atomic Script" Method ID for items that **will run**. Also used for the dashboard's top/bottom frame. |
 | **Inverted Cyan** | `$FGBlack$BGCyan` | **Execution Indicator.** Black text on a Cyan background indicates a line that will execute a major phase (Smart Run, Manual Mode, Configure, or Maintain) when **Enter** is pressed. Also used for the **Esc** and **Enter** keys in the footer. |
-| **White** | `$Global:FGWhite` | **Enabled / Compliant.** Used for the `v` icon and step titles (e.g., 'Real-Time Protection') for items that are either **already enabled** (compliant) OR are **pending an enable action**. |
+| **White** | `$Global:FGWhite` | **Enabled / Compliant.** Used for step titles (e.g., 'Real-Time Protection') and brackets for items that are either **already enabled** (compliant) OR are **pending an enable action**. The `v` icon itself is Gray when already-enabled (not toggled to run), and Cyan when pending an enable action — see the Cyan row. |
 | **Gray** | `$Global:FGGray` | **Structural Framework.** Used for boundary lines (`_`), dashed separators (`-`), and info brackets `[ ]`. Also used for step titles when they have an empty `[ ]` box (Disabled). |
 | **Dark Gray** | `$Global:FGDarkGray` | **Inactive / Non-Execution.** Used for titles, brackets, and method IDs of steps that **will not be run** with the current logic. Also used for entire sections when they are not currently being navigated. |
 

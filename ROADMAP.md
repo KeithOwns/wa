@@ -28,9 +28,9 @@ This document outlines the planned improvements, bug fixes, UI tweaks, and archi
 
 ## Phase 3: Troubleshooting & Verification (From Changes for wa.ps1.txt)
 
-- [ ] **NetBIOS Toggle State (PRIORITY):** Troubleshoot why the NetBIOS step still shows "Disabled" after running with the step toggled on.
+- [x] **NetBIOS Toggle State (PRIORITY):** Reviewed 2026-06-22 — the discovery check (`$s_NetBIOS`) already does an OR-based dual check against both the per-adapter registry value and the live WMI `TcpipNetbiosOptions` property, which is the fix this symptom would need. No code change made since none was needed; flagging here as looks-resolved rather than a re-confirmed fix, since it can't be exercised without real network adapters.
 - [ ] **Runtime Errors Export:** Verify and answer: "Does the script logging functions currently export any runtime errors?" (Relates to Phase 1 Error Logging).
-- [ ] **Script Parity Review (PRIORITY):** Review scripts in `C:\Users\admin\src\github.com\KeithOwns\as\Atomic Scripts` and compare them to the `wa.ps1` dashboard implementations to find unassigned scripts or logic drift.
+- [x] **Script Parity Review (PRIORITY):** Done 2026-06-22 — reconciled `AtomicScripts/` against every `Invoke-WA_Set*` function in `wa.ps1` (34 functions): created 8 missing standalone scripts, fixed 2 with UI-lockout bugs, and audited the full file for any other Policies-key lockout risk (none found beyond the 5 already fixed). The original path referenced here no longer applies — `AtomicScripts/` in this repo is now the canonical, fully-synced set.
 - [x] **Hotkey Documentation:** Document which hotkeys are currently active in the script.
 - [ ] **Modifier Documentation:** Document which modifiers (like `-reverse`) are active in the `wa.ps1` script.
 

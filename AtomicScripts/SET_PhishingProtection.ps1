@@ -4,6 +4,11 @@ param([switch]$Reverse)
 # Reputation-based protection settings page, instead of writing
 # Policies\Microsoft\Windows\WTDS\Components\ServiceEnabled, which would lock
 # that page as "managed by your organization."
+# A prior run of the old registry-based version may have already left that
+# value behind, which locks the control regardless of what this script does —
+# remove it first so the toggle is actually interactive.
+Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WTDS\Components" -Name "ServiceEnabled" -Force -ErrorAction SilentlyContinue
+
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 
@@ -30,10 +35,18 @@ if ($window) {
         }
     } catch {}
 
+    # Match on name AND verify the element actually supports TogglePattern —
+    # a heading/label Text control can also match the name search.
     $toggle = $null
     $allElements = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
     foreach ($el in $allElements) {
-        if ($el.Current.Name -like "*Phishing protection*") { $toggle = $el; break }
+        if ($el.Current.Name -like "*Phishing protection*") {
+            try {
+                $el.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern) | Out-Null
+                $toggle = $el
+                break
+            } catch { continue }
+        }
     }
 
     if ($toggle) {

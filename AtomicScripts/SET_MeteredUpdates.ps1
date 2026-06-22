@@ -4,6 +4,11 @@ param([switch]$Reverse)
 # Advanced options page, instead of writing Policies\Microsoft\Windows\
 # WindowsUpdate\AllowAutoWindowsUpdateDownloadOverMeteredNetwork, which would
 # lock that page as "managed by your organization."
+# A prior run of the old registry-based version may have already left that
+# value behind, which locks the control regardless of what this script does —
+# remove it first so the toggle is actually interactive.
+Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate" -Name "AllowAutoWindowsUpdateDownloadOverMeteredNetwork" -Force -ErrorAction SilentlyContinue
+
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 
@@ -21,10 +26,19 @@ do {
 } while ((Get-Date) -lt $deadline)
 
 if ($window) {
+    # Match on name AND verify the element actually supports TogglePattern —
+    # the heading text "Download updates over metered connections" also
+    # matches the name search but is a plain Text control, not the switch.
     $toggle = $null
     $allElements = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
     foreach ($el in $allElements) {
-        if ($el.Current.Name -like "*metered connection*") { $toggle = $el; break }
+        if ($el.Current.Name -like "*metered connection*") {
+            try {
+                $el.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern) | Out-Null
+                $toggle = $el
+                break
+            } catch { continue }
+        }
     }
 
     if ($toggle) {

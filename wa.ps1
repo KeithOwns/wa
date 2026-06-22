@@ -368,7 +368,7 @@ function Write-ColItem {
             } else {
                 # Pending ENABLE
                 $iconSymbol = "v"
-                $iconColor = $Global:FGWhite
+                $iconColor = $Global:FGCyan
                 $bracketColor = $Global:FGWhite
             }
             $itemColor = $Global:FGWhite
@@ -1004,6 +1004,10 @@ function Invoke-WA_SetTelemetry {
     param([switch]$Reverse)
     Write-Header "TELEMETRY LIMITATION (UIA)"
 
+    # A prior run of the old registry-based version may have left the Policies
+    # value behind, which locks the control regardless of what this does now.
+    Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" -Name "AllowTelemetry" -Force -ErrorAction SilentlyContinue
+
     if (-not ([System.Management.Automation.PSTypeName]"System.Windows.Automation.AutomationElement").Type) {
         try {
             Add-Type -AssemblyName UIAutomationClient
@@ -1038,11 +1042,19 @@ function Invoke-WA_SetTelemetry {
     }
     Write-LeftAligned "$FGCyan$Char_HeavyCheck Window found.$Reset"
 
+    # Match on name AND verify the element actually supports TogglePattern —
+    # a heading/label Text control can also match the name search.
     $toggle = $null
     try {
         $allElements = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
         foreach ($el in $allElements) {
-            if ($el.Current.Name -like "*optional diagnostic data*") { $toggle = $el; break }
+            if ($el.Current.Name -like "*optional diagnostic data*") {
+                try {
+                    $el.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern) | Out-Null
+                    $toggle = $el
+                    break
+                } catch { continue }
+            }
         }
     } catch {}
 
@@ -1252,6 +1264,9 @@ function Invoke-WA_SetVirusThreatProtectReg {
         # Non-policy Defender key only — the Policies\Microsoft\Windows Defender path
         # would lock Windows Security's Real-Time Protection toggle as "managed by
         # your organization." Set-MpPreference already applies the effect.
+        # A prior run of the old version may have left that Policies value behind,
+        # which locks the toggle regardless of what this does now — remove it.
+        Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection" -Name "DisableRealtimeMonitoring" -Force -ErrorAction SilentlyContinue
         $Path = "HKLM:\SOFTWARE\Microsoft\Windows Defender\Real-Time Protection"
         if (-not (Test-Path $Path)) { New-Item -Path $Path -Force -ErrorAction SilentlyContinue | Out-Null }
         Set-ItemProperty -Path $Path -Name "DisableRealtimeMonitoring" -Value $val -Type DWord -Force -ErrorAction SilentlyContinue
@@ -2850,6 +2865,10 @@ function Invoke-WA_SetPhishingProtection {
     )
     Write-Header "PHISHING PROTECTION (UIA)"
 
+    # A prior run of the old registry-based version may have left the Policies
+    # value behind, which locks the control regardless of what this does now.
+    Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WTDS\Components" -Name "ServiceEnabled" -Force -ErrorAction SilentlyContinue
+
     if (-not ([System.Management.Automation.PSTypeName]"System.Windows.Automation.AutomationElement").Type) {
         try {
             Add-Type -AssemblyName UIAutomationClient
@@ -2895,11 +2914,19 @@ function Invoke-WA_SetPhishingProtection {
         }
     } catch {}
 
+    # Match on name AND verify the element actually supports TogglePattern —
+    # a heading/label Text control can also match the name search.
     $toggle = $null
     try {
         $allElements = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
         foreach ($el in $allElements) {
-            if ($el.Current.Name -like "*Phishing protection*") { $toggle = $el; break }
+            if ($el.Current.Name -like "*Phishing protection*") {
+                try {
+                    $el.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern) | Out-Null
+                    $toggle = $el
+                    break
+                } catch { continue }
+            }
         }
     } catch {}
 
@@ -3013,6 +3040,10 @@ function Invoke-WA_SetMeteredUpdates {
     )
     Write-Header "METERED UPDATE DOWNLOADS (UIA)"
 
+    # A prior run of the old registry-based version may have left the Policies
+    # value behind, which locks the control regardless of what this does now.
+    Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate" -Name "AllowAutoWindowsUpdateDownloadOverMeteredNetwork" -Force -ErrorAction SilentlyContinue
+
     if (-not ([System.Management.Automation.PSTypeName]"System.Windows.Automation.AutomationElement").Type) {
         try {
             Add-Type -AssemblyName UIAutomationClient
@@ -3047,11 +3078,20 @@ function Invoke-WA_SetMeteredUpdates {
     }
     Write-LeftAligned "$FGCyan$Char_HeavyCheck Window found.$Reset"
 
+    # Match on name AND verify the element actually supports TogglePattern —
+    # the heading text "Download updates over metered connections" also
+    # matches the name search but is a plain Text control, not the switch.
     $toggle = $null
     try {
         $allElements = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
         foreach ($el in $allElements) {
-            if ($el.Current.Name -like "*metered connection*") { $toggle = $el; break }
+            if ($el.Current.Name -like "*metered connection*") {
+                try {
+                    $el.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern) | Out-Null
+                    $toggle = $el
+                    break
+                } catch { continue }
+            }
         }
     } catch {}
 
@@ -3718,15 +3758,24 @@ while ($true) {
         }
 
         if ($flatPreview) {
-            # Flat dump: every config item, no subcategory headers, nothing highlighted
+            # Flat dump: every config item, no subcategory headers, nothing highlighted.
+            # Optional (default-OFF) steps are listed first, then default-ON steps.
+            # Ordering is fixed by each step's DEFAULT toggle value, not its live/current
+            # value, so items don't jump around the list as the user flips toggles
+            # elsewhere (e.g. in the accordion view) and returns to this screen.
             Add-DashLine ""
             Write-LeftAligned "${FGDarkGray}[${FGDarkGray}v${FGDarkGray}] ${FGWhite}Enabled ${FGDarkGray}[ ] ${FGWhite}Disabled ${FGDarkGray}|${FGWhite} Atomic Script$Reset" -Indent 2
             Add-DashLine ("  ${FGDarkGray}$('-' * 52)${Reset}")
-            foreach ($sc in $subcats) {
-                foreach ($it in $sc.Items) {
-                    $tv = Get-Variable -Name $it.Toggle -Scope Global -ValueOnly
-                    Write-ColItem $it.Label $it.Met $it.Status -IsToggle -ToggleValue $tv -IsSelected $false -IsDisableAction ([bool]$it['Invert'])
-                }
+            $optionalToggles = @(
+                'Toggle_GetMeUpToDate', 'Toggle_MeteredUpdates', 'Toggle_ARSOOptOut',
+                'Toggle_PSTranscription', 'Toggle_Telemetry', 'Toggle_LLMNR', 'Toggle_PSScriptBlock', 'Toggle_PSModuleLogging', 'Toggle_NetBIOS', 'Toggle_RealTimeProtUI', 'Toggle_SmartScreenReg', 'Toggle_HideAdmin', 'Toggle_AdvertisingID',
+                'Toggle_ClassicMenu', 'Toggle_TaskbarSearch', 'Toggle_TaskView', 'Toggle_ShowHidden', 'Toggle_ShowExtensions', 'Toggle_UIAnimations', 'Toggle_VisualEffects'
+            )
+            $flatAll = foreach ($sc in $subcats) { foreach ($it in $sc.Items) { $it } }
+            $flatOrdered = @($flatAll | Where-Object { $_.Toggle -in $optionalToggles }) + @($flatAll | Where-Object { $_.Toggle -notin $optionalToggles })
+            foreach ($it in $flatOrdered) {
+                $tv = Get-Variable -Name $it.Toggle -Scope Global -ValueOnly
+                Write-ColItem $it.Label $it.Met $it.Status -IsToggle -ToggleValue $tv -IsSelected $false -IsDisableAction ([bool]$it['Invert'])
             }
             Add-DashLine ""
         }
