@@ -533,6 +533,37 @@ function Get-UIAToggleState {
 
 # --- SHARED UI FUNCTIONS ---
 
+function Set-WinAutoForeground {
+    # A newly launched Settings/Windows Security window opens INACTIVE when
+    # another app (e.g. the PowerShell console running this script) holds the
+    # foreground. While inactive, the page's XAML content is never rendered into
+    # the UI Automation tree — only window chrome appears — so toggles are never
+    # found and UIA steps silently do nothing. Forcing the window foreground
+    # makes it render. (Verified: works even from a non-foreground process.)
+    param([Parameter(Mandatory)]$Window)
+    if (-not ([System.Management.Automation.PSTypeName]'WinAutoFG').Type) {
+        Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class WinAutoFG {
+    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+    [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
+}
+"@
+    }
+    try {
+        $hwnd = [IntPtr]$Window.Current.NativeWindowHandle
+        if ($hwnd -ne [IntPtr]::Zero) {
+            [WinAutoFG]::ShowWindow($hwnd, 9) | Out-Null               # SW_RESTORE
+            [WinAutoFG]::SetWindowPos($hwnd, [IntPtr]::Zero, 0, 0, 0, 0, 0x0043) | Out-Null  # NOMOVE|NOSIZE|SHOWWINDOW
+            [WinAutoFG]::SetForegroundWindow($hwnd) | Out-Null
+        }
+    }
+    catch {}
+    Start-Sleep -Seconds 2
+}
+
 function Start-SecHealthUI {
     # Robust launch of Windows Security
     Stop-Process -Name "SecHealthUI" -Force -ErrorAction SilentlyContinue
@@ -1041,6 +1072,9 @@ function Invoke-WA_SetTelemetry {
         return
     }
     Write-LeftAligned "$FGCyan$Char_HeavyCheck Window found.$Reset"
+
+    # Force foreground so the page content actually renders into the UIA tree.
+    Set-WinAutoForeground -Window $window
 
     # Match on name AND verify the element actually supports TogglePattern —
     # a heading/label Text control can also match the name search.
@@ -2880,6 +2914,18 @@ function Invoke-WA_SetPhishingProtection {
         }
     }
 
+    # Windows Security keeps its own running process (SecHealthUI) and re-using
+    # an already-open window can show a stale "managed by your administrator"
+    # lock left over from before the registry value above was removed. Force a
+    # fresh instance so the page re-reads current policy state.
+    Stop-Process -Name "SecHealthUI" -Force -ErrorAction SilentlyContinue
+
+    # SecurityHealthService (the background service feeding that UI) can also
+    # cache the policy-managed flag independently of both the registry value
+    # and the UI process. Restarting it requires elevation this script already has.
+    Restart-Service -Name "SecurityHealthService" -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 1
+
     Write-LeftAligned "Opening Windows Security..."
     try { Start-Process "windowsdefender://appbrowser" -ErrorAction Stop }
     catch { Write-LeftAligned "$FGRed$Char_RedCross Failed to launch Windows Security.$Reset"; return }
@@ -2902,6 +2948,9 @@ function Invoke-WA_SetPhishingProtection {
         return
     }
     Write-LeftAligned "$FGCyan$Char_HeavyCheck Window found.$Reset"
+
+    # Force foreground so the page content actually renders into the UIA tree.
+    Set-WinAutoForeground -Window $window
 
     # The toggle lives one level deeper, under "Reputation-based protection settings".
     # Drill in if that link is present; if not, assume we're already on the right page.
@@ -3102,12 +3151,12 @@ function Invoke-WA_SetMeteredUpdates {
         try {
             $togglePattern = $toggle.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
             $current = $togglePattern.Current.ToggleState
-            $targetState = if ($Reverse) { [System.Windows.Automation.ToggleState]::On } else { [System.Windows.Automation.ToggleState]::Off }
+            $targetState = if ($Reverse) { [System.Windows.Automation.ToggleState]::Off } else { [System.Windows.Automation.ToggleState]::On }
             if ($current -ne $targetState) {
                 $togglePattern.Toggle()
-                Write-LeftAligned "$FGCyan$Char_HeavyCheck Metered-connection update downloads toggled $(if($Reverse){'ON'}else{'OFF'}).$Reset"
+                Write-LeftAligned "$FGCyan$Char_HeavyCheck Metered-connection update downloads toggled $(if($Reverse){'OFF'}else{'ON'}).$Reset"
             } else {
-                Write-LeftAligned "$FGGray Already $(if($Reverse){'ON'}else{'OFF'}).$Reset"
+                Write-LeftAligned "$FGGray Already $(if($Reverse){'OFF'}else{'ON'}).$Reset"
             }
             $applied = $true
         }
@@ -3677,7 +3726,7 @@ while ($true) {
         @{ Label = "Microsoft Update";     Met = "SET_MicrosoftUpd";    Status = $s_MU;        Toggle = "Toggle_MicrosoftUpd" }
         @{ Label = "Restart Notification"; Met = "SET_RestartIsReq";    Status = $s_Rest;      Toggle = "Toggle_RestartIsReq" }
         @{ Label = "App Restart Persist";  Met = "SET_RestartApps";     Status = $s_Pers;      Toggle = "Toggle_RestartApps" }
-        @{ Label = "Metered Updates";      Met = "SET_MeteredUpdates";  Status = $s_Metered;   Toggle = "Toggle_MeteredUpdates"; Invert = $true }
+        @{ Label = "Metered Updates";      Met = "SET_MeteredUpdates";  Status = $s_Metered;   Toggle = "Toggle_MeteredUpdates" }
         @{ Label = "Auto Restart Sign-On"; Met = "SET_ARSOOptOut";      Status = $s_ARSO;      Toggle = "Toggle_ARSOOptOut";     Invert = $true }
     )
     $secItems = @(

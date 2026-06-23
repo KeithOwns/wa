@@ -8,6 +8,7 @@ AtomicScripts (WA) is a high-performance, single-file PowerShell automation suit
 - **Remediation Strategy:** 
     - **Registry Fallbacks (UIA):** Always attempt background registry edits first. Fall back to UI Automation (UIA) only when settings are not manageable via the registry (e.g., SmartScreen, Virus Protection).
     - **No UI Lockout:** New scripts must never leave a setting's corresponding Settings/Control Panel control in a "grayed-out / managed by your organization" state. Writing any value under a `...\Policies\...` registry key triggers this lock regardless of the value written. If a non-policy registry location achieves the same effect, prefer it; if the setting is only controllable via a Policies key, prefer UI Automation (driving the control directly) over writing that key. Two corollaries learned the hard way: (1) stopping the write isn't enough — a stale value from a prior run keeps the control locked, so always `Remove-ItemProperty` the specific Policies value at the top of the function too; (2) when matching a UI element by name, verify it actually supports the pattern you need (e.g. wrap `GetCurrentPattern` in try/catch and keep searching past non-matches) — a heading/label Text control can match the same name search as the real toggle.
+    - **UIA Foreground Rendering:** Any UIA step that drives a Settings/Windows Security toggle MUST force the launched window to the foreground before searching its element tree. A UWP window launched via `Start-Process` opens INACTIVE (the calling console keeps focus), and an inactive window never renders its XAML content into the UI Automation tree — `FindAll` sees only window chrome, the toggle is never found, and the step silently no-ops. Use the shared `Set-WinAutoForeground -Window $win` helper (Win32 `ShowWindow`+`SetWindowPos`+`SetForegroundWindow` on the window's `NativeWindowHandle`) right after the window is found; standalone `SET_*.ps1` scripts inline the same Win32 block. Note: the state read-back after `.Toggle()` lags by ~1–2s, so do not verify by reading the toggle state immediately after flipping it.
     - **Audit-First:** Every action must be preceded by a system state audit to ensure changes are only applied when drift is detected.
 - **Reporting:** Post-execution audits must generate `winauto_audit.json`. Confirmation messages should be indented (4 spaces) and Cyan-colored.
 
@@ -21,7 +22,7 @@ Adhere strictly to the **AtomicScripts Visual Identity** defined in `BRANDING.md
     - `[v]` (Gray) = Already Enabled/Compliant.
     - `[ ]` (Gray) = Disabled.
     - `[v]` (Cyan in White brackets) = Pending ENABLE.
-    - `[x]` (Red in Gray brackets) = Pending DISABLE (steps whose compliant state is "feature off" — e.g. NetBIOS, Telemetry, LLMNR, Task View, Hide Admin, Advertising ID, Metered Updates, ARSO Opt-Out).
+    - `[x]` (Red in Gray brackets) = Pending DISABLE (steps whose compliant state is "feature off" — e.g. NetBIOS, Telemetry, LLMNR, Task View, Hide Admin, Advertising ID, ARSO Opt-Out). (Metered Updates was formerly here but its polarity was flipped to an enable-style action, so it now uses the standard Pending ENABLE indicator.)
 - **Navigation:** Arrow keys for movement, Space for toggle, Enter for execution, Esc for back/exit.
 
 ## 4. Development Workflow

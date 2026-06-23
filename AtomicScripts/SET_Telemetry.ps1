@@ -13,6 +13,20 @@ Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollect
 
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
+# A newly launched Settings window opens INACTIVE when another app (e.g. the
+# PowerShell console running this script) holds the foreground. While inactive,
+# the page's XAML content is never rendered into the UI Automation tree — only
+# the window chrome appears, so the toggle is never found and this step would
+# silently do nothing. Forcing the window to the foreground makes it render.
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class WinAutoFG {
+    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+    [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
+}
+"@
 
 try { Start-Process "ms-settings:privacy-feedback" -ErrorAction Stop } catch {}
 Start-Sleep -Seconds 2
@@ -28,6 +42,17 @@ do {
 } while ((Get-Date) -lt $deadline)
 
 if ($window) {
+    # Force the window foreground so its content renders, then give it a moment.
+    try {
+        $hwnd = [IntPtr]$window.Current.NativeWindowHandle
+        if ($hwnd -ne [IntPtr]::Zero) {
+            [WinAutoFG]::ShowWindow($hwnd, 9) | Out-Null          # SW_RESTORE
+            [WinAutoFG]::SetWindowPos($hwnd, [IntPtr]::Zero, 0, 0, 0, 0, 0x0043) | Out-Null  # NOMOVE|NOSIZE|SHOWWINDOW
+            [WinAutoFG]::SetForegroundWindow($hwnd) | Out-Null
+        }
+    } catch {}
+    Start-Sleep -Seconds 2
+
     # Match on name AND verify the element actually supports TogglePattern —
     # a heading/label Text control can also match the name search.
     $toggle = $null

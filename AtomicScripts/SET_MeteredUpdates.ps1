@@ -42,15 +42,29 @@ if ($window) {
     }
 
     if ($toggle) {
+        if (-not $toggle.Current.IsEnabled) {
+            Write-Host "Toggle found but reports IsEnabled=False — still locked (stale Policies value, or a different lock entirely)." -ForegroundColor Yellow
+        }
         $togglePattern = $toggle.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
         $current = $togglePattern.Current.ToggleState
-        $targetState = if ($Reverse) { [System.Windows.Automation.ToggleState]::On } else { [System.Windows.Automation.ToggleState]::Off }
-        if ($current -ne $targetState) { $togglePattern.Toggle() }
+        $targetState = if ($Reverse) { [System.Windows.Automation.ToggleState]::Off } else { [System.Windows.Automation.ToggleState]::On }
+        if ($current -ne $targetState) {
+            $togglePattern.Toggle()
+            Start-Sleep -Milliseconds 500
+            $after = $togglePattern.Current.ToggleState
+            if ($after -ne $targetState) {
+                Write-Host "Toggle() was called (was $current, wanted $targetState) but state still reads $after — the control accepted the call without applying it." -ForegroundColor Yellow
+            }
+        } else {
+            Write-Host "Already $current — no change needed." -ForegroundColor Gray
+        }
         if ($Reverse) { Remove-ItemProperty -Path "HKLM:\SOFTWARE\WinAuto" -Name "LastRun_MeteredUpdates" -Force -ErrorAction SilentlyContinue }
         else {
             if (-not (Test-Path "HKLM:\SOFTWARE\WinAuto")) { New-Item -Path "HKLM:\SOFTWARE\WinAuto" -Force | Out-Null }
             Set-ItemProperty -Path "HKLM:\SOFTWARE\WinAuto" -Name "LastRun_MeteredUpdates" -Value (Get-Date).ToString() -Force
         }
+    } else {
+        Write-Host "No metered-connection toggle found." -ForegroundColor Yellow
     }
 
     try {
