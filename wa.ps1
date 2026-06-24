@@ -1386,7 +1386,10 @@ function Invoke-WA_SetSmartScreen {
 
     if ($window) {
         Write-LeftAligned "$FGCyan$Char_HeavyCheck Window found.$Reset"
-        
+
+        # Force foreground so the page content actually renders into the UIA tree.
+        Set-WinAutoForeground -Window $window
+
         # 3. Search for 'Turn on' button
         $buttonCondition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, "Turn on")
         
@@ -1465,7 +1468,10 @@ function Invoke-WA_SetVirusThreatProtect {
 
     if ($window) {
         Write-LeftAligned "$FGGreen$Global:Char_HeavyCheck Window found.$Reset"
-        
+
+        # Force foreground so the page content actually renders into the UIA tree.
+        Set-WinAutoForeground -Window $window
+
         # 3. Search for 'Turn on' (or 'Restart now') button
         $targets = @("Turn on", "Restart now")
         $button = $null
@@ -2382,6 +2388,9 @@ function Invoke-WA_SetKernelMode {
             }
             Write-Log "Found 'Windows Security' window." "Green"
             try { $Window.SetFocus() } catch {}
+            # Win32 force-foreground too — SetFocus alone can be flaky on UWP and
+            # an inactive window won't render its content into the UIA tree.
+            Set-WinAutoForeground -Window $Window
 
             # 3. Navigate to "Device security"
             Write-Log "Navigating to 'Device security'..." "Gray"
@@ -3126,6 +3135,9 @@ function Invoke-WA_SetMeteredUpdates {
         return
     }
     Write-LeftAligned "$FGCyan$Char_HeavyCheck Window found.$Reset"
+
+    # Force foreground so the page content actually renders into the UIA tree.
+    Set-WinAutoForeground -Window $window
 
     # Match on name AND verify the element actually supports TogglePattern —
     # the heading text "Download updates over metered connections" also

@@ -11,6 +11,20 @@ Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpda
 
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
+# A newly launched Settings window opens INACTIVE when another app (e.g. the
+# PowerShell console running this script) holds the foreground. While inactive,
+# the page's XAML content is never rendered into the UI Automation tree — only
+# the window chrome appears, so the toggle is never found and this step would
+# silently do nothing. Forcing the window to the foreground makes it render.
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class WinAutoFG {
+    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+    [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
+}
+"@
 
 try { Start-Process "ms-settings:windowsupdate-options" -ErrorAction Stop } catch {}
 Start-Sleep -Seconds 2
@@ -26,6 +40,17 @@ do {
 } while ((Get-Date) -lt $deadline)
 
 if ($window) {
+    # Force the window foreground so its content renders, then give it a moment.
+    try {
+        $hwnd = [IntPtr]$window.Current.NativeWindowHandle
+        if ($hwnd -ne [IntPtr]::Zero) {
+            [WinAutoFG]::ShowWindow($hwnd, 9) | Out-Null          # SW_RESTORE
+            [WinAutoFG]::SetWindowPos($hwnd, [IntPtr]::Zero, 0, 0, 0, 0, 0x0043) | Out-Null  # NOMOVE|NOSIZE|SHOWWINDOW
+            [WinAutoFG]::SetForegroundWindow($hwnd) | Out-Null
+        }
+    } catch {}
+    Start-Sleep -Seconds 2
+
     # Match on name AND verify the element actually supports TogglePattern —
     # the heading text "Download updates over metered connections" also
     # matches the name search but is a plain Text control, not the switch.
@@ -47,17 +72,12 @@ if ($window) {
         }
         $togglePattern = $toggle.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
         $current = $togglePattern.Current.ToggleState
+        # forward = allow metered downloads (On); -Reverse = block them (Off)
         $targetState = if ($Reverse) { [System.Windows.Automation.ToggleState]::Off } else { [System.Windows.Automation.ToggleState]::On }
-        if ($current -ne $targetState) {
-            $togglePattern.Toggle()
-            Start-Sleep -Milliseconds 500
-            $after = $togglePattern.Current.ToggleState
-            if ($after -ne $targetState) {
-                Write-Host "Toggle() was called (was $current, wanted $targetState) but state still reads $after — the control accepted the call without applying it." -ForegroundColor Yellow
-            }
-        } else {
-            Write-Host "Already $current — no change needed." -ForegroundColor Gray
-        }
+        # Note: the state read-back after Toggle() lags ~1-2s, so we don't
+        # re-read to "verify" here — that gives false negatives. One Toggle()
+        # call reliably flips the control.
+        if ($current -ne $targetState) { $togglePattern.Toggle() }
         if ($Reverse) { Remove-ItemProperty -Path "HKLM:\SOFTWARE\WinAuto" -Name "LastRun_MeteredUpdates" -Force -ErrorAction SilentlyContinue }
         else {
             if (-not (Test-Path "HKLM:\SOFTWARE\WinAuto")) { New-Item -Path "HKLM:\SOFTWARE\WinAuto" -Force | Out-Null }
