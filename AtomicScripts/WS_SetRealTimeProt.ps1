@@ -9,8 +9,32 @@ param([switch]$Reverse)
 # UI Location: Windows Security > Virus & threat protection > Manage settings
 Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection" -Name "DisableRealtimeMonitoring" -Force -ErrorAction SilentlyContinue
 
+# A registered 3rd-party AV owns real-time scanning — Defender's own engine is inactive,
+# so there's nothing for Set-MpPreference to meaningfully change here.
+$avName = $null
+try {
+    $avList = Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntivirusProduct -ErrorAction SilentlyContinue
+    foreach ($av in $avList) {
+        if ($av.displayName -and $av.displayName -notmatch "Windows Defender" -and $av.displayName -notmatch "Microsoft Defender Antivirus") {
+            $avName = $av.displayName
+            break
+        }
+    }
+}
+catch {}
+if ($avName) {
+    Write-Host "Real-Time Protection managed by $avName — skipping." -ForegroundColor Yellow
+    return
+}
+
 $val = if ($Reverse) { 1 } else { 0 }
 $mpVal = if ($Reverse) { $true } else { $false }
+
+$tp = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows Defender\Features" -Name "TamperProtection" -ErrorAction SilentlyContinue).TamperProtection
+if ($tp -eq 5) {
+    Write-Host "Tamper Protection is ENABLED and blocking changes." -ForegroundColor Yellow
+    return
+}
 
 $Path = "HKLM:\SOFTWARE\Microsoft\Windows Defender\Real-Time Protection"
 if (-not (Test-Path $Path)) { New-Item -Path $Path -Force -ErrorAction SilentlyContinue | Out-Null }

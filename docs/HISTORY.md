@@ -277,3 +277,16 @@
   `Test-FirewallCompliant` helper (retries up to 3x, 300ms apart) and replaced all three
   duplicate inline copies of this check (audit generation, CLI-path discovery, and the
   interactive dashboard's discovery block) with calls to it.
+- **Removed dead `Invoke-WA_SetRealTimeProt`**: discovered while live-testing the
+  Tamper-Protection-off path (at the user's request, Tamper Protection was manually disabled
+  in Windows Security for this session) that this function — which had a proactive
+  Tamper-Protection pre-check and a 3rd-party-AV pre-check — was never actually called by any
+  dashboard or CLI path. The live "Real-Time Protection" toggle is backed by a different
+  function, `Invoke-WA_SetVirusThreatProtectReg`, which only had a reactive catch-block hint
+  and no 3rd-party-AV awareness at all. Ported both pre-checks (skip with a clear message if
+  Tamper Protection is on or a 3rd-party AV owns real-time scanning, instead of attempting and
+  possibly throwing) plus a post-write verification read-back into
+  `Invoke-WA_SetVirusThreatProtectReg`, mirrored the same change into the standalone
+  `AtomicScripts/WS_SetRealTimeProt.ps1`, and deleted the orphaned function. Verified with a
+  real `-Module SmartRun -Silent` execution (30-day gate forced open) — "Real-Time Protection
+  is ENABLED." now prints via the merged, verified path with no errors.

@@ -1220,20 +1220,55 @@ function Invoke-WA_SetVirusThreatProtectReg {
         [switch]$Reverse
     )
     Write-Header "VIRUS THREAT PROTECTION (REG)"
+
+    # Non-policy Defender key only — the Policies\Microsoft\Windows Defender path
+    # would lock Windows Security's Real-Time Protection toggle as "managed by
+    # your organization." Set-MpPreference already applies the effect.
+    # A prior run of the old version may have left that Policies value behind,
+    # which locks the toggle regardless of what this does now — remove it.
+    Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection" -Name "DisableRealtimeMonitoring" -Force -ErrorAction SilentlyContinue
+
+    # --- PRE-CHECK: 3RD PARTY AV ---
+    $avName = $null
+    try {
+        $avList = Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntivirusProduct -ErrorAction SilentlyContinue
+        foreach ($av in $avList) {
+            if ($av.displayName -and $av.displayName -notmatch "Windows Defender" -and $av.displayName -notmatch "Microsoft Defender Antivirus") {
+                $avName = $av.displayName
+                break
+            }
+        }
+    }
+    catch {}
+    if ($avName) {
+        Write-LeftAligned "$FGGray[-] Real-Time Protection managed by $avName.$Reset"
+        return
+    }
+
     $val = if ($Reverse) { 1 } else { 0 }
     $mpVal = if ($Reverse) { $true } else { $false }
+    $status = if ($Reverse) { "DISABLED" } else { "ENABLED" }
+
+    # --- PRE-CHECK: TAMPER PROTECTION ---
+    $tp = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows Defender\Features" -Name "TamperProtection" -ErrorAction SilentlyContinue).TamperProtection
+    if ($tp -eq 5) {
+        Write-LeftAligned "$FGCyan$Char_Warn Tamper Protection is ENABLED and blocking changes.$Reset"
+        return
+    }
+
     try {
-        # Non-policy Defender key only — the Policies\Microsoft\Windows Defender path
-        # would lock Windows Security's Real-Time Protection toggle as "managed by
-        # your organization." Set-MpPreference already applies the effect.
-        # A prior run of the old version may have left that Policies value behind,
-        # which locks the toggle regardless of what this does now — remove it.
-        Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection" -Name "DisableRealtimeMonitoring" -Force -ErrorAction SilentlyContinue
         $Path = "HKLM:\SOFTWARE\Microsoft\Windows Defender\Real-Time Protection"
         if (-not (Test-Path $Path)) { New-Item -Path $Path -Force -ErrorAction SilentlyContinue | Out-Null }
         Set-ItemProperty -Path $Path -Name "DisableRealtimeMonitoring" -Value $val -Type DWord -Force -ErrorAction SilentlyContinue
         Set-MpPreference -DisableRealtimeMonitoring $mpVal -ErrorAction Stop
-        Write-LeftAligned "$FGCyan$Char_HeavyCheck Virus & Threat Protection Registry keys set.$Reset"
+
+        $current = (Get-MpPreference).DisableRealtimeMonitoring
+        if ($current -eq $mpVal) {
+            Write-LeftAligned "$FGCyan$Char_HeavyCheck Real-Time Protection is $status.$Reset"
+        }
+        else {
+            Write-LeftAligned "$FGCyan$Char_Warn Real-Time Protection verification failed.$Reset"
+        }
     }
     catch {
         Write-WrappedError $_.Exception.Message
@@ -2030,72 +2065,6 @@ function Invoke-WinAutoMaintenance {
 
 
 # --- EMBEDDED ATOMIC SCRIPTS ---
-
-function Invoke-WA_SetRealTimeProt {
-    <#
-.SYNOPSIS
-    Enables or Disables Real-time Protection.
-.DESCRIPTION
-    Standardized for WinAuto. Checks for Tamper Protection before changes.
-    Standalone version.
-    Includes Reverse Mode (-r).
-.PARAMETER Reverse
-    (Alias: -r) Reverses the setting (Disables Real-time Protection).
-#>
-    param(
-        [Parameter(Mandatory = $false)]
-        [Alias('r')]
-        [switch]$Reverse
-    )
-    Write-Header "REAL-TIME PROTECTION"
-    
-    # --- PRE-CHECK: 3RD PARTY AV ---
-    try {
-        $avList = Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntivirusProduct -ErrorAction SilentlyContinue
-        foreach ($av in $avList) {
-            # 397568 is typical implementation for Defender, but name check is robust
-            if ($av.displayName -and $av.displayName -notmatch "Windows Defender" -and $av.displayName -notmatch "Microsoft Defender Antivirus") {
-                # UI Update: Show [-] in DarkGray for 3rd Party AV
-                Write-LeftAligned "[$FGDarkGray-$Reset] Real-time Protection managed by $($av.displayName)."
-                
-                # Footer
-                Write-Host ""
-                $copyright = ""; $cPad = [Math]::Floor((60 - $copyright.Length) / 2); Write-Host (" " * $cPad + "${Global:FGWhite}$copyright$Reset"); Write-Host ""
-                return
-            }
-        }
-    }
-    catch {}
-
-    # --- MAIN ---
-
-    try {
-        $target = if ($Reverse) { $true } else { $false }
-        $status = if ($Reverse) { "DISABLED" } else { "ENABLED" }
-
-        $tp = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows Defender\Features" -Name "TamperProtection" -ErrorAction SilentlyContinue).TamperProtection
-
-        if ($tp -eq 5) {
-            Write-LeftAligned "$FGCyan$Char_Warn Tamper Protection is ENABLED and blocking changes.$Reset"
-        }
-        else {
-            Set-MpPreference -DisableRealtimeMonitoring $target -ErrorAction Stop
-
-            # Verify
-            $current = (Get-MpPreference).DisableRealtimeMonitoring
-            if ($current -eq $target) {
-                Write-LeftAligned "$FGCyan$Char_HeavyCheck  Real-time Protection is $status.$Reset"
-            }
-            else {
-                Write-LeftAligned "$FGCyan$Char_Warn Real-time Protection verification failed.$Reset"
-            }
-        }
-    }
-    catch {
-        Write-WrappedError $_.Exception.Message
-    }
-
-}
 
 function Invoke-WA_SetPUABlockApps {
     <#
