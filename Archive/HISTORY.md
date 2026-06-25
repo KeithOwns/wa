@@ -193,3 +193,19 @@
   - Remediated a critical Remote Code Execution (RCE) vulnerability in the post-run audit block by implementing strict SHA-256 hash pinning validation before executing downloaded remote code.
   - Added logic to quarantine unauthorized or mismatched audit script payloads to `$env:TEMP` without executing them.
   - Fixed a script-breaking `CommandNotFoundException` bug by relocating the `Invoke-WA_SetGetMeUpToDate` function definition above the main execution loop where it is called.
+
+## 2026-06-24
+- **Goal**: Implement HKLM Passwordless toggle, standardize UI color themes, implement Left/Right arrow navigation, verify runtime error exports, document command modifiers, and pin the security posture audit script hash.
+- **Completed Changes**:
+  - Created a new standalone atomic script `AtomicScripts/SET_DevicePasswordLess.ps1` to toggle the `DevicePasswordLessBuildVersion` registry value under `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\PasswordLess\Device`.
+  - Added the `$Global:Toggle_DevicePasswordLess` global toggle and integrated it into the interactive menu navigation.
+  - Implemented the `Invoke-WA_SetDevicePasswordLess` function within `wa.ps1` to allow toggling the Passwordless sign-in setting.
+  - Integrated the setting under the "User Interface" subsection of the dashboard, showing its current status and permitting it to be toggled and reversed via the interactive CLI.
+  - Aligned all secondary page headers (post-dashboard) and completion/skipped statuses to use the unified AtomicScripts visual identity (Cyan on White branding, eliminating generic green colors).
+  - Implemented Left and Right arrow key navigation logic, enabling Left Arrow to navigate back up/out of menus (matching Esc) and Right Arrow to navigate down/into menus (matching Space/Enter) and toggle leaves.
+  - Verified and confirmed that the logging functions correctly export runtime errors to `logs/wa.log` via both `Write-WrappedError` and the global try-catch handler.
+  - Documented active command-line parameters (modifiers) like `-Module`, `-Silent`, `-LogPath`, `-Config`, `-Force`, and the function-level `-Reverse` modifier in `README.md`.
+  - Downloaded and verified the SHA-256 hash of the remote posture audit script (`643242783250942600fac457e4208bd5f69b100617a2263ca73d9df08a7ad09b`) and pinned it in `wa.ps1` to enable safe posture audit execution on script completion.
+  - Added a `.gitignore` file to filter out development log files, mockups, backups, and temporary files from the repository tracking.
+  - Verified syntax of all scripts using the PowerShell parser with zero errors.
+

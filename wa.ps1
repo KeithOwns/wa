@@ -121,6 +121,7 @@ $Global:Toggle_MeteredUpdates = 0
 $Global:Toggle_ARSOOptOut = 0
 $Global:Toggle_UIAnimations = 0
 $Global:Toggle_VisualEffects = 0
+$Global:Toggle_DevicePasswordLess = 0
 
 # Background-only fallbacks
 $Global:Toggle_SmartScreenReg = 0
@@ -258,7 +259,7 @@ function Write-Log {
         # To find the hash, run once with no value — the actual hash is printed.
         # The remote script will NOT execute until a valid hash is set here.
         # Update this value whenever the remote script is intentionally updated.
-        $KnownAuditScriptHash = "" # e.g. "a3f1c2...64 hex chars"
+        $KnownAuditScriptHash = "643242783250942600fac457e4208bd5f69b100617a2263ca73d9df08a7ad09b" # e.g. "a3f1c2...64 hex chars"
         # ───────────────────────────────────────────────────────────────────────
         try {
             Write-Host ""
@@ -836,9 +837,8 @@ function Write-Header {
     Start-Sleep -Seconds 2
     Clear-Host
     Write-Host ""
-    $WinAutoTitle = "AtomicScripts"
-    Write-Centered "$Bold$FGCyan$WinAutoTitle$Reset" -Width 52
-    Write-Centered "${Global:FGCyan}$($Title.ToUpper())$Reset" -Width 52
+    Write-Centered "${Global:FGBlack}${Global:BGWhite}= ATOMIC SCRIPTS =${Reset}" -Width 52
+    Write-Centered "${Global:FGWhite}- $($Title.ToUpper()) -${Reset}" -Width 52
     if (-not $NoBottom) {
         Write-Boundary
     }
@@ -1348,6 +1348,39 @@ function Invoke-WA_SetKernelModeReg {
     }
 }
 
+function Invoke-WA_SetDevicePasswordLess {
+    <#
+.SYNOPSIS
+    Toggles the Passwordless sign-in enforcement ("For improved security, only allow Windows Hello sign-in").
+.DESCRIPTION
+    Standardized for WinAuto.
+    Sets DevicePasswordLessBuildVersion to 0 (allow standard passwords and un-gray settings) or 2 (enforce Hello sign-in only).
+    Standalone version. Includes Reverse Mode (-r).
+.PARAMETER Reverse
+    (Alias: -r) Reverses the setting (enforces Windows Hello sign-in only).
+#>
+    param(
+        [Parameter(Mandatory = $false)]
+        [Alias('r')]
+        [switch]$Reverse
+    )
+    Write-Header "DEVICE PASSWORDLESS SIGN-IN"
+    $Path = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\PasswordLess\Device"
+    $Name = "DevicePasswordLessBuildVersion"
+    $Value = if ($Reverse) { 2 } else { 0 }
+    $ActionStr = if ($Reverse) { "ENABLED (HELLO-ONLY)" } else { "DISABLED (ALLOW PASSWORDS)" }
+    try {
+        if (-not (Test-Path $Path)) {
+            New-Item -Path $Path -Force | Out-Null
+        }
+        Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type DWord -Force -ErrorAction Stop
+        Write-LeftAligned "$FGCyan$Char_HeavyCheck Device Passwordless Sign-in set to $ActionStr.$Reset"
+    }
+    catch {
+        Write-WrappedError $_.Exception.Message
+    }
+}
+
 function Invoke-WA_SetSmartScreen {
     Write-Header "SMARTSCREEN FILTER (UIA)"
     
@@ -1467,7 +1500,7 @@ function Invoke-WA_SetVirusThreatProtect {
     } while ((Get-Date) -lt $startTime.AddSeconds($timeout))
 
     if ($window) {
-        Write-LeftAligned "$FGGreen$Global:Char_HeavyCheck Window found.$Reset"
+        Write-LeftAligned "${Global:FGCyan}$Global:Char_HeavyCheck Window found.$Reset"
 
         # Force foreground so the page content actually renders into the UIA tree.
         Set-WinAutoForeground -Window $window
@@ -1480,7 +1513,7 @@ function Invoke-WA_SetVirusThreatProtect {
             $cond = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, $t)
             $button = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $cond)
             if ($button) { 
-                Write-LeftAligned "$FGGreen$Global:Char_HeavyCheck Found '$t' button.$Reset"
+                Write-LeftAligned "${Global:FGCyan}$Global:Char_HeavyCheck Found '$t' button.$Reset"
                 break 
             }
         }
@@ -1490,7 +1523,7 @@ function Invoke-WA_SetVirusThreatProtect {
                 $invokePattern = $button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
                 if ($invokePattern) {
                     $invokePattern.Invoke()
-                    Write-LeftAligned "$FGGreen$Global:Char_HeavyCheck Clicked button.$Reset"
+                    Write-LeftAligned "${Global:FGCyan}$Global:Char_HeavyCheck Clicked button.$Reset"
                     Start-Sleep -Seconds 1
                 }
                 else {
@@ -1602,6 +1635,7 @@ function Sync-ToggleStates {
     $Global:Toggle_ARSOOptOut = 0
     $Global:Toggle_UIAnimations = 0
     $Global:Toggle_VisualEffects = 0
+    $Global:Toggle_DevicePasswordLess = 0
 
     # Background-only fallbacks
     $Global:Toggle_SmartScreenReg = 0
@@ -1614,15 +1648,15 @@ function Sync-ToggleStates {
 function Invoke-WA_SystemPreCheck {
     Write-Header "SYSTEM PRE-FLIGHT CHECK"
     $os = Get-CimInstance Win32_OperatingSystem
-    Write-LeftAligned "$FGWhite OS: $($os.Caption) ($($os.Version))$Reset"
+    Write-LeftAligned "${Global:FGWhite} OS: $($os.Caption) ($($os.Version))${Global:Reset}"
     $uptime = (Get-Date) - $os.LastBootUpTime
-    $color = & { if ($uptime.Days -gt 7) { $FGRed } else { $FGGreen } }
-    Write-LeftAligned "$FGWhite Uptime: $color$($uptime.Days) days$Reset"
+    $color = & { if ($uptime.Days -gt 7) { ${Global:FGRed} } else { ${Global:FGCyan} } }
+    Write-LeftAligned "${Global:FGWhite} Uptime: $color$($uptime.Days) days${Global:Reset}"
     
     $drive = Get-Volume -DriveLetter C
     $freeGB = [math]::Round($drive.SizeRemaining / 1GB, 2)
-    $dColor = & { if ($freeGB -lt 10) { $FGRed } else { $FGGreen } }
-    Write-LeftAligned "$FGWhite Free Space (C:): $dColor$freeGB GB$Reset"
+    $dColor = & { if ($freeGB -lt 10) { ${Global:FGRed} } else { ${Global:FGCyan} } }
+    Write-LeftAligned "${Global:FGWhite} Free Space (C:): $dColor$freeGB GB${Global:Reset}"
     
     $pending = $false
     if (Test-Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending") { $pending = $true }
@@ -1831,13 +1865,14 @@ function Invoke-WinAutoConfiguration {
     $s_AdvID = Test-Reg "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\AdvertisingInfo" "Enabled" 0
     $s_Anim = Test-Reg "HKCU:\Control Panel\Desktop\WindowMetrics" "MinAnimate" "0"
     $s_VisFX = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" "VisualFXSetting" 2
+    $s_DevicePasswordLess = Test-Reg "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\PasswordLess\Device" "DevicePasswordLessBuildVersion" 0
     $s_RebootPending = $(
         (Test-Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending") -or
         (Test-Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired") -or
         ($null -ne (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager" -Name "PendingFileRenameOperations" -ErrorAction SilentlyContinue))
     )
 
-    $configActive = if ($false -eq $s_RT -or $false -eq $s_PUA -or $false -eq $s_Edge -or $false -eq $s_FW -or $false -eq $s_Ctx -or $false -eq $s_Task -or $false -eq $s_View -or $false -eq $s_MU -or $false -eq $s_Rest -or $false -eq $s_Pers -or $false -eq $s_Mem -or $false -eq $s_Kern -or $false -eq $s_LSA -or $false -eq $s_SS -or $false -eq $s_PSTrans -or $false -eq $s_Telemetry -or $false -eq $s_LLMNR -or $false -eq $s_PSScript -or $false -eq $s_PSModule -or $false -eq $s_NetBIOS -or $false -eq $s_ShowExt -or $false -eq $s_ShowHidden -or $false -eq $s_Metered -or $false -eq $s_ARSO -or $false -eq $s_StoreSS -or $false -eq $s_Phish -or $false -eq $s_HideAdmin -or $false -eq $s_AdvID -or $false -eq $s_Anim -or $false -eq $s_VisFX) { $true } else { $false }
+    $configActive = if ($false -eq $s_RT -or $false -eq $s_PUA -or $false -eq $s_Edge -or $false -eq $s_FW -or $false -eq $s_Ctx -or $false -eq $s_Task -or $false -eq $s_View -or $false -eq $s_MU -or $false -eq $s_Rest -or $false -eq $s_Pers -or $false -eq $s_Mem -or $false -eq $s_Kern -or $false -eq $s_LSA -or $false -eq $s_SS -or $false -eq $s_PSTrans -or $false -eq $s_Telemetry -or $false -eq $s_LLMNR -or $false -eq $s_PSScript -or $false -eq $s_PSModule -or $false -eq $s_NetBIOS -or $false -eq $s_ShowExt -or $false -eq $s_ShowHidden -or $false -eq $s_Metered -or $false -eq $s_ARSO -or $false -eq $s_StoreSS -or $false -eq $s_Phish -or $false -eq $s_HideAdmin -or $false -eq $s_AdvID -or $false -eq $s_Anim -or $false -eq $s_VisFX -or $false -eq $s_DevicePasswordLess) { $true } else { $false }
 
     if ($SmartRun -and -not $configActive) {
         Write-Boundary
@@ -1947,11 +1982,16 @@ function Invoke-WinAutoConfiguration {
             if ($s_VisFX) { Invoke-WA_SetVisualEffects -Reverse }
             else { Invoke-WA_SetVisualEffects }
         }
+        if ($Global:Toggle_DevicePasswordLess -eq 1) {
+            if ($s_DevicePasswordLess) { Invoke-WA_SetDevicePasswordLess -Reverse }
+            else { Invoke-WA_SetDevicePasswordLess }
+        }
     } else {
         Invoke-Smart { Invoke-WA_SetShowExtensions } $s_ShowExt $Global:Toggle_ShowExtensions
         Invoke-Smart { Invoke-WA_SetShowHidden } $s_ShowHidden $Global:Toggle_ShowHidden
         Invoke-Smart { Invoke-WA_SetUIAnimations } $s_Anim $Global:Toggle_UIAnimations
         Invoke-Smart { Invoke-WA_SetVisualEffects } $s_VisFX $Global:Toggle_VisualEffects
+        Invoke-Smart { Invoke-WA_SetDevicePasswordLess } $s_DevicePasswordLess $Global:Toggle_DevicePasswordLess
     }
     # 4. Updates & Persistence
 
@@ -2054,7 +2094,8 @@ function Invoke-WinAutoMaintenance {
         Write-Boundary
         Write-LeftAligned "$FGCyan$Global:Char_CheckMark All maintenance tasks were run today (0 days since last run). Skipping Maintenance section.$Reset"
         Write-Boundary
-        Write-Centered "$FGGreen MAINTENANCE SKIPPED $Reset" -Width 52
+        Write-Centered "${Global:FGCyan} MAINTENANCE SKIPPED ${Global:Reset}" -Width 52
+        Write-Boundary
         Set-WinAutoLastRun -Module "Maintenance"
         Start-Sleep -Seconds 2
         return
@@ -2111,7 +2152,7 @@ function Invoke-WinAutoMaintenance {
 
 
         Write-Host ""
-        Write-Centered "$FGGreen MAINTENANCE COMPLETE $Reset" -Width 52
+        Write-Centered "${Global:FGCyan} MAINTENANCE COMPLETE ${Global:Reset}" -Width 52
         Set-WinAutoLastRun -Module "Maintenance"
         Start-Sleep -Seconds 2
     }
@@ -3566,7 +3607,7 @@ function Invoke-WA_WindowsRepair {
 
     Write-Host ""
     Write-Boundary
-    Write-Centered "$FGGreen REPAIR FLOW COMPLETE $Reset" -Width 52
+    Write-Centered "${Global:FGCyan} REPAIR FLOW COMPLETE ${Global:Reset}" -Width 52
     Write-Boundary
 
 }
@@ -3682,6 +3723,7 @@ while ($true) {
     $s_AdvID = Test-Reg "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\AdvertisingInfo" "Enabled" 0
     $s_Anim = Test-Reg "HKCU:\Control Panel\Desktop\WindowMetrics" "MinAnimate" "0"
     $s_VisFX = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" "VisualFXSetting" 2
+    $s_DevicePasswordLess = Test-Reg "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\PasswordLess\Device" "DevicePasswordLessBuildVersion" 0
     $s_RebootPending = $(
         (Test-Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending") -or
         (Test-Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired") -or
@@ -3697,7 +3739,7 @@ while ($true) {
     }
 
     # Sectional Pending State Detection
-    $configActive = if ($false -eq $s_RT -or $false -eq $s_PUA -or $false -eq $s_Edge -or $false -eq $s_FW -or $false -eq $s_Ctx -or $false -eq $s_Task -or $false -eq $s_View -or $false -eq $s_MU -or $false -eq $s_Rest -or $false -eq $s_Pers -or $false -eq $s_Mem -or $false -eq $s_Kern -or $false -eq $s_LSA -or $false -eq $s_SS -or $false -eq $s_PSTrans -or $false -eq $s_Telemetry -or $false -eq $s_LLMNR -or $false -eq $s_PSScript -or $false -eq $s_PSModule -or $false -eq $s_NetBIOS -or $false -eq $s_ShowExt -or $false -eq $s_ShowHidden -or $false -eq $s_Metered -or $false -eq $s_ARSO -or $false -eq $s_StoreSS -or $false -eq $s_Phish -or $false -eq $s_HideAdmin -or $false -eq $s_AdvID -or $false -eq $s_Anim -or $false -eq $s_VisFX) { $true } else { $false }
+    $configActive = if ($false -eq $s_RT -or $false -eq $s_PUA -or $false -eq $s_Edge -or $false -eq $s_FW -or $false -eq $s_Ctx -or $false -eq $s_Task -or $false -eq $s_View -or $false -eq $s_MU -or $false -eq $s_Rest -or $false -eq $s_Pers -or $false -eq $s_Mem -or $false -eq $s_Kern -or $false -eq $s_LSA -or $false -eq $s_SS -or $false -eq $s_PSTrans -or $false -eq $s_Telemetry -or $false -eq $s_LLMNR -or $false -eq $s_PSScript -or $false -eq $s_PSModule -or $false -eq $s_NetBIOS -or $false -eq $s_ShowExt -or $false -eq $s_ShowHidden -or $false -eq $s_Metered -or $false -eq $s_ARSO -or $false -eq $s_StoreSS -or $false -eq $s_Phish -or $false -eq $s_HideAdmin -or $false -eq $s_AdvID -or $false -eq $s_Anim -or $false -eq $s_VisFX -or $false -eq $s_DevicePasswordLess) { $true } else { $false }
 
     
     $maintActive = $false
@@ -3770,6 +3812,7 @@ while ($true) {
         @{ Label = "Show File Extensions"; Met = "SET_ShowExtensions";  Status = $s_ShowExt;   Toggle = "Toggle_ShowExtensions" }
         @{ Label = "UI Animations";        Met = "SET_UIAnimations";    Status = $s_Anim;      Toggle = "Toggle_UIAnimations";  Invert = $true }
         @{ Label = "Visual Effects";       Met = "SET_VisualEffects";   Status = $s_VisFX;     Toggle = "Toggle_VisualEffects" }
+        @{ Label = "Device Passwordless";  Met = "SET_DevicePasswordLess";Status = $s_DevicePasswordLess;Toggle = "Toggle_DevicePasswordLess"; Invert = $true }
     )
     $subcats = @(
         @{ Label = "Automation";     Items = $autoItems }
@@ -3830,7 +3873,7 @@ while ($true) {
             $optionalToggles = @(
                 'Toggle_GetMeUpToDate', 'Toggle_MeteredUpdates', 'Toggle_ARSOOptOut',
                 'Toggle_PSTranscription', 'Toggle_Telemetry', 'Toggle_LLMNR', 'Toggle_PSScriptBlock', 'Toggle_PSModuleLogging', 'Toggle_NetBIOS', 'Toggle_RealTimeProtUI', 'Toggle_SmartScreenReg', 'Toggle_HideAdmin', 'Toggle_AdvertisingID',
-                'Toggle_ClassicMenu', 'Toggle_TaskbarSearch', 'Toggle_TaskView', 'Toggle_ShowHidden', 'Toggle_ShowExtensions', 'Toggle_UIAnimations', 'Toggle_VisualEffects'
+                'Toggle_ClassicMenu', 'Toggle_TaskbarSearch', 'Toggle_TaskView', 'Toggle_ShowHidden', 'Toggle_ShowExtensions', 'Toggle_UIAnimations', 'Toggle_VisualEffects', 'Toggle_DevicePasswordLess'
             )
             $flatAll = foreach ($sc in $subcats) { foreach ($it in $sc.Items) { $it } }
             $flatOrdered = @($flatAll | Where-Object { $_.Toggle -in $optionalToggles }) + @($flatAll | Where-Object { $_.Toggle -notin $optionalToggles })
@@ -3943,9 +3986,58 @@ while ($true) {
         }
         continue
     }
-    elseif ($res.VirtualKeyCode -eq 39 -or $res.VirtualKeyCode -eq 37) {
-        # Left / Right -> reserved
-        continue
+    # Left / Right -> Switch menus or navigate levels
+    elseif ($res.VirtualKeyCode -eq 37) {
+        # Left Arrow -> ascend one level (only if NavLevel > 0)
+        if ($Global:NavLevel -gt 0) {
+            if ($Global:NavLevel -eq 1) {
+                $Global:NavLevel = 0; $Global:LandingIdx = 1
+            }
+            elseif ($Global:NavLevel -eq 2) {
+                $Global:NavLevel = 1; $Global:SectionIdx = 0
+            }
+            elseif ($Global:NavLevel -eq 3) {
+                if ($Global:SectionIdx -eq 0) { $Global:NavLevel = 2 }
+                else { $Global:NavLevel = 1; $Global:SectionIdx = 1 }
+            }
+            Start-Sleep -Milliseconds 150
+            continue
+        }
+    }
+    elseif ($res.VirtualKeyCode -eq 39) {
+        # Right Arrow -> descend one level, or toggle leaf (only if NavLevel > 0, or on ManualMode)
+        if ($Global:NavLevel -eq 0 -and $Global:LandingIdx -eq 1) {
+            $Global:NavLevel = 1
+            $Global:SectionIdx = 0
+            Start-Sleep -Milliseconds 150
+            continue
+        }
+        elseif ($Global:NavLevel -eq 1) {
+            if ($Global:SectionIdx -eq 0) {
+                $Global:NavLevel = 2; $Global:SubcatIdx = 0
+            } else {
+                $Global:NavLevel = 3; $Global:ItemIdx = 0
+            }
+            Start-Sleep -Milliseconds 150
+            continue
+        }
+        elseif ($Global:NavLevel -eq 2) {
+            $Global:NavLevel = 3; $Global:ItemIdx = 0
+            Start-Sleep -Milliseconds 150
+            continue
+        }
+        elseif ($Global:NavLevel -eq 3) {
+            # Flip the focused leaf's pending-action toggle
+            if ($Global:SectionIdx -eq 0) {
+                $name = $subcats[$Global:SubcatIdx].Items[$Global:ItemIdx].Toggle
+            } else {
+                $name = $maintModel[$Global:ItemIdx].Toggle
+            }
+            $cur = Get-Variable -Name $name -Scope Global -ValueOnly
+            Set-Variable -Name $name -Scope Global -Value $(if ($cur -eq 1) { 0 } else { 1 })
+            Start-Sleep -Milliseconds 150
+            continue
+        }
     }
     elseif ($res.VirtualKeyCode -eq 27) {
         # Esc -> ascend one level (exit only from SmartRun)
@@ -4023,7 +4115,8 @@ while ($true) {
                 MeteredUpdates = $Global:Toggle_MeteredUpdates;
                 ARSOOptOut = $Global:Toggle_ARSOOptOut;
                 UIAnimations = $Global:Toggle_UIAnimations;
-                VisualEffects = $Global:Toggle_VisualEffects
+                VisualEffects = $Global:Toggle_VisualEffects;
+                DevicePasswordLess = $Global:Toggle_DevicePasswordLess
             }
             Maint     = @{ Update = $Global:Toggle_MaintUpdate; Disk = $Global:Toggle_MaintDisk; Cleanup = $Global:Toggle_MaintCleanup; SFC = $Global:Toggle_MaintSFC }
         }

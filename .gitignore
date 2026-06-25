@@ -1,0 +1,27 @@
+# Log files
+logs/
+*.log
+
+# Mockup and design files
+mockup*.txt
+Archive/mockup*.txt
+
+# Temporary and quarantine files
+*UNVERIFIED.ps1
+*QUARANTINE.ps1
+security_audit.json
+
+# Archive history and roadmap variants
+Archive/wa_*.ps1
+Archive/wa.ps1.*
+Archive/ROADMAP_v2.md
+1.1.0
+
+# Empty placeholder files
+Agents.md
+Context.md
+Memory.md
+Skills.md
+
+# Stable / backup scripts
+waSTABLE.ps1

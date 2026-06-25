@@ -47,21 +47,6 @@ iex (irm https://raw.githubusercontent.com/KeithOwns/wa/main/wa.ps1)
 4.  **Toggle:** Press `Space` to toggle selected options.
 5.  **Execute:** Press `Enter` to run the selected section or `SmartRUN`.
 
-## ⚙️ Command-Line Parameters & Modifiers
-
-When running `wa.ps1` from the command line, the following parameters are active:
-
-| Parameter | Type | Description |
-| :--- | :--- | :--- |
-| `-Module <Name>` | String | Direct execution module. Valid options: `SmartRun`, `Config`, `Maintenance`. Skips the interactive dashboard and runs the specified module. |
-| `-Silent` | Switch | Runs automated or selected tasks without interactive prompts. |
-| `-LogPath <Path>`| String | Overrides the default log output location (`logs/wa.log`). |
-| `-Config <Path>` | String | Path to a custom configuration JSON file. |
-| `-Force` | Switch | Overrides threshold/state checks and forces operations. |
-
-### Function-Level Modifiers
-*   **`-Reverse`** (Alias: **`-r`**): Supported by all individual remediation functions (e.g., `Invoke-WA_SetTelemetry -Reverse` or `SET_Telemetry.ps1 -Reverse`). This switch reverts/disables the target configuration setting.
-
 ## 📁 Repository Structure
 
 Unlike the full WinAuto suite, the WA repository relies on a strictly single-file architecture:
