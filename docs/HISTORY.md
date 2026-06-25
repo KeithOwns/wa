@@ -193,3 +193,16 @@
   - Remediated a critical Remote Code Execution (RCE) vulnerability in the post-run audit block by implementing strict SHA-256 hash pinning validation before executing downloaded remote code.
   - Added logic to quarantine unauthorized or mismatched audit script payloads to `$env:TEMP` without executing them.
   - Fixed a script-breaking `CommandNotFoundException` bug by relocating the `Invoke-WA_SetGetMeUpToDate` function definition above the main execution loop where it is called.
+
+## 2026-06-24 (Repository Structure Cleanup)
+- **Goal**: Eliminate the manual file-versioning clutter that had accumulated in `Archive/` and consolidate scattered AI-instruction docs.
+- **Root cause identified**: `GEMINI.md` carried a "Vibe Coding Law" instructing assistants to copy a file into `Archive/` before every edit and keep up to 10 numbered versions. This duplicated what git already does and produced ~110 redundant snapshot files (`wa_v1.ps1`-`wa_v84.ps1`, `wa_2.ps1`-`wa_11.ps1`, `wa.ps1.2`-`.4`, `waBAD.ps1`, `waSTABLE.ps1`, `wa_temp.ps1`, `wa_fix_final.ps1`, `wa_new.ps1`, `wa_recovered.ps1`, frozen `README`/`ROADMAP` copies) with no information not already recoverable via `git log`.
+- **Completed Changes**:
+  - Deleted the entire `Archive/` folder (snapshot files + frozen doc copies); relocated the still-active changelog to `docs/HISTORY.md`.
+  - Deleted `docs/notes/` (raw session-transcript scratch already superseded by this changelog and `ROADMAP.md`) and `docs/notes/YouVibeNow_AGY_CLI_Setup.md` (unrelated terminal-config tutorial that had landed in this repo by accident).
+  - Merged `BRANDING.md` + `GEMINI.md` into a single `CLAUDE.md`, dropping the manual-archiving law and adding an explicit Version Control Policy section pointing future sessions at git history instead.
+  - Removed `scripts/core.ps1` (an older, unrelated hardening approach with no connection to the `wa.ps1`/`AtomicScripts` architecture) and `scripts/GET_DeviceInfo.ps1` (byte-identical duplicate of `AtomicScripts/GET_DeviceInfo.ps1`, differing only in line endings).
+  - Removed `reports/` and the stale-named generated-output files `secrutity_score.json`, `security_audit.json`, `reports/AtomicScripts_Audit.json`, `reports/secrutity_score.json` — all superseded by the current `winauto_audit.json`, whose generation path in `wa.ps1` was left untouched (it intentionally writes to `$PWD` so the report lands wherever the end user ran the script).
+  - Relocated `Unlock_PhishingProtection.ps1` into `AtomicScripts/` and `fix_metered.py` into `scripts/utils/`, alongside the other one-off dev utilities.
+  - Deleted root-level scratch (`mockup0-7.txt`, a stray `1.1.0` file containing leaked MCP-toolbox JSON output, and the empty placeholder docs `Agents.md`/`Context.md`/`Memory.md`/`Skills.md`).
+  - Rewrote `.gitignore` to drop now-obsolete `Archive/`-specific patterns and add a general rule against future manually-versioned filenames.

@@ -1,0 +1,22 @@
+# Log files
+logs/
+*.log
+
+# Mockup / scratch text dumps
+mockup*.txt
+
+# Stale generated-output names (current name is winauto_audit.json)
+security_audit.json
+secrutity_score.json
+
+# Manual file-versioning artifacts (use git history instead — see CLAUDE.md §6)
+*_v[0-9]*.ps1
+*STABLE.ps1
+*UNVERIFIED.ps1
+*QUARANTINE.ps1
+
+# Empty placeholder docs some tools scaffold automatically
+Agents.md
+Context.md
+Memory.md
+Skills.md
