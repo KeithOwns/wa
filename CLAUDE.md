@@ -53,6 +53,34 @@ scripts/
 - **Action Indicator:** for any step included in the run, the `v` icon and the Method ID turn Cyan. Otherwise they dim to Dark Gray.
 - **Navigation:** Arrow keys for movement, Space for toggle, Enter for execution, Esc for back/exit.
 
+### Atomic Script Naming Convention
+
+Every step's `Met` ID (and the matching `AtomicScripts/*.ps1` filename) follows
+`<Surface>_<Verb><SettingName>` — e.g. `WS_SetRealTimeProt`, `ST_SetTelemetry`,
+`NX_SetLLMNR`. The 2-letter `<Surface>` prefix tells the user which Windows UI surface to go
+look in, without reading the function body:
+
+| Code | Surface |
+| :--- | :--- |
+| `WS` | Windows Security app |
+| `ST` | Settings app (`ms-settings:`) |
+| `FE` | File Explorer / Folder Options |
+| `EG` | Microsoft Edge settings |
+| `CP` | Legacy Control Panel-style dialog/applet |
+| `NX` | No UI exists anywhere — registry/GPO/console-tool only |
+
+`<Verb>` is `Set` (a configurable toggle) or `Run` (a maintenance action with no persistent
+on/off state); `<SettingName>` is the existing PascalCase suffix. New steps must pick a
+surface code based on where the control *actually* lives in Windows, independent of how the
+script implements it — e.g. Real-Time Protection is `WS` even when toggled via
+`Set-MpPreference` rather than UI Automation, because the Windows Security toggle is where a
+user would go to verify it.
+
+Every `Invoke-WA_Set*`/`Invoke-WA_Run*` function's comment-based help (and the matching
+`AtomicScripts/*.ps1` header) must include the exact breadcrumb in a `.LOCATION` section (or
+a `# UI Location: ...` line for functions without a comment-help block), e.g.
+`Settings > Accounts > Sign-in options`, or `none (registry/GPO-only)` for `NX` steps.
+
 ## 5. Development Workflow
 
 - **Pre-Flight:** every run must verify Administrator privileges, Execution Policy (`RemoteSigned`), and console UTF-8 encoding.

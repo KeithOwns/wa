@@ -206,3 +206,74 @@
   - Relocated `Unlock_PhishingProtection.ps1` into `AtomicScripts/` and `fix_metered.py` into `scripts/utils/`, alongside the other one-off dev utilities.
   - Deleted root-level scratch (`mockup0-7.txt`, a stray `1.1.0` file containing leaked MCP-toolbox JSON output, and the empty placeholder docs `Agents.md`/`Context.md`/`Memory.md`/`Skills.md`).
   - Rewrote `.gitignore` to drop now-obsolete `Archive/`-specific patterns and add a general rule against future manually-versioned filenames.
+
+## 2026-06-25 (Color Consolidation, SmartRun Policy Rewrite, Naming Convention)
+- **Color palette consolidation**: collapsed `wa.ps1`'s 11 FG / 9 BG ANSI colors down to the 5
+  semantic colors documented in `CLAUDE.md` §4 (Cyan, Inverted Cyan, White, Gray, Dark Gray)
+  plus Red (kept as a 6th color, reserved for failure/error text) and Dark Yellow/Dark Red
+  (kept only for the footer's NAVIGATION keys and the "= ATOMIC SCRIPTS =" banner background).
+  Removed the now-dead `FGGreen`/`FGDarkMagenta`/`FGDarkGreen`/`FGDarkCyan`/`FGMagenta`/
+  `FGBlue`/`FGDarkBlue`/`BGBlack`/`BGRed`/`BGDarkRed`/`BGDarkCyan`/`BGWhite`/`FGYellow`/
+  `BGYellow` palette entries.
+- **Removed all console window resize/snap code**: deleted `Set-ConsoleSnapRight` (resized the
+  console to 60 columns and snapped it to the right edge of the screen via `MoveWindow`/
+  `SystemParametersInfo` P/Invoke) and its call site. `Set-WinAutoForeground` (brings *target*
+  Settings/Windows Security windows forward for UIA) was left untouched — unrelated.
+- **Rewrote the SmartRun default-run policy**: "Get Updates" now always runs every time the
+  script runs, full stop. Every other step (Configuration toggles, Drive Optimization, Temp
+  File Cleanup, SFC/DISM Repair) now runs only if it's default-enabled *and* more than 30 days
+  have passed since the script's last full run — replacing the old per-setting discovery-
+  compliance check and the old 1/7/7/30-day per-module thresholds. Added a single global
+  timestamp (`Get/Set-WinAutoLastRun -Module "WinAuto"`) for the 30-day gate, stamped once
+  after a full SmartRun or ManualMode pass. Removed the now-contradictory
+  `Test-WA_MaintenanceRecentlyComplete` shortcut, which could previously skip Maintenance
+  (and thus Get Updates) entirely.
+- **Naming convention for steps & atomic scripts**: every dashboard step's `Met` ID and the
+  matching `AtomicScripts/*.ps1` filename were renamed to a `<Surface>_<Verb><Setting>` scheme
+  (e.g. `SET_ARSOOptOut` -> `ST_SetARSOOptOut`), where the 2-letter surface code tells the user
+  which Windows UI surface the control lives in: `WS` (Windows Security), `ST` (Settings app),
+  `FE` (File Explorer), `EG` (Microsoft Edge), `CP` (legacy Control Panel-style dialog), or `NX`
+  (no UI exists anywhere — registry/GPO/console-tool only). Added a paired `.LOCATION`
+  doc-comment section (or a `# UI Location: ...` line for functions without a comment-help
+  block) to all 38 functions in `wa.ps1` and a `# UI Location: ...` line to all 36 renamed
+  `AtomicScripts/*.ps1` files, giving the exact breadcrumb. `AtomicScripts/GET_DeviceInfo.ps1`
+  and `AtomicScripts/Unlock_PhishingProtection.ps1` were left alone — they don't correspond to
+  any current `Met` ID and look orphaned; flagged for a future cleanup decision, not fixed here.
+  Internal `Invoke-WA_Set*`/`Invoke-WA_Run*` function names were deliberately left unchanged
+  (lower risk; invisible to the end user). See the surface-code dictionary now documented in
+  `CLAUDE.md` §4.
+
+## 2026-06-25 (Full Retest & Bugfixes)
+- **`AlwaysRun` crash fix**: the naming-convention session's `$maintModel` rewrite gave the
+  "Get Updates" entry an `AlwaysRun = $true` key but left it off the other three entries
+  entirely; under `Set-StrictMode`, `[bool]$m.AlwaysRun` threw `CRITICAL UNHANDLED ERROR: The
+  property 'AlwaysRun' cannot be found` for any entry missing the key. Fixed by adding
+  `AlwaysRun = $false` explicitly to the three other `$maintModel` entries.
+- **`Clear-Host` crash fix**: a live full-`SmartRun` retest crashed with `The handle is
+  invalid` — `Clear-Host` requires a real console screen-buffer handle, which isn't available
+  when stdout is redirected/piped (as happens both under test automation and potentially under
+  `iex (irm ...)` remote execution per `CLAUDE.md`). Wrapped all three `Clear-Host` call sites
+  in `try {} catch {}` so a missing console handle degrades to "screen doesn't clear" instead
+  of killing the run.
+- **Full retest performed**: two real `-Module SmartRun -Silent` executions on this machine
+  (one with the 30-day gate closed, one forced open by backdating the `WinAuto` timestamp 35
+  days) — both completed cleanly post-fix, exercising every default-enabled Configuration step
+  for real plus the unconditional "Get Updates" Maintenance step. Verified resulting
+  Defender/Firewall/registry state and the generated `winauto_audit.json` against expectations.
+  Also built an isolated, non-mutating dashboard-render harness (dot-sourced just the function
+  definitions, drove the discovery+render block directly with synthetic nav state, no key-input
+  simulation or remediation calls) to visually verify both Landing pages, the flat Configure
+  preview, and the Security/Maintain accordions with item selection.
+- **Grammar fix**: "Restart Notification are ENABLED" -> "Restart Notification is ENABLED"
+  (singular noun was kept per the existing `ROADMAP.md` naming decision; the verb was wrong).
+- **`WS_SetPhishingProtection` -> `WS_SetPhishing`**: the retest's dashboard-render harness
+  caught this Met ID (24 chars) wrapping to a second line in the 52-char-wide box. Shortened
+  and renamed the matching `AtomicScripts/*.ps1` file to match; confirmed the line no longer
+  wraps.
+- **Firewall-check flakiness hardened**: the retest's `winauto_audit.json` reported
+  `WindowsFirewall: false` despite all three profiles actually being enabled — a transient
+  `Get-NetFirewallProfile` hiccup (CIM-backed, occasionally throws under load) that the
+  existing `try/catch` silently swallowed into a wrong-but-safe `false`. Added a shared
+  `Test-FirewallCompliant` helper (retries up to 3x, 300ms apart) and replaced all three
+  duplicate inline copies of this check (audit generation, CLI-path discovery, and the
+  interactive dashboard's discovery block) with calls to it.

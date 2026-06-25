@@ -20,7 +20,7 @@ This document outlines the planned improvements, bug fixes, UI tweaks, and archi
 - [x] **Dual Cursor Indicator:** Change the cursor to wrap the selected line with a `>` in the left margin and a `<` in the right margin, and highlight the selection with `FGBlack` on `BGYellow`.
 - [x] **Smart Run Indentation:** Ensure `| Smart Run |` has consistent indentation regardless of whether it is selected or not.
 - [x] **Column Alignment:** Fix the vertical alignment of the `|` characters (shift the "Atomic Script" column left by 2 spaces).
-- [ ] **Global Color Matching (PRIORITY):** Globally update FG/BG colors for all secondary pages (post-dashboard) to match the dashboard's palette.
+- [x] **Global Color Matching (PRIORITY):** Done 2026-06-25 — consolidated `wa.ps1` down to the 5 documented semantic colors (plus Red, plus Dark Yellow/Dark Red reserved for the footer and the `= ATOMIC SCRIPTS =` banner) across the dashboard *and* every secondary page (Configuration/Maintenance/Audit step output), removing 14 now-dead palette entries. Verified with a real full SmartRun execution and an isolated dashboard-render harness covering both Landing pages, the flat Configure preview, and the Security/Maintain accordions — no stray colors found.
 - [x] **Audit Scanner Indentation:** Indent the "Running Automated System Audit Scanner..." text by 4 spaces.
 - [x] **Exit Cleanliness:** Prevent the footer from printing a second time upon exit; print the copyright message instead.
 - [x] **Dashboard De-clutter:** Completely remove the `[*] Next Steps: ...` and `================ Windows 11 Posture Audit Complete ================` blocks from the UI.
