@@ -143,11 +143,7 @@ if ($LogPath) {
 }
 
 if ($null -eq $Global:WinAutoLogDir) {
-    # Use Desktop folder
-    $Global:WinAutoLogDir = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::Desktop)
-    if (-not $Global:WinAutoLogDir) {
-        $Global:WinAutoLogDir = Join-Path $env:USERPROFILE "Desktop"
-    }
+    $Global:WinAutoLogDir = Join-Path $env:USERPROFILE "logs"
 }
 
 if (-not (Test-Path $Global:WinAutoLogDir)) { New-Item -ItemType Directory -Force -Path $Global:WinAutoLogDir | Out-Null }
@@ -1974,7 +1970,7 @@ function Invoke-WinAutoConfiguration {
             RebootPending = $s_RebootPending
             Timestamp = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
         }
-        $auditPath = Join-Path $PWD.Path "winauto_audit.json"
+        $auditPath = Join-Path $Global:WinAutoLogDir "winauto_audit.json"
         $auditData | ConvertTo-Json | Out-File -FilePath $auditPath -Force -Encoding utf8
         Write-Host "    [v] Generated winauto_audit.json successfully." -ForegroundColor Cyan
     } catch {
