@@ -143,11 +143,7 @@ if ($LogPath) {
 }
 
 if ($null -eq $Global:WinAutoLogDir) {
-    # Use Desktop folder
-    $Global:WinAutoLogDir = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::Desktop)
-    if (-not $Global:WinAutoLogDir) {
-        $Global:WinAutoLogDir = Join-Path $env:USERPROFILE "Desktop"
-    }
+    $Global:WinAutoLogDir = Join-Path $env:USERPROFILE "logs"
 }
 
 if (-not (Test-Path $Global:WinAutoLogDir)) { New-Item -ItemType Directory -Force -Path $Global:WinAutoLogDir | Out-Null }
@@ -182,40 +178,25 @@ $Global:Reset = "$Esc[0m"
 $Global:Bold = "$Esc[1m"
 $Global:Italic = "$Esc[3m"
 
-# Script Palette (Foreground)
+# Script Palette (Foreground) — the 5 documented semantic colors, plus Red
+# (failure/error text) and Dark Red/Dark Yellow (footer NAVIGATION keys only).
 $Global:FGCyan = "$Esc[96m"
-$Global:FGBlue = "$Esc[94m"
-$Global:FGDarkBlue = "$Esc[34m"
-$Global:FGGreen = "$Esc[92m"
 $Global:FGRed = "$Esc[91m"
 $Global:FGDarkGray = "$Esc[90m"
 $Global:FGDarkRed = "$Esc[31m"
-$Global:FGDarkGreen = "$Esc[32m"
-$Global:FGDarkCyan = "$Esc[36m"
-$Global:FGMagenta = "$Esc[95m"
-$Global:FGDarkMagenta = "$Esc[35m"
-
-
-
 $Global:FGWhite = "$Esc[97m"
 $Global:FGGray = "$Esc[37m"
 $Global:FGBlack = "$Esc[30m"
+$Global:FGDarkYellow = "$Esc[33m"
 
-# Script Palette (Background)
-$Global:BGBlack = "$Esc[40m"
+# Script Palette (Background) — BGCyan pairs with FGBlack for "Inverted Cyan";
+# BGDarkYellow/BGGray are reserved for the footer NAVIGATION keys and the
+# "= ATOMIC SCRIPTS =" banner. BGDarkGreen/BGDarkGray belong to Write-FlexLine
+# (currently unused by any caller).
 $Global:BGDarkGreen = "$Esc[42m"
 $Global:BGDarkGray = "$Esc[100m"
-$Global:BGRed = "$Esc[41m"
-$Global:BGDarkRed = "$Esc[41m"
-$Global:BGDarkCyan = "$Esc[46m"
 $Global:BGCyan = "$Esc[106m"
-$Global:BGWhite = "$Esc[107m"
 $Global:BGGray = "$Esc[47m"
-
-# Legacy color mapping for backwards compatibility during refactor
-$Global:FGYellow = $Global:FGCyan
-$Global:FGDarkYellow = "$Esc[33m"
-$Global:BGYellow = $Global:BGCyan
 $Global:BGDarkYellow = "$Esc[43m"
 
 # --- Unicode Icons & Characters ---
@@ -291,12 +272,12 @@ function Write-Log {
             } elseif ($actualHash -ne $KnownAuditScriptHash.ToLower().Replace("-","")) {
                 # Hash mismatch — possible tampering; block and quarantine
                 Write-LeftAligned "${Global:FGRed}[!] AUDIT SCRIPT HASH MISMATCH — Execution blocked.${Global:Reset}" -Indent 2
-                Write-LeftAligned "${Global:FGDarkRed}[!] Expected : $KnownAuditScriptHash${Global:Reset}" -Indent 2
-                Write-LeftAligned "${Global:FGDarkRed}[!] Actual   : $actualHash${Global:Reset}" -Indent 2
+                Write-LeftAligned "${Global:FGRed}[!] Expected : $KnownAuditScriptHash${Global:Reset}" -Indent 2
+                Write-LeftAligned "${Global:FGRed}[!] Actual   : $actualHash${Global:Reset}" -Indent 2
                 Write-Log "Remote audit BLOCKED: hash mismatch. Expected=$KnownAuditScriptHash Actual=$actualHash" -Level "ERROR"
                 $quarantine = Join-Path $env:TEMP "WinAuto_AuditScript_QUARANTINE.ps1"
                 $auditStr | Out-File -FilePath $quarantine -Encoding utf8 -Force
-                Write-LeftAligned "${Global:FGDarkRed}[!] Quarantined to: $quarantine — review before trusting.${Global:Reset}" -Indent 2
+                Write-LeftAligned "${Global:FGRed}[!] Quarantined to: $quarantine — review before trusting.${Global:Reset}" -Indent 2
 
             } else {
                 # Hash verified — safe to execute
@@ -415,11 +396,15 @@ function Write-ColItem {
 }
 
 function Write-MaintItem {
-    param($Txt, $Met, $Key, [int]$Threshold = 7, [int]$ToggleValue = 0, [bool]$IsSelected = $false) 
-    
+    param($Txt, $Met, $Key, [int]$Threshold = 7, [int]$ToggleValue = 0, [bool]$IsSelected = $false, [switch]$AlwaysRun)
+
     $isPendingRun = $false
     $prefix = "-"
-    if ($Key) {
+    if ($AlwaysRun) {
+        $isPendingRun = $true
+        $prefix = "v"
+    }
+    elseif ($Key) {
         $last = Get-WinAutoLastRun -Module $Key
         if ($last -eq "Never") { $isPendingRun = $true; $prefix = "!" }
         else {
@@ -430,7 +415,7 @@ function Write-MaintItem {
             } catch { $isPendingRun = $true; $prefix = "!" }
         }
     }
-    
+
     if ($Global:Toggle_MaintainForced -eq 1 -or $ToggleValue -eq 1) {
         $prefix = "v"
         $isPendingRun = $true
@@ -597,87 +582,6 @@ function Test-IsWindows11 {
 }
 Test-IsWindows11
 
-# --- CONSOLE SETTINGS ---
-function Set-ConsoleSnapRight {
-    param([int]$Columns = 60)
-    
-    # 1. Terminal Check
-    if ($env:WT_SESSION) { return }
-
-    try {
-        $code = @"
-        using System;
-        using System.Runtime.InteropServices;
-        namespace WinAutoNative {
-            [StructLayout(LayoutKind.Sequential)]
-            public struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
-            public class ConsoleUtils {
-                [DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();
-                [DllImport("user32.dll")] public static extern bool MoveWindow(IntPtr hWnd, int X, int Y, int nWidth, int nHeight, bool bRepaint);
-                [DllImport("user32.dll")] public static extern int GetSystemMetrics(int nIndex);
-                [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
-                [DllImport("user32.dll")] public static extern bool SystemParametersInfo(int uiAction, int uiParam, out RECT pvParam, int fWinIni);
-            }
-        }
-"@
-        if (-not ([System.Management.Automation.PSTypeName]"WinAutoNative.ConsoleUtils").Type) {
-            Add-Type -TypeDefinition $code -ErrorAction SilentlyContinue
-        }
-        
-        $hWnd = [WinAutoNative.ConsoleUtils]::GetConsoleWindow()
-        if ($hWnd -eq [IntPtr]::Zero) { return }
-
-        $buffer = $Host.UI.RawUI.BufferSize
-        $window = $Host.UI.RawUI.WindowSize
-        $targetHeight = $Host.UI.RawUI.MaxWindowSize.Height
-        
-        # 2. Resize Logic (Safe Order)
-        if ($Columns -ne $window.Width) {
-            if ($Columns -lt $window.Width) {
-                # Shrinking: Set Window first
-                $window.Width = $Columns; $Host.UI.RawUI.WindowSize = $window
-                $buffer.Width = $Columns; $Host.UI.RawUI.BufferSize = $buffer
-            }
-            else {
-                # Growing: Set Buffer first
-                $buffer.Width = $Columns; $Host.UI.RawUI.BufferSize = $buffer
-                $window.Width = $Columns; $Host.UI.RawUI.WindowSize = $window
-            }
-        }
-
-        if ($buffer.Height -lt $targetHeight) {
-            $buffer.Height = $targetHeight
-            $Host.UI.RawUI.BufferSize = $buffer
-        }
-        $window.Height = $targetHeight
-        $Host.UI.RawUI.WindowSize = $window
-
-        # 3. SNAP-RIGHT LOGIC
-        Start-Sleep -Milliseconds 150 # Brief pause for rendering
-
-        # Get the WorkArea (Usable screen excluding Taskbar)
-        $workArea = New-Object WinAutoNative.RECT
-        $SPI_GETWORKAREA = 0x0030
-        if ([WinAutoNative.ConsoleUtils]::SystemParametersInfo($SPI_GETWORKAREA, 0, [ref]$workArea, 0)) {
-            $waHeight = $workArea.Bottom - $workArea.Top
-            
-            # Get actual pixel dimensions of the current window
-            $winRect = New-Object WinAutoNative.RECT
-            if ([WinAutoNative.ConsoleUtils]::GetWindowRect($hWnd, [ref]$winRect)) {
-                $pixelW = $winRect.Right - $winRect.Left
-                
-                # Target: Flush to the right edge of the work area
-                $targetX = $workArea.Right - $pixelW
-                $targetY = $workArea.Top
-                
-                # Force movement
-                [WinAutoNative.ConsoleUtils]::MoveWindow($hWnd, $targetX, $targetY, $pixelW, $waHeight, $true) | Out-Null
-            }
-        }
-    }
-    catch { }
-}
-
 
 
 
@@ -802,7 +706,7 @@ function Write-WrappedError {
 }
 
 function Write-Boundary {
-    param([string]$Color = $FGYellow)
+    param([string]$Color = $Global:FGCyan)
     Add-DashLine ("  " + $Color + ([string]'_' * 52) + $Reset)
 }
 
@@ -834,7 +738,7 @@ function Write-Header {
         [switch]$NoBottom
     )
     Start-Sleep -Seconds 2
-    Clear-Host
+    try { Clear-Host } catch {}
     Write-Host ""
     $WinAutoTitle = "AtomicScripts"
     Write-Centered "$Bold$FGCyan$WinAutoTitle$Reset" -Width 52
@@ -970,10 +874,10 @@ function Test-PauseRequest {
             $key = [Console]::ReadKey($true)
             if ($key.Key -eq 'P' -or $key.Key -eq 'Space') {
                 Write-Host ""
-                Write-Boundary -Color $Global:FGYellow
-                Write-Centered "$Global:FGBlack$Global:BGYellow [ SCRIPT PAUSED ] $Global:Reset" -Width 52
+                Write-Boundary -Color $Global:FGCyan
+                Write-Centered "$Global:FGBlack$Global:BGCyan [ SCRIPT PAUSED ] $Global:Reset" -Width 52
                 Write-LeftAligned "Script execution paused. Press any key to resume..." -Indent 2
-                Write-Boundary -Color $Global:FGYellow
+                Write-Boundary -Color $Global:FGCyan
                 $null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
                 Write-LeftAligned "Resuming..." -Indent 2
                 Write-Boundary
@@ -1004,6 +908,8 @@ function Invoke-WA_SetPSTranscription {
     <#
 .SYNOPSIS
     Enables PowerShell Transcription.
+.LOCATION
+    none (registry/GPO-only)
 .DESCRIPTION
     Sets EnableTranscripting to 1 in HKLM registry.
     Includes Reverse Mode (-r).
@@ -1023,6 +929,8 @@ function Invoke-WA_SetTelemetry {
     <#
 .SYNOPSIS
     Disables the "Send optional diagnostic data" toggle via the Settings app UI.
+.LOCATION
+    Settings > Privacy & Security > Diagnostics & feedback
 .DESCRIPTION
     Drives the Settings > Privacy & Security > Diagnostics & feedback toggle
     instead of writing HKLM Policies\Microsoft\Windows\DataCollection\AllowTelemetry,
@@ -1127,6 +1035,8 @@ function Invoke-WA_SetLLMNR {
     <#
 .SYNOPSIS
     Disables LLMNR.
+.LOCATION
+    none (registry/GPO-only)
 .DESCRIPTION
     Sets EnableMulticast to 0 in HKLM registry.
     Includes Reverse Mode (-r).
@@ -1146,6 +1056,8 @@ function Invoke-WA_SetPSScriptBlock {
     <#
 .SYNOPSIS
     Enables PowerShell Script Block Logging.
+.LOCATION
+    none (registry/GPO-only)
 .DESCRIPTION
     Sets EnableScriptBlockLogging to 1 in HKLM registry.
     Includes Reverse Mode (-r).
@@ -1165,6 +1077,8 @@ function Invoke-WA_SetPSModuleLogging {
     <#
 .SYNOPSIS
     Enables PowerShell Module Logging.
+.LOCATION
+    none (registry/GPO-only)
 .DESCRIPTION
     Sets EnableModuleLogging to 1 in HKLM registry and enables * module names.
     Includes Reverse Mode (-r).
@@ -1189,6 +1103,8 @@ function Invoke-WA_SetNetBIOS {
     <#
 .SYNOPSIS
     Disables NetBIOS over TCP/IP.
+.LOCATION
+    Network adapter Properties > IPv4 > Advanced > WINS tab
 .DESCRIPTION
     Sets TcpipNetbiosOptions to 2 (Disable) on all IP-enabled network adapters.
     Includes Reverse Mode (-r).
@@ -1214,6 +1130,8 @@ function Invoke-WA_SetShowExtensions {
     <#
 .SYNOPSIS
     Configures File Extensions visibility.
+.LOCATION
+    File Explorer > View > Show
 .DESCRIPTION
     Sets HideFileExt in HKCU explorer advanced settings.
     Includes Reverse Mode (-r).
@@ -1231,6 +1149,8 @@ function Invoke-WA_SetShowHidden {
     <#
 .SYNOPSIS
     Configures Hidden Files visibility.
+.LOCATION
+    File Explorer > View > Show
 .DESCRIPTION
     Sets Hidden and ShowSuperHidden in HKCU explorer advanced settings.
     Includes Reverse Mode (-r).
@@ -1250,6 +1170,8 @@ function Invoke-WA_SetSmartScreenReg {
     <#
 .SYNOPSIS
     Enables SmartScreen Filter via Registry and Set-MpPreference.
+.LOCATION
+    Windows Security > App & browser control > Reputation-based protection settings
 .DESCRIPTION
     Standardized for WinAuto.
     Sets ShellSmartScreenLevel to Warn (or RequireAdmin) in HKLM registry and calls Set-MpPreference.
@@ -1271,7 +1193,7 @@ function Invoke-WA_SetSmartScreenReg {
     }
     catch {
         Write-WrappedError $_.Exception.Message
-        Write-LeftAligned "$FGDarkYellow  Hint: Tamper Protection might be blocking this.$Reset"
+        Write-LeftAligned "$FGGray  Hint: Tamper Protection might be blocking this.$Reset"
     }
 }
 
@@ -1279,6 +1201,8 @@ function Invoke-WA_SetVirusThreatProtectReg {
     <#
 .SYNOPSIS
     Enables Real-Time Protection via Registry and Set-MpPreference.
+.LOCATION
+    Windows Security > Virus & threat protection > Manage settings
 .DESCRIPTION
     Standardized for WinAuto.
     Sets DisableRealtimeMonitoring to 0 in HKLM registry and calls Set-MpPreference.
@@ -1292,24 +1216,59 @@ function Invoke-WA_SetVirusThreatProtectReg {
         [switch]$Reverse
     )
     Write-Header "VIRUS THREAT PROTECTION (REG)"
+
+    # Non-policy Defender key only — the Policies\Microsoft\Windows Defender path
+    # would lock Windows Security's Real-Time Protection toggle as "managed by
+    # your organization." Set-MpPreference already applies the effect.
+    # A prior run of the old version may have left that Policies value behind,
+    # which locks the toggle regardless of what this does now — remove it.
+    Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection" -Name "DisableRealtimeMonitoring" -Force -ErrorAction SilentlyContinue
+
+    # --- PRE-CHECK: 3RD PARTY AV ---
+    $avName = $null
+    try {
+        $avList = Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntivirusProduct -ErrorAction SilentlyContinue
+        foreach ($av in $avList) {
+            if ($av.displayName -and $av.displayName -notmatch "Windows Defender" -and $av.displayName -notmatch "Microsoft Defender Antivirus") {
+                $avName = $av.displayName
+                break
+            }
+        }
+    }
+    catch {}
+    if ($avName) {
+        Write-LeftAligned "$FGGray[-] Real-Time Protection managed by $avName.$Reset"
+        return
+    }
+
     $val = if ($Reverse) { 1 } else { 0 }
     $mpVal = if ($Reverse) { $true } else { $false }
+    $status = if ($Reverse) { "DISABLED" } else { "ENABLED" }
+
+    # --- PRE-CHECK: TAMPER PROTECTION ---
+    $tp = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows Defender\Features" -Name "TamperProtection" -ErrorAction SilentlyContinue).TamperProtection
+    if ($tp -eq 5) {
+        Write-LeftAligned "$FGCyan$Char_Warn Tamper Protection is ENABLED and blocking changes.$Reset"
+        return
+    }
+
     try {
-        # Non-policy Defender key only — the Policies\Microsoft\Windows Defender path
-        # would lock Windows Security's Real-Time Protection toggle as "managed by
-        # your organization." Set-MpPreference already applies the effect.
-        # A prior run of the old version may have left that Policies value behind,
-        # which locks the toggle regardless of what this does now — remove it.
-        Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection" -Name "DisableRealtimeMonitoring" -Force -ErrorAction SilentlyContinue
         $Path = "HKLM:\SOFTWARE\Microsoft\Windows Defender\Real-Time Protection"
         if (-not (Test-Path $Path)) { New-Item -Path $Path -Force -ErrorAction SilentlyContinue | Out-Null }
         Set-ItemProperty -Path $Path -Name "DisableRealtimeMonitoring" -Value $val -Type DWord -Force -ErrorAction SilentlyContinue
         Set-MpPreference -DisableRealtimeMonitoring $mpVal -ErrorAction Stop
-        Write-LeftAligned "$FGCyan$Char_HeavyCheck Virus & Threat Protection Registry keys set.$Reset"
+
+        $current = (Get-MpPreference).DisableRealtimeMonitoring
+        if ($current -eq $mpVal) {
+            Write-LeftAligned "$FGCyan$Char_HeavyCheck Real-Time Protection is $status.$Reset"
+        }
+        else {
+            Write-LeftAligned "$FGCyan$Char_Warn Real-Time Protection verification failed.$Reset"
+        }
     }
     catch {
         Write-WrappedError $_.Exception.Message
-        Write-LeftAligned "$FGDarkYellow  Hint: Tamper Protection might be blocking this.$Reset"
+        Write-LeftAligned "$FGGray  Hint: Tamper Protection might be blocking this.$Reset"
     }
 }
 
@@ -1317,6 +1276,8 @@ function Invoke-WA_SetKernelModeReg {
     <#
 .SYNOPSIS
     Enables Kernel-mode Hardware-enforced Stack Protection via Registry.
+.LOCATION
+    Windows Security > Device security > Core isolation details
 .DESCRIPTION
     Standardized for WinAuto.
     Sets KernelShadowStacks Enabled value to 1 (On) or 0 (Off) in HKLM registry.
@@ -1344,11 +1305,12 @@ function Invoke-WA_SetKernelModeReg {
     }
     catch {
         Write-WrappedError $_.Exception.Message
-        Write-LeftAligned "$FGDarkYellow  Hint: Tamper Protection might be blocking this.$Reset"
+        Write-LeftAligned "$FGGray  Hint: Tamper Protection might be blocking this.$Reset"
     }
 }
 
 function Invoke-WA_SetSmartScreen {
+    # UI Location: Windows Security > App & browser control > Reputation-based protection settings (same as SetSmartScreenReg)
     Write-Header "SMARTSCREEN FILTER (UIA)"
     
     # UIA Preparation
@@ -1431,6 +1393,7 @@ function Invoke-WA_SetSmartScreen {
 
 
 function Invoke-WA_SetVirusThreatProtect {
+    # UI Location: Windows Security > Virus & threat protection > Manage settings
     Write-Header "VIRUS & THREAT PROTECTION (UIA)"
     
     # UIA Preparation
@@ -1467,7 +1430,7 @@ function Invoke-WA_SetVirusThreatProtect {
     } while ((Get-Date) -lt $startTime.AddSeconds($timeout))
 
     if ($window) {
-        Write-LeftAligned "$FGGreen$Global:Char_HeavyCheck Window found.$Reset"
+        Write-LeftAligned "$FGCyan$Global:Char_HeavyCheck Window found.$Reset"
 
         # Force foreground so the page content actually renders into the UIA tree.
         Set-WinAutoForeground -Window $window
@@ -1480,7 +1443,7 @@ function Invoke-WA_SetVirusThreatProtect {
             $cond = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, $t)
             $button = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $cond)
             if ($button) { 
-                Write-LeftAligned "$FGGreen$Global:Char_HeavyCheck Found '$t' button.$Reset"
+                Write-LeftAligned "$FGCyan$Global:Char_HeavyCheck Found '$t' button.$Reset"
                 break 
             }
         }
@@ -1490,11 +1453,11 @@ function Invoke-WA_SetVirusThreatProtect {
                 $invokePattern = $button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
                 if ($invokePattern) {
                     $invokePattern.Invoke()
-                    Write-LeftAligned "$FGGreen$Global:Char_HeavyCheck Clicked button.$Reset"
+                    Write-LeftAligned "$FGCyan$Global:Char_HeavyCheck Clicked button.$Reset"
                     Start-Sleep -Seconds 1
                 }
                 else {
-                    Write-LeftAligned "$FGDarkYellow$Global:Char_Warn Button found but not clickable.$Reset"
+                    Write-LeftAligned "$FGCyan$Global:Char_Warn Button found but not clickable.$Reset"
                 }
             }
             catch {
@@ -1520,28 +1483,6 @@ function Invoke-WA_SetVirusThreatProtect {
 
 
 
-# --- MAINTENANCE STATE HELPERS ---
-
-function Test-WA_MaintenanceRecentlyComplete {
-    # Check if all maintenance tasks were run within their thresholds
-    $tasks = @(
-        @{ Key = "Maintenance_SFC"; Days = 30 },
-        @{ Key = "Maintenance_Disk"; Days = 7 },
-        @{ Key = "Maintenance_Cleanup"; Days = 7 },
-        @{ Key = "Maintenance_WinUpdate"; Days = 1 }
-    )
-    foreach ($task in $tasks) {
-        $last = Get-WinAutoLastRun -Module $task.Key
-        if ($last -eq "Never") { return $false }
-        try {
-            $date = Get-Date $last
-            if ((Get-Date) -gt $date.AddDays($task.Days)) { return $false }
-        }
-        catch { return $false }
-    }
-    return $true
-}
-
 # --- ATTESTATION HELPERS (Global Access) ---
 function Get-ThirdPartyAV {
     try {
@@ -1558,6 +1499,15 @@ function Get-ThirdPartyAV {
 
 function Test-Reg { param($P, $N, $V) try { (Get-ItemProperty $P $N -EA 0).$N -eq $V } catch { $false } }
 function Get-RegDefault { param($P) try { (Get-ItemProperty $P -Name "(default)" -EA 0)."(default)" } catch { $null } }
+
+function Test-FirewallCompliant {
+    # Get-NetFirewallProfile is CIM-backed and occasionally throws transiently under load; retry before reporting non-compliant.
+    for ($i = 0; $i -lt 3; $i++) {
+        try { return (Get-NetFirewallProfile | Where-Object { -not $_.Enabled }).Count -eq 0 }
+        catch { Start-Sleep -Milliseconds 300 }
+    }
+    return $false
+}
 
 function Sync-ToggleStates {
     param($s_Ctx, $s_Task, $s_View)
@@ -1616,12 +1566,12 @@ function Invoke-WA_SystemPreCheck {
     $os = Get-CimInstance Win32_OperatingSystem
     Write-LeftAligned "$FGWhite OS: $($os.Caption) ($($os.Version))$Reset"
     $uptime = (Get-Date) - $os.LastBootUpTime
-    $color = & { if ($uptime.Days -gt 7) { $FGRed } else { $FGGreen } }
+    $color = & { if ($uptime.Days -gt 7) { $FGRed } else { $FGWhite } }
     Write-LeftAligned "$FGWhite Uptime: $color$($uptime.Days) days$Reset"
     
     $drive = Get-Volume -DriveLetter C
     $freeGB = [math]::Round($drive.SizeRemaining / 1GB, 2)
-    $dColor = & { if ($freeGB -lt 10) { $FGRed } else { $FGGreen } }
+    $dColor = & { if ($freeGB -lt 10) { $FGRed } else { $FGWhite } }
     Write-LeftAligned "$FGWhite Free Space (C:): $dColor$freeGB GB$Reset"
     
     $pending = $false
@@ -1634,6 +1584,7 @@ function Invoke-WA_SystemPreCheck {
 }
 
 function Invoke-WA_WindowsUpdate {
+    # UI Location: Settings > Windows Update (also opens Microsoft Store > Library / Downloads & updates)
     Write-Header "WINDOWS UPDATE SCAN"
 
     # UIA Preparation
@@ -1649,7 +1600,7 @@ function Invoke-WA_WindowsUpdate {
     }
 
     Write-Host ""
-    Write-Centered "$Global:Char_EnDash STORE & SETTINGS $Global:Char_EnDash" -Width 52 -Color "$Bold$FGDarkYellow"
+    Write-Centered "$Global:Char_EnDash STORE & SETTINGS $Global:Char_EnDash" -Width 52 -Color "$Bold$FGWhite"
 
     # 2. Windows Update Settings (UIA)
     Write-LeftAligned "Opening Windows Update Settings..."
@@ -1788,7 +1739,7 @@ function Invoke-WinAutoConfiguration {
             $s_SS = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" -Name "SmartScreenEnabled" -EA 0).SmartScreenEnabled -in @("RequireAdmin", "Warn")
           }
     } catch { Write-Log -Message "[Discovery] Defender check: $_" -Level "WARN"; $s_RT = $false; $s_PUA = $false; $s_SS = $false }
-    try { $s_FW = (Get-NetFirewallProfile | Where-Object { -not $_.Enabled }).Count -eq 0 } catch { Write-Log -Message "[Discovery] Firewall check: $_" -Level "WARN"; $s_FW = $false }
+    try { $s_FW = Test-FirewallCompliant } catch { Write-Log -Message "[Discovery] Firewall check: $_" -Level "WARN"; $s_FW = $false }
     $s_Mem = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity" "Enabled" 1
     $s_Kern = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\KernelShadowStacks" "Enabled" 1
     $s_LSA = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" "RunAsPPL" 1
@@ -1837,11 +1788,16 @@ function Invoke-WinAutoConfiguration {
         ($null -ne (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager" -Name "PendingFileRenameOperations" -ErrorAction SilentlyContinue))
     )
 
-    $configActive = if ($false -eq $s_RT -or $false -eq $s_PUA -or $false -eq $s_Edge -or $false -eq $s_FW -or $false -eq $s_Ctx -or $false -eq $s_Task -or $false -eq $s_View -or $false -eq $s_MU -or $false -eq $s_Rest -or $false -eq $s_Pers -or $false -eq $s_Mem -or $false -eq $s_Kern -or $false -eq $s_LSA -or $false -eq $s_SS -or $false -eq $s_PSTrans -or $false -eq $s_Telemetry -or $false -eq $s_LLMNR -or $false -eq $s_PSScript -or $false -eq $s_PSModule -or $false -eq $s_NetBIOS -or $false -eq $s_ShowExt -or $false -eq $s_ShowHidden -or $false -eq $s_Metered -or $false -eq $s_ARSO -or $false -eq $s_StoreSS -or $false -eq $s_Phish -or $false -eq $s_HideAdmin -or $false -eq $s_AdvID -or $false -eq $s_Anim -or $false -eq $s_VisFX) { $true } else { $false }
+    # SmartRun re-applies default-enabled settings only once every 30 days,
+    # regardless of their current compliance state. "Get Updates" is the only
+    # step that always runs every time the script runs (see Invoke-WinAutoMaintenance).
+    $lastFullRun = Get-WinAutoLastRun -Module "WinAuto"
+    $daysSinceLastRun = if ($lastFullRun -eq "Never") { [int]::MaxValue } else { try { ((Get-Date) - (Get-Date $lastFullRun)).Days } catch { [int]::MaxValue } }
+    $thirtyDayGateOpen = $daysSinceLastRun -gt 30
 
-    if ($SmartRun -and -not $configActive) {
+    if ($SmartRun -and -not $thirtyDayGateOpen) {
         Write-Boundary
-        Write-LeftAligned "$FGCyan$Global:Char_CheckMark All Configuration states are ENABLED. Skipping execution phase.$Reset"
+        Write-LeftAligned "$FGCyan$Global:Char_CheckMark Less than 30 days since the last full run. Skipping Configuration phase.$Reset"
         Write-Boundary
         Write-Centered "$FGCyan CONFIGURATION COMPLETE $Reset" -Width 52
         Set-WinAutoLastRun -Module "Configuration"
@@ -1851,17 +1807,18 @@ function Invoke-WinAutoConfiguration {
 
     Write-Boundary
 
-    # Helper to only run if state is not enabled
+    # Helper: in SmartRun, a step only runs if it's default-enabled (ToggleValue)
+    # AND the 30-day gate is open; in ManualMode, a step runs whenever toggled on.
     function Invoke-Smart {
         param($Script, $Status, $ToggleValue = 1)
         Test-PauseRequest
-        $run = if ($SmartRun) { ($null -eq $Status -or $false -eq $Status -or "ForceRun" -eq $Status) -and ($ToggleValue -eq 1) } else { $ToggleValue -eq 1 }
-        
-        if ($run) { 
-            & $Script 
+        $run = if ($SmartRun) { ($ToggleValue -eq 1) -and $thirtyDayGateOpen } else { $ToggleValue -eq 1 }
+
+        if ($run) {
+            & $Script
         } else {
             if ($SmartRun -and ($ToggleValue -eq 1)) {
-                Write-LeftAligned "$FGCyan$Global:Char_CheckMark Skipping $($Script.ToString().Replace('Invoke-WA_','')) (Already Enabled).$Reset"
+                Write-LeftAligned "$FGCyan$Global:Char_CheckMark Skipping $($Script.ToString().Replace('Invoke-WA_','')) (Last full run < 30 days ago).$Reset"
             }
         }
     }
@@ -1995,7 +1952,7 @@ function Invoke-WinAutoConfiguration {
             MemoryIntegrity = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity" "Enabled" 1
             KernelStackProtection = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\KernelShadowStacks" "Enabled" 1
             LSAProtection = Test-Reg "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" "RunAsPPL" 1
-            WindowsFirewall = $(try { (Get-NetFirewallProfile | Where-Object { -not $_.Enabled }).Count -eq 0 } catch { $false })
+            WindowsFirewall = $(try { Test-FirewallCompliant } catch { $false })
             ClassicContextMenu = $s_Ctx
             TaskbarSearchBox = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" "SearchboxTaskbarMode" 3
             TaskViewToggle = Test-Reg "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "ShowTaskViewButton" 0
@@ -2013,7 +1970,7 @@ function Invoke-WinAutoConfiguration {
             RebootPending = $s_RebootPending
             Timestamp = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
         }
-        $auditPath = Join-Path $PWD.Path "winauto_audit.json"
+        $auditPath = Join-Path $Global:WinAutoLogDir "winauto_audit.json"
         $auditData | ConvertTo-Json | Out-File -FilePath $auditPath -Force -Encoding utf8
         Write-Host "    [v] Generated winauto_audit.json successfully." -ForegroundColor Cyan
     } catch {
@@ -2034,84 +1991,62 @@ function Invoke-WinAutoMaintenance {
     $lastRun = Get-WinAutoLastRun -Module "Maintenance"
     Write-LeftAligned "$FGGray Last Run: $FGWhite$lastRun$Reset"
 
-    # Check if all maintenance tasks have 0 days since last run
-    $mKeys = @("Maintenance_WinUpdate", "Maintenance_Disk", "Maintenance_Cleanup", "Maintenance_SFC")
-    $allZero = $true
-    if ($Global:Toggle_MaintainForced -eq 1 -or $Global:Toggle_MaintUpdate -eq 1 -or $Global:Toggle_MaintDisk -eq 1 -or $Global:Toggle_MaintCleanup -eq 1 -or $Global:Toggle_MaintSFC -eq 1) {
-        $allZero = $false
-    } else {
-        foreach ($k in $mKeys) {
-            $lr = Get-WinAutoLastRun -Module $k
-            if ($lr -eq "Never") { $allZero = $false; break }
-            try {
-                $days = ((Get-Date) - (Get-Date $lr)).Days
-                if ($days -ne 0) { $allZero = $false; break }
-            } catch { $allZero = $false; break }
-        }
-    }
+    # "Get Updates" always runs, every time the script runs. Every other
+    # maintenance step runs only if it's default-enabled (ToggleValue) AND
+    # the 30-day gate is open (see Get-WinAutoLastRun -Module "WinAuto").
+    $lastFullRun = Get-WinAutoLastRun -Module "WinAuto"
+    $daysSinceLastRun = if ($lastFullRun -eq "Never") { [int]::MaxValue } else { try { ((Get-Date) - (Get-Date $lastFullRun)).Days } catch { [int]::MaxValue } }
+    $thirtyDayGateOpen = $daysSinceLastRun -gt 30
 
-    if ($allZero) {
-        Write-Boundary
-        Write-LeftAligned "$FGCyan$Global:Char_CheckMark All maintenance tasks were run today (0 days since last run). Skipping Maintenance section.$Reset"
-        Write-Boundary
-        Write-Centered "$FGGreen MAINTENANCE SKIPPED $Reset" -Width 52
-        Set-WinAutoLastRun -Module "Maintenance"
-        Start-Sleep -Seconds 2
-        return
-    }
-    
     function Test-RunNeeded {
-        param($Key, $Days)
+        param($Key, [int]$ToggleValue = 0)
         if ($Global:Toggle_MaintainForced -eq 1) { return $true }
-        if ($Key -eq "Maintenance_WinUpdate" -and $Global:Toggle_MaintUpdate -eq 1) { return $true }
-        if ($Key -eq "Maintenance_Disk" -and $Global:Toggle_MaintDisk -eq 1) { return $true }
-        if ($Key -eq "Maintenance_Cleanup" -and $Global:Toggle_MaintCleanup -eq 1) { return $true }
-        if ($Key -eq "Maintenance_SFC" -and $Global:Toggle_MaintSFC -eq 1) { return $true }
+        if ($Key -eq "Maintenance_WinUpdate") { return $true }
         if (-not $SmartRun) {
             $anyToggled = ($Global:Toggle_MaintUpdate -eq 1 -or $Global:Toggle_MaintDisk -eq 1 -or $Global:Toggle_MaintCleanup -eq 1 -or $Global:Toggle_MaintSFC -eq 1)
             if (-not $anyToggled) { return $true }
+            return $ToggleValue -eq 1
         }
-        if (-not $SmartRun) { return $false }
-        $last = Get-WinAutoLastRun -Module $Key
-        if ($last -eq "Never") { return $true }
-        $date = Get-Date $last
-        if ((Get-Date) -gt $date.AddDays($Days)) { return $true }
-        Write-LeftAligned "$FGCyan$Global:Char_CheckMark Skipping $Key (Run < $Days days ago).$Reset"
-        return $false
+        if ($ToggleValue -ne 1) { return $false }
+        if (-not $thirtyDayGateOpen) {
+            Write-LeftAligned "$FGCyan$Global:Char_CheckMark Skipping $Key (Last full run < 30 days ago).$Reset"
+            return $false
+        }
+        return $true
     }
 
     try {
         Write-Boundary
         Invoke-WA_SystemPreCheck
-    
+
         Test-PauseRequest
-        if (Test-RunNeeded -Key "Maintenance_SFC" -Days 30) {
+        if (Test-RunNeeded -Key "Maintenance_SFC" -ToggleValue $Global:Toggle_MaintSFC) {
             Invoke-WA_WindowsRepair
             Set-WinAutoLastRun -Module "Maintenance_SFC"
         }
-    
+
         Test-PauseRequest
-        if (Test-RunNeeded -Key "Maintenance_Disk" -Days 7) {
+        if (Test-RunNeeded -Key "Maintenance_Disk" -ToggleValue $Global:Toggle_MaintDisk) {
             Invoke-WA_OptimizeDisks
             Set-WinAutoLastRun -Module "Maintenance_Disk"
         }
-    
+
         Test-PauseRequest
-        if (Test-RunNeeded -Key "Maintenance_Cleanup" -Days 7) {
+        if (Test-RunNeeded -Key "Maintenance_Cleanup" -ToggleValue $Global:Toggle_MaintCleanup) {
             Invoke-WA_SystemCleanup
             Set-WinAutoLastRun -Module "Maintenance_Cleanup"
         }
-    
+
         Test-PauseRequest
-        # Run Windows Update (Skip if run in last 24 hours)
-        if (Test-RunNeeded -Key "Maintenance_WinUpdate" -Days 1) {
+        # Get Updates always runs (see Test-RunNeeded above).
+        if (Test-RunNeeded -Key "Maintenance_WinUpdate" -ToggleValue $Global:Toggle_MaintUpdate) {
             Invoke-WA_WindowsUpdate
             Set-WinAutoLastRun -Module "Maintenance_WinUpdate"
         }
 
 
         Write-Host ""
-        Write-Centered "$FGGreen MAINTENANCE COMPLETE $Reset" -Width 52
+        Write-Centered "$FGCyan MAINTENANCE COMPLETE $Reset" -Width 52
         Set-WinAutoLastRun -Module "Maintenance"
         Start-Sleep -Seconds 2
     }
@@ -2127,76 +2062,12 @@ function Invoke-WinAutoMaintenance {
 
 # --- EMBEDDED ATOMIC SCRIPTS ---
 
-function Invoke-WA_SetRealTimeProt {
-    <#
-.SYNOPSIS
-    Enables or Disables Real-time Protection.
-.DESCRIPTION
-    Standardized for WinAuto. Checks for Tamper Protection before changes.
-    Standalone version.
-    Includes Reverse Mode (-r).
-.PARAMETER Reverse
-    (Alias: -r) Reverses the setting (Disables Real-time Protection).
-#>
-    param(
-        [Parameter(Mandatory = $false)]
-        [Alias('r')]
-        [switch]$Reverse
-    )
-    Write-Header "REAL-TIME PROTECTION"
-    
-    # --- PRE-CHECK: 3RD PARTY AV ---
-    try {
-        $avList = Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntivirusProduct -ErrorAction SilentlyContinue
-        foreach ($av in $avList) {
-            # 397568 is typical implementation for Defender, but name check is robust
-            if ($av.displayName -and $av.displayName -notmatch "Windows Defender" -and $av.displayName -notmatch "Microsoft Defender Antivirus") {
-                # UI Update: Show [-] in DarkGray for 3rd Party AV
-                Write-LeftAligned "[$FGDarkGray-$Reset] Real-time Protection managed by $($av.displayName)."
-                
-                # Footer
-                Write-Host ""
-                $copyright = ""; $cPad = [Math]::Floor((60 - $copyright.Length) / 2); Write-Host (" " * $cPad + "${Global:FGWhite}$copyright$Reset"); Write-Host ""
-                return
-            }
-        }
-    }
-    catch {}
-
-    # --- MAIN ---
-
-    try {
-        $target = if ($Reverse) { $true } else { $false }
-        $status = if ($Reverse) { "DISABLED" } else { "ENABLED" }
-
-        $tp = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows Defender\Features" -Name "TamperProtection" -ErrorAction SilentlyContinue).TamperProtection
-
-        if ($tp -eq 5) {
-            Write-LeftAligned "$FGCyan$Char_Warn Tamper Protection is ENABLED and blocking changes.$Reset"
-        }
-        else {
-            Set-MpPreference -DisableRealtimeMonitoring $target -ErrorAction Stop
-
-            # Verify
-            $current = (Get-MpPreference).DisableRealtimeMonitoring
-            if ($current -eq $target) {
-                Write-LeftAligned "$FGCyan$Char_HeavyCheck  Real-time Protection is $status.$Reset"
-            }
-            else {
-                Write-LeftAligned "$FGCyan$Char_Warn Real-time Protection verification failed.$Reset"
-            }
-        }
-    }
-    catch {
-        Write-WrappedError $_.Exception.Message
-    }
-
-}
-
 function Invoke-WA_SetPUABlockApps {
     <#
 .SYNOPSIS
     Enables or Disables PUA (Potentially Unwanted Application) Blocking.
+.LOCATION
+    Windows Security > App & browser control > Reputation-based protection settings
 .DESCRIPTION
     Standardized for WinAuto.
     Standalone version: Can be copy-pasted directly into PowerShell.
@@ -2238,6 +2109,8 @@ function Invoke-WA_SetPUABlockDLs {
     <#
 .SYNOPSIS
     Enables or Disables Edge SmartScreen PUA Protection.
+.LOCATION
+    Microsoft Edge > Settings > Privacy, search, and services > Security
 .DESCRIPTION
     Standardized for WinAuto. Configures User-specific Edge SmartScreen PUA (Block downloads).
     Standalone version: Can be copy-pasted directly into PowerShell.
@@ -2278,6 +2151,8 @@ function Invoke-WA_SetMemoryInteg {
     <#
 .SYNOPSIS
     Enables Memory Integrity (Core Isolation) via Registry.
+.LOCATION
+    Windows Security > Device security > Core isolation
 .DESCRIPTION
     Standardized for WinAuto.
     Sets HypervisorEnforcedCodeIntegrity 'Enabled' value to 1 (On) or 0 (Off).
@@ -2317,7 +2192,7 @@ function Invoke-WA_SetMemoryInteg {
     }
     catch {
         Write-WrappedError $_.Exception.Message
-        Write-LeftAligned "$FGDarkYellow  Hint: Tamper Protection might be blocking this.$Reset"
+        Write-LeftAligned "$FGGray  Hint: Tamper Protection might be blocking this.$Reset"
     }
 
 }
@@ -2328,6 +2203,8 @@ function Invoke-WA_SetKernelMode {
     <#
 .SYNOPSIS
     Enables 'Kernel-mode Hardware-enforced Stack Protection' in Windows Security via UI Automation.
+.LOCATION
+    Windows Security > Device security > Core isolation details (same as SetKernelModeReg)
 .DESCRIPTION
     Launches Windows Security, navigates to Device Security > Core Isolation,
     and attempts to toggle 'Kernel-mode Hardware-enforced Stack Protection'.
@@ -2528,6 +2405,8 @@ function Invoke-WA_SetLocalSecurity {
     <#
 .SYNOPSIS
     Enables LSA Protection (RunAsPPL) via Registry.
+.LOCATION
+    Windows Security > Device security > Core isolation (Local Security Authority protection — only present on newer Windows 11 builds)
 .DESCRIPTION
     Standardized for WinAuto.
     Sets 'RunAsPPL' value to 1 (On) or 0 (Off) in HKLM\SYSTEM\CurrentControlSet\Control\Lsa.
@@ -2565,6 +2444,8 @@ function Invoke-WA_SetFirewallON {
     <#
 .SYNOPSIS
     Enables Windows Firewall for all profiles.
+.LOCATION
+    Windows Security > Firewall & network protection
 .DESCRIPTION
     Standardized for WinAuto.
     Ensures Domain, Public, and Private firewall profiles are Enabled.
@@ -2599,6 +2480,8 @@ function Invoke-WA_SetClassicMenu {
     <#
 .SYNOPSIS
     Restores the Classic Context Menu (Windows 10 Style).
+.LOCATION
+    none (no Settings page; only visible by right-clicking the desktop)
 .DESCRIPTION
     Standardized for WinAuto.
     Modifies HKCU\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32
@@ -2655,6 +2538,8 @@ function Invoke-WA_SetTaskbarSearch {
     <#
 .SYNOPSIS
     Sets Taskbar Search to 'Search icon only'.
+.LOCATION
+    Settings > Personalization > Taskbar
 .DESCRIPTION
     Standardized for WinAuto.
     Sets 'SearchboxTaskbarMode' to 3 (Icon Only) or 1 (Box).
@@ -2697,6 +2582,8 @@ function Invoke-WA_SetTaskViewOFF {
     <#
 .SYNOPSIS
     Hides the Task View button from the Taskbar.
+.LOCATION
+    Settings > Personalization > Taskbar
 .DESCRIPTION
     Standardized for WinAuto.
     Sets 'ShowTaskViewButton' to 0 (Off).
@@ -2737,6 +2624,7 @@ function Invoke-WA_SetTaskViewOFF {
 
 function Invoke-WA_SetGetMeUpToDate {
     param([switch]$Reverse)
+    # UI Location: none (registry/GPO-only, no known visible toggle)
     Write-Header "GET ME UP TO DATE"
     $Path = "HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings"
     try {
@@ -2756,6 +2644,8 @@ function Invoke-WA_SetMicrosoftUpd {
     <#
 .SYNOPSIS
     Sets 'Receive updates for other Microsoft products'.
+.LOCATION
+    Settings > Windows Update > Advanced options
 .DESCRIPTION
     Standardized for WinAuto.
     Sets 'AllowMUUpdateService' registry key.
@@ -2791,6 +2681,8 @@ function Invoke-WA_SetRestartIsReq {
     <#
 .SYNOPSIS
     Sets 'Notify me when a restart is required'.
+.LOCATION
+    Settings > Windows Update > Advanced options
 .DESCRIPTION
     Standardized for WinAuto.
     Sets 'RestartNotificationsAllowed2' registry key.
@@ -2814,7 +2706,7 @@ function Invoke-WA_SetRestartIsReq {
         if (-not (Test-Path $Path)) { New-Item -Path $Path -Force | Out-Null }
         Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type DWord -Force
     
-        Write-LeftAligned "$FGCyan$Char_HeavyCheck Restart Notification are $StatusStr.$Reset"
+        Write-LeftAligned "$FGCyan$Char_HeavyCheck Restart Notification is $StatusStr.$Reset"
     }
     catch {
         Write-WrappedError $_.Exception.Message
@@ -2826,6 +2718,8 @@ function Invoke-WA_SetRestartApps {
     <#
 .SYNOPSIS
     Sets 'Restart apps after signing in'.
+.LOCATION
+    Settings > Accounts > Sign-in options
 .DESCRIPTION
     Standardized for WinAuto.
     Sets 'RestartApps' registry key in Winlogon.
@@ -2863,6 +2757,8 @@ function Invoke-WA_SetStoreSmartScreen {
     <#
 .SYNOPSIS
     Enables SmartScreen for Microsoft Store apps.
+.LOCATION
+    Settings > Privacy & Security > General
 .DESCRIPTION
     Standardized for WinAuto.
     Sets EnableWebContentEvaluation in HKCU AppHost registry.
@@ -2892,6 +2788,8 @@ function Invoke-WA_SetPhishingProtection {
     <#
 .SYNOPSIS
     Enables Enhanced Phishing Protection via the Windows Security app UI.
+.LOCATION
+    Windows Security > App & browser control > Reputation-based protection settings
 .DESCRIPTION
     Drives the "Phishing protection" toggle on Windows Security's
     Reputation-based protection settings page, instead of writing
@@ -3023,6 +2921,8 @@ function Invoke-WA_SetHideAdmin {
     <#
 .SYNOPSIS
     Hides the built-in Administrator account from the sign-in screen.
+.LOCATION
+    none (no GUI control exists)
 .DESCRIPTION
     Standardized for WinAuto.
     Sets the 'Administrator' DWORD under Winlogon\SpecialAccounts\UserList to 0.
@@ -3053,6 +2953,8 @@ function Invoke-WA_SetAdvertisingID {
     <#
 .SYNOPSIS
     Disables the per-user Advertising ID.
+.LOCATION
+    Settings > Privacy & Security > General
 .DESCRIPTION
     Standardized for WinAuto.
     Sets Enabled in HKCU AdvertisingInfo registry.
@@ -3082,6 +2984,8 @@ function Invoke-WA_SetMeteredUpdates {
     <#
 .SYNOPSIS
     Blocks automatic Windows Update downloads over metered connections, via the Settings app UI.
+.LOCATION
+    Settings > Windows Update > Advanced options (metered connection toggle)
 .DESCRIPTION
     Drives the "Get updates over metered connections" toggle on Windows Update's
     Advanced options page, instead of writing HKLM Policies\Microsoft\Windows\
@@ -3191,6 +3095,8 @@ function Invoke-WA_SetARSOOptOut {
     <#
 .SYNOPSIS
     Opts out of Automatic Restart Sign-On (ARSO) via the Settings app UI.
+.LOCATION
+    Settings > Accounts > Sign-in options
 .DESCRIPTION
     Standardized for WinAuto.
     Drives the actual Settings toggle ("Use my sign-in info to automatically
@@ -3294,6 +3200,8 @@ function Invoke-WA_SetUIAnimations {
     <#
 .SYNOPSIS
     Disables window minimize/maximize animations.
+.LOCATION
+    Settings > Accessibility > Visual effects
 .DESCRIPTION
     Standardized for WinAuto.
     Sets MinAnimate in HKCU Control Panel\Desktop\WindowMetrics registry.
@@ -3323,6 +3231,8 @@ function Invoke-WA_SetVisualEffects {
     <#
 .SYNOPSIS
     Sets visual effects to 'Adjust for best performance'.
+.LOCATION
+    legacy Performance Options dialog (SystemPropertiesPerformance.exe), reached via Settings > System > About > Advanced system settings
 .DESCRIPTION
     Standardized for WinAuto.
     Sets VisualFXSetting in HKCU Explorer\VisualEffects registry.
@@ -3356,6 +3266,8 @@ function Invoke-WA_OptimizeDisks {
     <#
 .SYNOPSIS
     Optimizes all fixed disks (TRIM for SSD, Defrag for HDD).
+.LOCATION
+    legacy Optimize Drives dialog (dfrgui.exe), reached via Settings > System > Storage > Disks & volumes
 .DESCRIPTION
     Standardized for WinAuto.
     Standalone version. Includes Reverse Mode (-r) stub.
@@ -3370,7 +3282,7 @@ function Invoke-WA_OptimizeDisks {
     Write-Header "DISK OPTIMIZATION"
 
     if ($Reverse) {
-        Write-LeftAligned "$FGYellow$Char_Warn Reverse Mode: Disk optimization cannot be reversed.$Reset"
+        Write-LeftAligned "$FGGray$Char_Warn Reverse Mode: Disk optimization cannot be reversed.$Reset"
         Write-Host ""
         return
     }
@@ -3389,11 +3301,11 @@ function Invoke-WA_OptimizeDisks {
             }
 
             if ($isSSD) {
-                Write-LeftAligned "  $FGYellow Type: SSD - Running TRIM...$Reset"
+                Write-LeftAligned "  $FGCyan Type: SSD - Running TRIM...$Reset"
                 Optimize-Volume -DriveLetter $drive -ReTrim | Out-Null
             }
             else {
-                Write-LeftAligned "  $FGYellow Type: HDD - Running Defrag...$Reset"
+                Write-LeftAligned "  $FGCyan Type: HDD - Running Defrag...$Reset"
                 Optimize-Volume -DriveLetter $drive -Defrag | Out-Null
             }
             Write-LeftAligned "  $FGCyan$Char_HeavyCheck Optimization Complete.$Reset"
@@ -3410,6 +3322,8 @@ function Invoke-WA_SystemCleanup {
     <#
 .SYNOPSIS
     Performs System & User Temp Cleanup.
+.LOCATION
+    Settings > System > Storage > Temporary files
 .DESCRIPTION
     Standardized for WinAuto. Removes files from Temp folders.
     Standalone version. Includes Reverse Mode (-r) stub.
@@ -3424,7 +3338,7 @@ function Invoke-WA_SystemCleanup {
     Write-Header "SYSTEM CLEANUP"
 
     if ($Reverse) {
-        Write-LeftAligned "$FGYellow$Char_Warn Reverse Mode: File cleanup cannot be reversed.$Reset"
+        Write-LeftAligned "$FGGray$Char_Warn Reverse Mode: File cleanup cannot be reversed.$Reset"
         Write-Host ""
         return
     }
@@ -3469,6 +3383,8 @@ function Invoke-WA_WindowsRepair {
     <#
 .SYNOPSIS
     Windows System File Integrity & Repair Tool (SFC/DISM).
+.LOCATION
+    none (console-only: sfc /scannow, DISM /Online /Cleanup-Image /RestoreHealth)
 .DESCRIPTION
     Automated flow to check and repair Windows system files using SFC and DISM.
     Standalone version. Includes Reverse Mode (-r) stub.
@@ -3506,7 +3422,7 @@ function Invoke-WA_WindowsRepair {
                 return "FAILED"
             }
             else {
-                Write-LeftAligned "$FGDarkMagenta$Char_Warn SFC completed with unknown status.$Reset"
+                Write-LeftAligned "$FGGray$Char_Warn SFC completed with unknown status.$Reset"
                 return "UNKNOWN"
             }
         }
@@ -3545,7 +3461,7 @@ function Invoke-WA_WindowsRepair {
     Write-Header "SYSTEM REPAIR FLOW"
 
     if ($Reverse) {
-        Write-LeftAligned "$FGYellow$Char_Warn Reverse Mode: System repairs cannot be reversed.$Reset"
+        Write-LeftAligned "$FGGray$Char_Warn Reverse Mode: System repairs cannot be reversed.$Reset"
         Write-Host ""
         return
     }
@@ -3559,14 +3475,14 @@ function Invoke-WA_WindowsRepair {
     
         if ($dismSuccess) {
             Write-Host ""
-            Write-LeftAligned "$FGYellow Re-running SFC to verify repairs...$Reset"
+            Write-LeftAligned "$FGCyan Re-running SFC to verify repairs...$Reset"
             Invoke-SFCScan | Out-Null
         }
     }
 
     Write-Host ""
     Write-Boundary
-    Write-Centered "$FGGreen REPAIR FLOW COMPLETE $Reset" -Width 52
+    Write-Centered "$FGCyan REPAIR FLOW COMPLETE $Reset" -Width 52
     Write-Boundary
 
 }
@@ -3585,9 +3501,10 @@ if ($Silent -or $Module) {
 
     if (-not $Module -and $Silent) { $Module = "SmartRun" }
     switch ($Module) {
-        "SmartRun" { 
+        "SmartRun" {
             Invoke-WinAutoConfiguration -SmartRun
             Invoke-WinAutoMaintenance -SmartRun
+            Set-WinAutoLastRun -Module "WinAuto"
         }
         "Config"      { Invoke-WinAutoConfiguration }
         "Maintenance" { Invoke-WinAutoMaintenance }
@@ -3597,7 +3514,6 @@ if ($Silent -or $Module) {
     return
 }
 
-Set-ConsoleSnapRight -Columns 60
 $Global:MenuSelection = 0  # Footer compatibility only: 0 = SmartRun focused, 1 = ManualMode / structured nav
 # $Global:Toggle_MaintainForced is initialized at the top to support CLI/Silent mode
 
@@ -3613,9 +3529,6 @@ $Global:ItemIdx    = 0   # Level 3 cursor: index within the focused item list
 $Global:WinAutoFirstLoad = $true
 
 while ($true) {
-    # Maintain
-    $Global:MaintenanceComplete = if ($Global:Toggle_MaintainForced -eq 1 -or $Global:Toggle_MaintUpdate -eq 1 -or $Global:Toggle_MaintDisk -eq 1 -or $Global:Toggle_MaintCleanup -eq 1 -or $Global:Toggle_MaintSFC -eq 1) { $false } else { Test-WA_MaintenanceRecentlyComplete }
-    
 
     # --- LIVE STATUS CHECKS (Discovery for UI and SmartRUN Execution) ---
     $s_RT = $null; $s_PUA = $null; $s_FW = $null; $s_SS = $null
@@ -3634,12 +3547,7 @@ while ($true) {
     }
     catch { Write-Log -Message "[Discovery] Defender check: $_" -Level "WARN"; $s_RT = $false; $s_PUA = $false; $s_SS = $false }
     
-    try {
-        $profiles = Get-NetFirewallProfile
-        $allEnabled = $true
-        foreach ($fwProfile in $profiles) { if (-not $fwProfile.Enabled) { $allEnabled = $false } }
-        $s_FW = $allEnabled
-    } catch { Write-Log -Message "[Discovery] Firewall check: $_" -Level "WARN"; $s_FW = $false }
+    try { $s_FW = Test-FirewallCompliant } catch { Write-Log -Message "[Discovery] Firewall check: $_" -Level "WARN"; $s_FW = $false }
     
     $edgeVal = (Get-ItemProperty "HKCU:\Software\Microsoft\Edge\SmartScreenPuaEnabled" -ErrorAction SilentlyContinue)."(default)"
     $s_Edge = if ($edgeVal -eq 1) { $true } else { "GreyOut" }
@@ -3720,9 +3628,9 @@ while ($true) {
     $Global:DashboardBufferMode = $true
     $Global:DashboardBuffer = @()
 
-    Clear-Host
+    try { Clear-Host } catch {}
     Add-DashLine ""
-    Write-Centered "${Global:FGBlack}${Global:BGWhite}= ATOMIC SCRIPTS =${Reset}" -Width 52
+    Write-Centered "${Global:FGBlack}${Global:BGDarkYellow}= ATOMIC SCRIPTS =${Reset}" -Width 52
     Write-Centered "${Global:FGWhite}- WinAuto -${Reset}" -Width 52
     
     # --- Derived navigation flags ---
@@ -3734,42 +3642,42 @@ while ($true) {
 
     # --- Menu data model (rebuilt each frame so $s_* live status is current) ---
     $autoItems = @(
-        @{ Label = "Get Me Up To Date";    Met = "SET_GetMeUpToDate";   Status = $s_GetMe;     Toggle = "Toggle_GetMeUpToDate" }
-        @{ Label = "Microsoft Update";     Met = "SET_MicrosoftUpd";    Status = $s_MU;        Toggle = "Toggle_MicrosoftUpd" }
-        @{ Label = "Restart Notification"; Met = "SET_RestartIsReq";    Status = $s_Rest;      Toggle = "Toggle_RestartIsReq" }
-        @{ Label = "App Restart Persist";  Met = "SET_RestartApps";     Status = $s_Pers;      Toggle = "Toggle_RestartApps" }
-        @{ Label = "Metered Updates";      Met = "SET_MeteredUpdates";  Status = $s_Metered;   Toggle = "Toggle_MeteredUpdates" }
-        @{ Label = "Auto Restart Sign-On"; Met = "SET_ARSOOptOut";      Status = $s_ARSO;      Toggle = "Toggle_ARSOOptOut";     Invert = $true }
+        @{ Label = "Get Me Up To Date";    Met = "NX_SetGetMeUpToDate";   Status = $s_GetMe;     Toggle = "Toggle_GetMeUpToDate" }
+        @{ Label = "Microsoft Update";     Met = "ST_SetMicrosoftUpd";    Status = $s_MU;        Toggle = "Toggle_MicrosoftUpd" }
+        @{ Label = "Restart Notification"; Met = "ST_SetRestartIsReq";    Status = $s_Rest;      Toggle = "Toggle_RestartIsReq" }
+        @{ Label = "App Restart Persist";  Met = "ST_SetRestartApps";     Status = $s_Pers;      Toggle = "Toggle_RestartApps" }
+        @{ Label = "Metered Updates";      Met = "ST_SetMeteredUpdates";  Status = $s_Metered;   Toggle = "Toggle_MeteredUpdates" }
+        @{ Label = "Auto Restart Sign-On"; Met = "ST_SetARSOOptOut";      Status = $s_ARSO;      Toggle = "Toggle_ARSOOptOut";     Invert = $true }
     )
     $secItems = @(
-        @{ Label = "PS Transcription";     Met = "SET_PSTranscription"; Status = $s_PSTrans;   Toggle = "Toggle_PSTranscription" }
-        @{ Label = "Windows Telemetry";    Met = "SET_Telemetry";       Status = $s_Telemetry; Toggle = "Toggle_Telemetry";  Invert = $true }
-        @{ Label = "LLMNR Configuration";  Met = "SET_LLMNR";           Status = $s_LLMNR;     Toggle = "Toggle_LLMNR";      Invert = $true }
-        @{ Label = "PS Script Block Log";  Met = "SET_PSScriptBlock";   Status = $s_PSScript;  Toggle = "Toggle_PSScriptBlock" }
-        @{ Label = "PS Module Logging";    Met = "SET_PSModuleLogging"; Status = $s_PSModule;  Toggle = "Toggle_PSModuleLogging" }
-        @{ Label = "NetBIOS over TCP/IP";  Met = "SET_NetBIOS";         Status = $s_NetBIOS;   Toggle = "Toggle_NetBIOS";    Invert = $true }
-        @{ Label = "Real-Time Protection"; Met = "SET_RealTimeProt";    Status = $s_RT;        Toggle = "Toggle_RealTimeProt" }
-        @{ Label = "Real-Time Prot (UI)"; Met = "SET_RealTimeProtUI";  Status = $s_RT;        Toggle = "Toggle_RealTimeProtUI" }
-        @{ Label = "PUA Protection";       Met = "SET_PUABlockApps";    Status = $s_PUA;       Toggle = "Toggle_PUABlockApps" }
-        @{ Label = "PUA Edge";             Met = "SET_PUABlockDLs";     Status = $s_Edge;      Toggle = "Toggle_PUABlockDLs" }
-        @{ Label = "Memory Integrity";     Met = "SET_MemoryInteg";     Status = $s_Mem;       Toggle = "Toggle_MemoryInteg" }
-        @{ Label = "Kernel Stack";         Met = "SET_KernelMode";      Status = $s_Kern;      Toggle = "Toggle_KernelMode" }
-        @{ Label = "LSA Protection";       Met = "SET_LocalSecurity";   Status = $s_LSA;       Toggle = "Toggle_LocalSecurity" }
-        @{ Label = "Windows Firewall";     Met = "SET_FirewallON";      Status = $s_FW;        Toggle = "Toggle_FirewallON" }
-        @{ Label = "SmartScreen Filter";   Met = "SET_SmartScreenReg";  Status = $s_SS;        Toggle = "Toggle_SmartScreenReg" }
-        @{ Label = "Store SmartScreen";    Met = "SET_StoreSmartScreen";Status = $s_StoreSS;   Toggle = "Toggle_StoreSmartScreen" }
-        @{ Label = "Phishing Protection";  Met = "SET_PhishingProtection";Status = $s_Phish;   Toggle = "Toggle_PhishingProtection" }
-        @{ Label = "Hide Admin Account";   Met = "SET_HideAdmin";       Status = $s_HideAdmin; Toggle = "Toggle_HideAdmin";      Invert = $true }
-        @{ Label = "Advertising ID";      Met = "SET_AdvertisingID";   Status = $s_AdvID;     Toggle = "Toggle_AdvertisingID";  Invert = $true }
+        @{ Label = "PS Transcription";     Met = "NX_SetPSTranscription"; Status = $s_PSTrans;   Toggle = "Toggle_PSTranscription" }
+        @{ Label = "Windows Telemetry";    Met = "ST_SetTelemetry";       Status = $s_Telemetry; Toggle = "Toggle_Telemetry";  Invert = $true }
+        @{ Label = "LLMNR Configuration";  Met = "NX_SetLLMNR";           Status = $s_LLMNR;     Toggle = "Toggle_LLMNR";      Invert = $true }
+        @{ Label = "PS Script Block Log";  Met = "NX_SetPSScriptBlock";   Status = $s_PSScript;  Toggle = "Toggle_PSScriptBlock" }
+        @{ Label = "PS Module Logging";    Met = "NX_SetPSModuleLogging"; Status = $s_PSModule;  Toggle = "Toggle_PSModuleLogging" }
+        @{ Label = "NetBIOS over TCP/IP";  Met = "CP_SetNetBIOS";         Status = $s_NetBIOS;   Toggle = "Toggle_NetBIOS";    Invert = $true }
+        @{ Label = "Real-Time Protection"; Met = "WS_SetRealTimeProt";    Status = $s_RT;        Toggle = "Toggle_RealTimeProt" }
+        @{ Label = "Real-Time Prot (UI)"; Met = "WS_SetRealTimeProtUI";  Status = $s_RT;        Toggle = "Toggle_RealTimeProtUI" }
+        @{ Label = "PUA Protection";       Met = "WS_SetPUABlockApps";    Status = $s_PUA;       Toggle = "Toggle_PUABlockApps" }
+        @{ Label = "PUA Edge";             Met = "EG_SetPUABlockDLs";     Status = $s_Edge;      Toggle = "Toggle_PUABlockDLs" }
+        @{ Label = "Memory Integrity";     Met = "WS_SetMemoryInteg";     Status = $s_Mem;       Toggle = "Toggle_MemoryInteg" }
+        @{ Label = "Kernel Stack";         Met = "WS_SetKernelMode";      Status = $s_Kern;      Toggle = "Toggle_KernelMode" }
+        @{ Label = "LSA Protection";       Met = "WS_SetLocalSecurity";   Status = $s_LSA;       Toggle = "Toggle_LocalSecurity" }
+        @{ Label = "Windows Firewall";     Met = "WS_SetFirewallON";      Status = $s_FW;        Toggle = "Toggle_FirewallON" }
+        @{ Label = "SmartScreen Filter";   Met = "WS_SetSmartScreenReg";  Status = $s_SS;        Toggle = "Toggle_SmartScreenReg" }
+        @{ Label = "Store SmartScreen";    Met = "ST_SetStoreSmartScreen";Status = $s_StoreSS;   Toggle = "Toggle_StoreSmartScreen" }
+        @{ Label = "Phishing Protection";  Met = "WS_SetPhishing";Status = $s_Phish;   Toggle = "Toggle_PhishingProtection" }
+        @{ Label = "Hide Admin Account";   Met = "NX_SetHideAdmin";       Status = $s_HideAdmin; Toggle = "Toggle_HideAdmin";      Invert = $true }
+        @{ Label = "Advertising ID";      Met = "ST_SetAdvertisingID";   Status = $s_AdvID;     Toggle = "Toggle_AdvertisingID";  Invert = $true }
     )
     $uiItems = @(
-        @{ Label = "Classic Context Menu"; Met = "SET_ClassicMenu";     Status = $s_Ctx;       Toggle = "Toggle_ClassicMenu" }
-        @{ Label = "Taskbar Search Box";   Met = "SET_TaskbarSearch";   Status = $s_Task;      Toggle = "Toggle_TaskbarSearch" }
-        @{ Label = "Task View Toggle";     Met = "SET_TaskViewOFF";     Status = $s_View;      Toggle = "Toggle_TaskView";   Invert = $true }
-        @{ Label = "Show Hidden Files";    Met = "SET_ShowHidden";      Status = $s_ShowHidden;Toggle = "Toggle_ShowHidden" }
-        @{ Label = "Show File Extensions"; Met = "SET_ShowExtensions";  Status = $s_ShowExt;   Toggle = "Toggle_ShowExtensions" }
-        @{ Label = "UI Animations";        Met = "SET_UIAnimations";    Status = $s_Anim;      Toggle = "Toggle_UIAnimations";  Invert = $true }
-        @{ Label = "Visual Effects";       Met = "SET_VisualEffects";   Status = $s_VisFX;     Toggle = "Toggle_VisualEffects" }
+        @{ Label = "Classic Context Menu"; Met = "NX_SetClassicMenu";     Status = $s_Ctx;       Toggle = "Toggle_ClassicMenu" }
+        @{ Label = "Taskbar Search Box";   Met = "ST_SetTaskbarSearch";   Status = $s_Task;      Toggle = "Toggle_TaskbarSearch" }
+        @{ Label = "Task View Toggle";     Met = "ST_SetTaskViewOFF";     Status = $s_View;      Toggle = "Toggle_TaskView";   Invert = $true }
+        @{ Label = "Show Hidden Files";    Met = "FE_SetShowHidden";      Status = $s_ShowHidden;Toggle = "Toggle_ShowHidden" }
+        @{ Label = "Show File Extensions"; Met = "FE_SetShowExtensions";  Status = $s_ShowExt;   Toggle = "Toggle_ShowExtensions" }
+        @{ Label = "UI Animations";        Met = "ST_SetUIAnimations";    Status = $s_Anim;      Toggle = "Toggle_UIAnimations";  Invert = $true }
+        @{ Label = "Visual Effects";       Met = "CP_SetVisualEffects";   Status = $s_VisFX;     Toggle = "Toggle_VisualEffects" }
     )
     $subcats = @(
         @{ Label = "Automation";     Items = $autoItems }
@@ -3777,10 +3685,10 @@ while ($true) {
         @{ Label = "User Interface"; Items = $uiItems }
     )
     $maintModel = @(
-        @{ Label = "Get Updates";        Met = "RUN_UpdateSuite";   MKey = "Maintenance_WinUpdate"; Threshold = 1;  Toggle = "Toggle_MaintUpdate" }
-        @{ Label = "Drive Optimization"; Met = "RUN_OptimizeDisks"; MKey = "Maintenance_Disk";      Threshold = 7;  Toggle = "Toggle_MaintDisk" }
-        @{ Label = "Temp File Cleanup";  Met = "RUN_SystemCleanup"; MKey = "Maintenance_Cleanup";   Threshold = 7;  Toggle = "Toggle_MaintCleanup" }
-        @{ Label = "SFC / DISM Repair";  Met = "RUN_WindowsRepair"; MKey = "Maintenance_SFC";       Threshold = 30; Toggle = "Toggle_MaintSFC" }
+        @{ Label = "Get Updates";        Met = "ST_RunUpdateSuite";   MKey = "Maintenance_WinUpdate"; Threshold = 30; AlwaysRun = $true; Toggle = "Toggle_MaintUpdate" }
+        @{ Label = "Drive Optimization"; Met = "CP_RunOptimizeDisks"; MKey = "Maintenance_Disk";      Threshold = 30; AlwaysRun = $false; Toggle = "Toggle_MaintDisk" }
+        @{ Label = "Temp File Cleanup";  Met = "ST_RunSystemCleanup"; MKey = "Maintenance_Cleanup";   Threshold = 30; AlwaysRun = $false; Toggle = "Toggle_MaintCleanup" }
+        @{ Label = "SFC / DISM Repair";  Met = "NX_RunWindowsRepair"; MKey = "Maintenance_SFC";       Threshold = 30; AlwaysRun = $false; Toggle = "Toggle_MaintSFC" }
     )
 
     $padding = if ($bodyShown) { "" } else { "`n`n`n`n" }
@@ -3893,7 +3801,7 @@ while ($true) {
                 $m = $maintModel[$mi]
                 $tv = Get-Variable -Name $m.Toggle -Scope Global -ValueOnly
                 $sel = ($maintFocused -and $Global:NavLevel -eq 3 -and $Global:ItemIdx -eq $mi)
-                Write-MaintItem $m.Label $m.Met $m.MKey -Threshold $m.Threshold -ToggleValue $tv -IsSelected $sel
+                Write-MaintItem $m.Label $m.Met $m.MKey -Threshold $m.Threshold -ToggleValue $tv -IsSelected $sel -AlwaysRun:([bool]$m.AlwaysRun)
             }
         }
         Add-DashLine ""
@@ -3976,7 +3884,7 @@ while ($true) {
             # [S]mart Run -> EXECUTE
             Invoke-WinAutoConfiguration -SmartRun
             Set-WinAutoLastRun -Module "Configuration"
-            if (-not $Global:MaintenanceComplete) { Invoke-WinAutoMaintenance -SmartRun }
+            Invoke-WinAutoMaintenance -SmartRun
             Start-Sleep -Milliseconds 200
         }
         else {
@@ -3986,7 +3894,8 @@ while ($true) {
             Invoke-WinAutoMaintenance
             Start-Sleep -Milliseconds 200
         }
-        
+        Set-WinAutoLastRun -Module "WinAuto"
+
         # Post-Execution Audit (Generate JSON)
         $AuditData = [PSCustomObject]@{
             Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -4028,8 +3937,8 @@ while ($true) {
             Maint     = @{ Update = $Global:Toggle_MaintUpdate; Disk = $Global:Toggle_MaintDisk; Cleanup = $Global:Toggle_MaintCleanup; SFC = $Global:Toggle_MaintSFC }
         }
         $AuditData | ConvertTo-Json | Out-File "$Global:WinAutoLogDir\PostRunAudit.json"
-        
-        Clear-Host
+
+        try { Clear-Host } catch {}
         continue
     }
     elseif ($res.Character -eq ' ' -or $res.VirtualKeyCode -eq 32) {
