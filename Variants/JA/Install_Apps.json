@@ -1,0 +1,50 @@
+{
+  "BaseApps": [
+    { 
+      "AppName": "Adobe Creative Cloud", 
+      "MatchName": "*Adobe Creative Cloud*", 
+      "Type": "WINGET", 
+      "CheckMethod": "Registry", 
+      "WingetId": "Adobe.CreativeCloud", 
+      "InstallOrder": 50 
+    },
+    { 
+      "AppName": "Box", 
+      "MatchName": "Box", 
+      "Type": "MSI", 
+      "CheckMethod": "Registry", 
+      "InstallOrder": 40, 
+      "Url": "https://e3.boxcdn.net/box-installers/desktop/releases/win/Box-x64.msi" 
+    },
+    { 
+      "AppName": "Box for Office", 
+      "MatchName": "*Box for Office*", 
+      "Type": "EXE", 
+      "CheckMethod": "Registry", 
+      "InstallOrder": 41, 
+      "Url": "https://e3.boxcdn.net/box-installers/boxforoffice/currentrelease/BoxForOffice.exe", 
+      "SilentArgs": "/quiet /norestart", 
+      "PreInstallDelay": 10 
+    },
+    { 
+      "AppName": "Box Tools", 
+      "MatchName": "*Box Tools*", 
+      "Type": "EXE", 
+      "CheckMethod": "Registry", 
+      "InstallOrder": 42, 
+      "Url": "https://e3.boxcdn.net/box-installers/boxedit/win/currentrelease/BoxToolsInstaller.exe", 
+      "SilentArgs": "/quiet /norestart ALLUSERS=1" 
+    }
+  ],
+  "LaptopApps": [
+    {
+      "AppName": "Crestron AirMedia",
+      "MatchName": "*AirMedia*",
+      "Type": "WINGET",
+      "CheckMethod": "Registry",
+      "WingetScope": "Machine",
+      "WingetId": "Crestron.AirMedia",
+      "InstallOrder": 100
+    }
+  ]
+}

@@ -2,6 +2,11 @@
 
 Running changelog — append a dated entry per work session. Format: [Keep a Changelog](https://keepachangelog.com), newest first.
 
+## [2026-07-06] - Merge sibling variant repos into wa
+
+### Added
+- `Variants/` — full content of the three sibling WinAuto repos (`JA`, `PatchW11`, `as`), preserved as-is with a provenance README. Notable salvage: JA's app installers + hub launcher, PatchW11's categorized `StandaloneScripts/` library (Security, Diagnostics, UI_Tweaks, Utilities, etc.), and as's `GenerateAtomicScripts.ps1` generator. Diffs confirmed real content drift between same-named scripts across variants, so nothing was deduped; `wa/AtomicScripts/` remains the canonical evolved set. `wa.ps1` untouched. Excluded: `.git` histories, logs, `nppBackup/` artifacts.
+
 ## [2026-06-25] - Full Retest & Bugfixes
 
 ### Fixed
