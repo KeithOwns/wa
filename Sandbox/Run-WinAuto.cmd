@@ -1,0 +1,3 @@
+@echo off
+echo Launching WinAuto Administrator Prompt...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process powershell -ArgumentList '-NoProfile -ExecutionPolicy Bypass -Command \"iex (irm https://raw.githubusercontent.com/KeithOwns/wa/main/wa.ps1)\"' -Verb RunAs"
