@@ -1,3 +1,13 @@
+<#
+.SYNOPSIS
+    Configures Windows Security & Defender setting (WS_SetRealTimeProt).
+.DESCRIPTION
+    Applies security hardening or system configuration for WS_SetRealTimeProt in the Windows environment.
+.PARAMETER Reverse
+    If specified, reverses or restores default system behavior.
+.EXAMPLE
+    .\WS_SetRealTimeProt.ps1
+#>
 param([switch]$Reverse)
 
 # Non-policy Defender key only — the Policies\Microsoft\Windows Defender path
@@ -40,3 +50,4 @@ $Path = "HKLM:\SOFTWARE\Microsoft\Windows Defender\Real-Time Protection"
 if (-not (Test-Path $Path)) { New-Item -Path $Path -Force -ErrorAction SilentlyContinue | Out-Null }
 Set-ItemProperty -Path $Path -Name "DisableRealtimeMonitoring" -Value $val -Type DWord -Force -ErrorAction SilentlyContinue
 Set-MpPreference -DisableRealtimeMonitoring $mpVal -ErrorAction SilentlyContinue
+

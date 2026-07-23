@@ -1,3 +1,13 @@
+<#
+.SYNOPSIS
+    Configures Windows Security & Defender setting (WS_SetLocalSecurity).
+.DESCRIPTION
+    Applies security hardening or system configuration for WS_SetLocalSecurity in the Windows environment.
+.PARAMETER Reverse
+    If specified, reverses or restores default system behavior.
+.EXAMPLE
+    .\WS_SetLocalSecurity.ps1
+#>
 param([switch]$Reverse)
 
 # UI Location: Windows Security > Device security > Core isolation (Local Security Authority protection — only present on newer Windows 11 builds)
@@ -7,3 +17,4 @@ if ($Reverse) {
 } else {
     Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -Name "RunAsPPL" -Value 1 -Type DWord -Force
 }
+

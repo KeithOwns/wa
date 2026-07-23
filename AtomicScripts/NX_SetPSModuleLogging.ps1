@@ -1,3 +1,13 @@
+<#
+.SYNOPSIS
+    Configures Next-Gen Windows Hardening setting (NX_SetPSModuleLogging).
+.DESCRIPTION
+    Applies security hardening or system configuration for NX_SetPSModuleLogging in the Windows environment.
+.PARAMETER Reverse
+    If specified, reverses or restores default system behavior.
+.EXAMPLE
+    .\NX_SetPSModuleLogging.ps1
+#>
 param([switch]$Reverse)
 
 # UI Location: none (registry/GPO-only)
@@ -13,3 +23,4 @@ if ($Reverse) {
     if (-not (Test-Path $SubPath)) { New-Item -Path $SubPath -Force | Out-Null }
     Set-ItemProperty -Path $SubPath -Name "*" -Value "*" -Type String -Force
 }
+

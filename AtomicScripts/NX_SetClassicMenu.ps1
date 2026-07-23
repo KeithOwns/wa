@@ -1,3 +1,13 @@
+<#
+.SYNOPSIS
+    Configures Next-Gen Windows Hardening setting (NX_SetClassicMenu).
+.DESCRIPTION
+    Applies security hardening or system configuration for NX_SetClassicMenu in the Windows environment.
+.PARAMETER Reverse
+    If specified, reverses or restores default system behavior.
+.EXAMPLE
+    .\NX_SetClassicMenu.ps1
+#>
 param([switch]$Reverse)
 
 # UI Location: none (no Settings page; only visible by right-clicking the desktop)
@@ -17,3 +27,4 @@ if ($Reverse) {
     Set-ItemProperty -Path $Path -Name "(default)" -Value "" -Force
     Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
 }
+

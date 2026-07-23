@@ -1,3 +1,13 @@
+<#
+.SYNOPSIS
+    Configures System & Privacy Configuration setting (ST_SetARSOOptOut).
+.DESCRIPTION
+    Applies security hardening or system configuration for ST_SetARSOOptOut in the Windows environment.
+.PARAMETER Reverse
+    If specified, reverses or restores default system behavior.
+.EXAMPLE
+    .\ST_SetARSOOptOut.ps1
+#>
 param([switch]$Reverse)
 
 # Auto Restart Sign-On (ARSO) via the Settings app UI (UI Automation).
@@ -51,3 +61,4 @@ if ($window) {
         if ($windowPattern) { $windowPattern.Close() }
     } catch {}
 }
+

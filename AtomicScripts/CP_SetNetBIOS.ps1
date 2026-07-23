@@ -1,3 +1,13 @@
+<#
+.SYNOPSIS
+    Configures Control Panel / Disk Optimization setting (CP_SetNetBIOS).
+.DESCRIPTION
+    Applies security hardening or system configuration for CP_SetNetBIOS in the Windows environment.
+.PARAMETER Reverse
+    If specified, reverses or restores default system behavior.
+.EXAMPLE
+    .\CP_SetNetBIOS.ps1
+#>
 param([switch]$Reverse)
 
 # UI Location: Network adapter Properties > IPv4 > Advanced > WINS tab
@@ -9,3 +19,4 @@ foreach ($a in $adapters) {
     $regPath = "HKLM:\System\CurrentControlSet\Services\NetBT\Parameters\Interfaces\Tcpip_$($a.SettingID)"
     if (Test-Path $regPath) { Set-ItemProperty -Path $regPath -Name "NetbiosOptions" -Value $v -Type DWord -Force -ErrorAction SilentlyContinue }
 }
+

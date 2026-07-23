@@ -1,3 +1,13 @@
+<#
+.SYNOPSIS
+    Configures System & Privacy Configuration setting (ST_SetTelemetry).
+.DESCRIPTION
+    Applies security hardening or system configuration for ST_SetTelemetry in the Windows environment.
+.PARAMETER Reverse
+    If specified, reverses or restores default system behavior.
+.EXAMPLE
+    .\ST_SetTelemetry.ps1
+#>
 param([switch]$Reverse)
 
 # Drives the "Send optional diagnostic data" toggle on Settings > Privacy &
@@ -85,3 +95,4 @@ if ($window) {
         if ($windowPattern) { $windowPattern.Close() }
     } catch {}
 }
+

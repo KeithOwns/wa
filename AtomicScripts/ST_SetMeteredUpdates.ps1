@@ -1,3 +1,13 @@
+<#
+.SYNOPSIS
+    Configures System & Privacy Configuration setting (ST_SetMeteredUpdates).
+.DESCRIPTION
+    Applies security hardening or system configuration for ST_SetMeteredUpdates in the Windows environment.
+.PARAMETER Reverse
+    If specified, reverses or restores default system behavior.
+.EXAMPLE
+    .\ST_SetMeteredUpdates.ps1
+#>
 param([switch]$Reverse)
 
 # Drives the "Get updates over metered connections" toggle on Windows Update's
@@ -93,3 +103,4 @@ if ($window) {
         if ($windowPattern) { $windowPattern.Close() }
     } catch {}
 }
+

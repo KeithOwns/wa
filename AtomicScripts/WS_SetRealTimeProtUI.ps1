@@ -1,3 +1,11 @@
+<#
+.SYNOPSIS
+    Configures Windows Security & Defender setting (WS_SetRealTimeProtUI).
+.DESCRIPTION
+    Applies security hardening or system configuration for WS_SetRealTimeProtUI in the Windows environment.
+.EXAMPLE
+    .\WS_SetRealTimeProtUI.ps1
+#>
 # Real-Time Protection via the Windows Security UI (UI Automation).
 # Opens Windows Security and clicks "Turn on" / "Restart now".
 # UI Location: Windows Security > Virus & threat protection > Manage settings
@@ -52,3 +60,4 @@ if ($window) {
         }
     }
 }
+

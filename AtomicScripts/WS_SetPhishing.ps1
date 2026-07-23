@@ -1,3 +1,13 @@
+<#
+.SYNOPSIS
+    Configures Windows Security & Defender setting (WS_SetPhishing).
+.DESCRIPTION
+    Applies security hardening or system configuration for WS_SetPhishing in the Windows environment.
+.PARAMETER Reverse
+    If specified, reverses or restores default system behavior.
+.EXAMPLE
+    .\WS_SetPhishing.ps1
+#>
 param([switch]$Reverse)
 
 # Drives the "Phishing protection" toggle on Windows Security's
@@ -104,3 +114,4 @@ if ($window) {
         if ($windowPattern) { $windowPattern.Close() }
     } catch {}
 }
+
